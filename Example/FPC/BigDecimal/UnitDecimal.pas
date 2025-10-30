@@ -101,6 +101,8 @@ uses
 {$R *.lfm}
 
 procedure TFormBigDecimal.FormCreate(Sender: TObject);
+var
+  S: string;
 begin
   FBD1 := TCnBigDecimal.Create;
   FBD2 := TCnBigDecimal.Create;
@@ -109,6 +111,12 @@ begin
   FBB1 := TCnBigBinary.Create;
   FBB2 := TCnBigBinary.Create;
   FBB3 := TCnBigBinary.Create;
+
+  // Convert decimal separator
+  S := edtBigDecimal1.Text;
+  edtBigDecimal1.Text := S.Replace('.', DefaultFormatSettings.DecimalSeparator);
+  S := edtBigDecimal2.Text;
+  edtBigDecimal2.Text := S.Replace('.', DefaultFormatSettings.DecimalSeparator);
 end;
 
 procedure TFormBigDecimal.FormDestroy(Sender: TObject);

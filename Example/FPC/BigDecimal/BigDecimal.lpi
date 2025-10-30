@@ -38,7 +38,9 @@
       <Unit>
         <Filename Value="UnitDecimal.pas"/>
         <IsPartOfProject Value="True"/>
+        <ComponentName Value="FormBigDecimal"/>
         <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
         <Filename Value="..\..\..\Source\Common\CnBigDecimal.pas"/>
@@ -54,13 +56,13 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <SearchPaths>
-      <IncludeFiles Value="..\..\..\Source\Common;..\..\..\Source\Crypto"/>
+      <IncludeFiles Value="..\..\..\Source\Common;..\..\..\Source\Crypto;$(ProjOutDir)"/>
       <OtherUnitFiles Value="..\..\..\Source\Common;..\..\..\Source\Crypto"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Parsing>
       <SyntaxOptions>
-        <SyntaxMode Value="delphi"/>
+        <SyntaxMode Value="Delphi"/>
       </SyntaxOptions>
     </Parsing>
     <Linking>

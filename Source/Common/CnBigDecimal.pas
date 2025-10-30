@@ -1355,20 +1355,31 @@ begin
   C := P^;
   while (C <> #0) and (C <> 'e') and (C <> 'E') do
   begin
-    case C of
-      '0'..'9':
-        V := V + C;
-      ',':
-        ; // 分节号忽略
-      '.':
+    if C = DefaultFormatSettings.DecimalSeparator then
+      begin
         if Assigned(DotPos) then
           // 小数点只能有一个
           Exit
         else
           DotPos := P;
+      end
     else
-      Exit;
-    end;
+      case C of
+        '0'..'9':
+          V := V + C;
+        ',':
+          ; // 分节号忽略
+(*
+        '.':
+          if Assigned(DotPos) then
+            // 小数点只能有一个
+            Exit
+          else
+            DotPos := P;
+*)
+      else
+        Exit;
+      end;
     Inc(P);
     C := P^;
   end;
@@ -1554,9 +1565,10 @@ begin
   else if Num.FScale = 0 then
     Result := S
   else if Num.FScale >= L then
-    Result := '0.' + StringOfChar('0', Num.FScale - L) + S
+    //Result := '0.' + StringOfChar('0', Num.FScale - L) + S
+    Result := '0' + DefaultFormatSettings.DecimalSeparator + StringOfChar('0', Num.FScale - L) + S
   else
-    Result := Copy(S, 1, L - Num.FScale) + '.' + Copy(S, L - Num.FScale + 1, MaxInt);
+    Result := Copy(S, 1, L - Num.FScale) + {'.'} DefaultFormatSettings.DecimalSeparator + Copy(S, L - Num.FScale + 1, MaxInt);
 
   // 再把正负号加回来
   if C <> #0 then
@@ -2514,20 +2526,31 @@ begin
   C := P^;
   while (C <> #0) and (C <> 'e') and (C <> 'E') do
   begin
-    case C of
-      '0'..'9':
-        V := V + C;
-      ',':
-        ; // 分节号忽略
-      '.':
+    if C = DefaultFormatSettings.DecimalSeparator then
+      begin
         if Assigned(DotPos) then
           // 小数点只能有一个
           Exit
         else
           DotPos := P;
+      end
     else
-      Exit;
-    end;
+      case C of
+        '0'..'9':
+          V := V + C;
+        ',':
+          ; // 分节号忽略
+(*
+        '.':
+          if Assigned(DotPos) then
+            // 小数点只能有一个
+            Exit
+          else
+            DotPos := P;
+*)
+      else
+        Exit;
+      end;
     Inc(P);
     C := P^;
   end;
@@ -2830,7 +2853,7 @@ begin
         D := S.ToDec; // 注意 ToDec 后长度可能不够 FScale 个，前头要补零
         if Length(D) < Num.FScale then
           D := StringOfChar('0', Num.FScale - Length(D)) + D;
-        Result := Result + '.' + D;
+        Result := Result + {'.'} DefaultFormatSettings.DecimalSeparator + D;
       finally
         FLocalBigNumberPool.Recycle(T);
         FLocalBigNumberPool.Recycle(S);

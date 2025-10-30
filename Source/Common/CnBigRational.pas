@@ -899,7 +899,7 @@ begin
   end
   else
   begin
-    P := Pos('.', Value);
+    P := Pos({'.'}DefaultFormatSettings.DecimalSeparator, Value);
     if P > 1 then
     begin
       // 处理小数点
@@ -1004,7 +1004,7 @@ begin
       Exit;
     end;
 
-    R := '.';
+    R := {'.'}DefaultFormatSettings.DecimalSeparator;
     for I := 1 to Digits do
     begin
       // Remain * 10，如果够除就商，不够就加 0，下一轮继续乘 10

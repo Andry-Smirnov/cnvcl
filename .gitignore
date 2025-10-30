@@ -13,3 +13,7 @@ __history
 *.or
 *.o
 *.~*
+
+# Lazarus
+backup
+lib

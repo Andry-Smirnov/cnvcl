@@ -332,7 +332,7 @@ begin
 end;
 
 {$IFDEF FPC}
-procedure MMTimerProc(uTimerID, uMessage: UINT; dwUser, dw1, dw2: UINT); stdcall;
+procedure MMTimerProc(uTimerID, uMessage: UINT; dwUser, dw1, dw2: DWORD_PTR); stdcall;
 begin
   TCnTimerMgr(dwUser).Timer;
 end;

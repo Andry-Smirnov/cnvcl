@@ -1,6 +1,6 @@
 object FormLattice: TFormLattice
   Left = 192
-  Top = 110
+  Top = 114
   Width = 834
   Height = 615
   Caption = 'Lattice'
@@ -239,6 +239,231 @@ object FormLattice: TFormLattice
         Caption = 'Simple NTRU Attack'
         TabOrder = 4
         OnClick = btnSimpleTestClick
+      end
+    end
+    object tsMLKEM: TTabSheet
+      Caption = 'MLKEM'
+      ImageIndex = 2
+      object grpMLKEM: TGroupBox
+        Left = 8
+        Top = 4
+        Width = 785
+        Height = 529
+        Caption = 'Module-Lattice-based Key Encapsulation Mechanism'
+        TabOrder = 0
+        object lblMLKEMMsg: TLabel
+          Left = 240
+          Top = 240
+          Width = 46
+          Height = 13
+          Caption = 'Message:'
+        end
+        object btnCompressTest: TButton
+          Left = 16
+          Top = 32
+          Width = 81
+          Height = 25
+          Caption = 'Compress Test'
+          TabOrder = 0
+          OnClick = btnCompressTestClick
+        end
+        object mmoMLKEM: TMemo
+          Left = 16
+          Top = 168
+          Width = 201
+          Height = 345
+          ScrollBars = ssVertical
+          TabOrder = 1
+        end
+        object btnDeCompressTest: TButton
+          Left = 128
+          Top = 32
+          Width = 89
+          Height = 25
+          Caption = 'Decompress Test'
+          TabOrder = 2
+          OnClick = btnDeCompressTestClick
+        end
+        object btnMLKEMSamplePolyCBD: TButton
+          Left = 16
+          Top = 72
+          Width = 113
+          Height = 25
+          Caption = 'Sample PolyCBD'
+          TabOrder = 3
+          OnClick = btnMLKEMSamplePolyCBDClick
+        end
+        object edtSamleEta: TEdit
+          Left = 144
+          Top = 74
+          Width = 73
+          Height = 21
+          TabOrder = 4
+          Text = '2'
+        end
+        object edtMLKEMD: TEdit
+          Left = 100
+          Top = 34
+          Width = 25
+          Height = 21
+          TabOrder = 5
+          Text = '11'
+        end
+        object btnMLKEMSampleNtt: TButton
+          Left = 16
+          Top = 104
+          Width = 89
+          Height = 25
+          Caption = 'Sample NTT'
+          TabOrder = 6
+          OnClick = btnMLKEMSampleNttClick
+        end
+        object btnMLKEMKeyGen: TButton
+          Left = 240
+          Top = 32
+          Width = 161
+          Height = 25
+          Caption = 'MLKEM KeyGen'
+          TabOrder = 7
+          OnClick = btnMLKEMKeyGenClick
+        end
+        object mmoMLKEMKeys: TMemo
+          Left = 240
+          Top = 64
+          Width = 529
+          Height = 161
+          TabOrder = 8
+        end
+        object chkMLKEMUsePre: TCheckBox
+          Left = 408
+          Top = 36
+          Width = 169
+          Height = 17
+          Caption = 'Use Pre Hex Seeds'
+          TabOrder = 9
+        end
+        object edtMLKEMMsg: TEdit
+          Left = 296
+          Top = 236
+          Width = 473
+          Height = 21
+          TabOrder = 10
+          Text = '0123456789ABCDEFFEDCBA9876543210'
+        end
+        object btnMLKEMEncrypt: TButton
+          Left = 296
+          Top = 264
+          Width = 121
+          Height = 25
+          Caption = 'MLKEM Encrypt'
+          TabOrder = 11
+          OnClick = btnMLKEMEncryptClick
+        end
+        object btnMLKEMDecrypt: TButton
+          Left = 648
+          Top = 264
+          Width = 121
+          Height = 25
+          Caption = 'MLKEM Encrypt'
+          TabOrder = 12
+          OnClick = btnMLKEMDecryptClick
+        end
+        object mmoMLKEMCipher: TMemo
+          Left = 240
+          Top = 296
+          Width = 529
+          Height = 161
+          TabOrder = 13
+        end
+        object btnMLKEM2Ntt: TButton
+          Left = 128
+          Top = 104
+          Width = 89
+          Height = 25
+          Caption = 'NTT && INTT'
+          TabOrder = 14
+          OnClick = btnMLKEM2NttClick
+        end
+        object btnMLKEMDotProduct: TButton
+          Left = 16
+          Top = 136
+          Width = 89
+          Height = 25
+          Caption = 'Dot Product'
+          TabOrder = 15
+          OnClick = btnMLKEMDotProductClick
+        end
+        object btnMLKEMEncap: TButton
+          Left = 480
+          Top = 264
+          Width = 97
+          Height = 25
+          Caption = 'Encap/Decap'
+          TabOrder = 16
+          OnClick = btnMLKEMEncapClick
+        end
+        object cbbMLKEMType: TComboBox
+          Left = 624
+          Top = 32
+          Width = 145
+          Height = 21
+          Style = csDropDownList
+          ItemHeight = 13
+          TabOrder = 17
+          Items.Strings = (
+            'MLKEM 512'
+            'MLKEM 768'
+            'MLKEM 1024')
+        end
+      end
+    end
+    object tsMLDSA: TTabSheet
+      Caption = 'MLDSA'
+      ImageIndex = 3
+      object grpMLDSA: TGroupBox
+        Left = 8
+        Top = 4
+        Width = 785
+        Height = 521
+        Caption = 'Module-Lattice-based Digital Signature Algorithm'
+        TabOrder = 0
+        object btnMLDSAKeyGen: TButton
+          Left = 16
+          Top = 32
+          Width = 161
+          Height = 25
+          Caption = 'MLDSA KeyGen'
+          TabOrder = 0
+          OnClick = btnMLDSAKeyGenClick
+        end
+        object chkMLDSAUsePre: TCheckBox
+          Left = 184
+          Top = 36
+          Width = 169
+          Height = 17
+          Caption = 'Use Pre Hex Seeds'
+          TabOrder = 1
+        end
+        object cbbMLDSAType: TComboBox
+          Left = 400
+          Top = 32
+          Width = 145
+          Height = 21
+          Style = csDropDownList
+          ItemHeight = 13
+          TabOrder = 2
+          Items.Strings = (
+            'MLDSA 44'
+            'MLDSA 65'
+            'MLDSA 87')
+        end
+        object mmoMLDSAKeys: TMemo
+          Left = 16
+          Top = 64
+          Width = 761
+          Height = 161
+          TabOrder = 3
+        end
       end
     end
   end

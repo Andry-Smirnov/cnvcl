@@ -1,8 +1,8 @@
 object FormNetDecl: TFormNetDecl
   Left = 192
   Top = 108
-  Width = 864
-  Height = 472
+  Width = 946
+  Height = 597
   Caption = 'Net Declaration Test'
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -12,24 +12,18 @@ object FormNetDecl: TFormNetDecl
   Font.Style = []
   OldCreateOrder = False
   OnCreate = FormCreate
-  DesignSize = (
-    856
-    440)
   PixelsPerInch = 96
   TextHeight = 13
   object pgcNetDecl: TPageControl
     Left = 16
     Top = 16
-    Width = 817
-    Height = 409
-    ActivePage = tsSSL
+    Width = 899
+    Height = 534
+    ActivePage = tsIP
     Anchors = [akLeft, akTop, akRight, akBottom]
     TabOrder = 0
     object tsIP: TTabSheet
       Caption = 'IP'
-      DesignSize = (
-        809
-        381)
       object lblLocal: TLabel
         Left = 16
         Top = 18
@@ -48,7 +42,7 @@ object FormNetDecl: TFormNetDecl
         Top = 16
         Width = 193
         Height = 21
-        ItemHeight = 0
+        ItemHeight = 13
         TabOrder = 0
       end
       object btnSniff: TButton
@@ -87,8 +81,8 @@ object FormNetDecl: TFormNetDecl
       object mmoIPSniffer: TMemo
         Left = 16
         Top = 56
-        Width = 777
-        Height = 313
+        Width = 860
+        Height = 432
         Anchors = [akLeft, akTop, akRight, akBottom]
         ReadOnly = True
         ScrollBars = ssBoth
@@ -127,7 +121,7 @@ object FormNetDecl: TFormNetDecl
       Caption = 'SSL/TLS'
       ImageIndex = 1
       object bvl1: TBevel
-        Left = 336
+        Left = 520
         Top = 16
         Width = 25
         Height = 25
@@ -145,21 +139,22 @@ object FormNetDecl: TFormNetDecl
       object btnSSLParseTest: TButton
         Left = 176
         Top = 16
-        Width = 145
+        Width = 177
         Height = 25
-        Caption = 'Parse ClientHello Test'
+        Caption = 'Parse ClientHello/ServerHello Test'
         TabOrder = 1
         OnClick = btnSSLParseTestClick
       end
       object mmoSSL: TMemo
         Left = 16
         Top = 56
-        Width = 777
-        Height = 305
+        Width = 860
+        Height = 432
+        ScrollBars = ssBoth
         TabOrder = 2
       end
       object btnSSLClient: TButton
-        Left = 352
+        Left = 536
         Top = 16
         Width = 75
         Height = 25
@@ -168,7 +163,7 @@ object FormNetDecl: TFormNetDecl
         OnClick = btnSSLClientClick
       end
       object edtTLSHost: TEdit
-        Left = 440
+        Left = 624
         Top = 16
         Width = 121
         Height = 21
@@ -176,7 +171,7 @@ object FormNetDecl: TFormNetDecl
         Text = '104.238.140.188'
       end
       object edtTLSPort: TEdit
-        Left = 568
+        Left = 752
         Top = 16
         Width = 33
         Height = 21

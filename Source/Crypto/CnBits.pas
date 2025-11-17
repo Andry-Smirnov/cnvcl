@@ -87,11 +87,12 @@ type
 
        返回值：（无）
     }
+
   public
     constructor Create; virtual;
     {* 构造函数}
     destructor Destroy; override;
-    {析构函数}
+    {* 析构函数}
 
     procedure Clear;
     {* 清空内容}
@@ -115,7 +116,7 @@ type
     }
 
     procedure AppendByteRange(Value: Byte; MaxRange: Integer);
-    {* 增加一个字节中的 0 到 MaxRange 位至本对象。
+    {* 增加一个字节中的 0 到 MaxRange 位至本对象，一共会增加 MaxRange + 1 位。
 
        参数：
          Value: Byte                      - 待增加的字节值
@@ -125,7 +126,7 @@ type
     }
 
     procedure AppendWordRange(Value: Word; MaxRange: Integer);
-    {* 增加一个双字节中的 0 到 MaxRange 位至本对象。
+    {* 增加一个双字节中的 0 到 MaxRange 位至本对象，一共会增加 MaxRange + 1 位。
 
        参数：
          Value: Word                      - 待增加的双字节值
@@ -135,7 +136,7 @@ type
     }
 
     procedure AppendDWordRange(Value: Cardinal; MaxRange: Integer);
-    {* 增加一个四字节中的 0 到 MaxRange 位至本对象。
+    {* 增加一个四字节中的 0 到 MaxRange 位至本对象，一共会增加 MaxRange + 1 位。
 
        参数：
          Value: Cardinal                  - 待增加的四字节值
@@ -193,6 +194,16 @@ type
        返回值：（无）
     }
 
+    procedure DeleteBits(Index: Integer; Count: Integer);
+    {* 删除从指定索引开始的指定数量的位，后部内容往前移动。
+
+       参数：
+         Index: Integer                   - 待删除的位的起始索引，该位会被删除
+         Count: Integer                   - 待删除的位的数量
+
+       返回值：（无）
+    }
+
     function ToBytes: TBytes;
     {* 将全部内容拼凑成字节数组并返回，位数往字节数上凑整。
 
@@ -231,7 +242,7 @@ type
     }
 
     function Copy(Index: Integer; Count: Integer): Cardinal;
-    {* 从指定 Index 处复制 Count 个位放入结果中，Count 超长无法容纳则抛异常。
+    {* 从指定 Index 处复制 Count 个位放入结果中，如 Count 超长无法容纳则抛异常。
 
        参数：
          Index: Integer                   - 待复制的起始位偏移量
@@ -240,7 +251,18 @@ type
        返回值：Cardinal                   - 复制的内容
     }
 
-    property Bit[Index: Integer]: Boolean read GetBit write SetBit;
+    function ExtractBits(Index: Integer; Count: Integer): Cardinal;
+    {* 从指定 Index 处抽取 Count 个位放入结果中，并将原始内容删除。
+       如 Count 超长无法容纳则抛异常且不删除。
+
+       参数：
+         Index: Integer                   - 待抽取的起始位偏移量
+         Count: Integer                   - 待抽取的位数，不能大于 32
+
+       返回值：Cardinal                   - 抽取的内容
+    }
+
+    property Bit[Index: Integer]: Boolean read GetBit write SetBit; default;
     {* 按索引访问位内容，1 为 True，0 为 False。索引范围为 0 到 BitLength - 1}
 
     property ByteCapacity: Integer read GetByteCapacity write SetByteCapacity;
@@ -423,6 +445,73 @@ destructor TCnBitBuilder.Destroy;
 begin
   SetLength(FData, 0);
   inherited;
+end;
+
+procedure TCnBitBuilder.DeleteBits(Index: Integer; Count: Integer);
+var
+  I, MoveCount, ActualCount: Integer;
+  SourceBitIndex, DestBitIndex: Integer;
+  SourceByteIndex, DestByteIndex: Integer;
+  SourceBitOffset, DestBitOffset: Integer;
+  T: Byte;
+begin
+  if (Index < 0) or (Index >= FBitLength) or (Count <= 0) then
+    Exit;
+
+  // 计算实际要删除的位数（不能超过剩余位数）
+  if Count > FBitLength - Index then
+    ActualCount := FBitLength - Index
+  else
+    ActualCount := Count;
+
+  if ActualCount <= 0 then
+    Exit;
+
+  // 计算需要移动的位数
+  MoveCount := FBitLength - (Index + ActualCount);
+
+  if MoveCount > 0 then
+  begin
+    // 将删除位置后面的位向前移动
+    for I := 0 to MoveCount - 1 do
+    begin
+      SourceBitIndex := Index + ActualCount + I;
+      DestBitIndex := Index + I;
+
+      // 获取源位的值
+      SourceByteIndex := SourceBitIndex div 8;
+      SourceBitOffset := SourceBitIndex mod 8;
+      T := FData[SourceByteIndex];
+
+      // 设置目标位的值
+      DestByteIndex := DestBitIndex div 8;
+      DestBitOffset := DestBitIndex mod 8;
+
+      if (T and (1 shl SourceBitOffset)) <> 0 then // 源位为 1，设置目标位为 1
+        FData[DestByteIndex] := FData[DestByteIndex] or (1 shl DestBitOffset)
+      else // 源位为 0，清除目标位
+        FData[DestByteIndex] := FData[DestByteIndex] and not (1 shl DestBitOffset);
+    end;
+  end;
+
+  FBitLength := FBitLength - ActualCount;
+
+  // 清除尾部可能残留的位（如果需要）
+  if (FBitLength > 0) and (FBitLength mod 8 <> 0) then
+  begin
+    // 清除最后一个字节中超出当前位长度的位
+    T := FData[GetByteLength - 1];
+    for I := FBitLength mod 8 to 7 do
+      T := T and not (1 shl I);
+
+    FData[GetByteLength - 1] := T;
+  end;
+end;
+
+function TCnBitBuilder.ExtractBits(Index, Count: Integer): Cardinal;
+begin
+  Result := Copy(Index, Count);
+  DeleteBits(Index, Count);
 end;
 
 procedure TCnBitBuilder.EnsureCapacity(ABitSize: Integer);

@@ -77,8 +77,9 @@ type
 // =============================================================================
 
   TCnInt64Polynomial = class(TCnInt64List)
-  {* 一元整系数多项式，系数范围为 Int64}
+  {* 一元整系数多项式，系数范围为 Int64，Items[n] 就是 n 次项系数}
   private
+    procedure EnsureDegree(Degree: Integer);  // 确保第 Degree 次存在，也就是 Count >= Degree + 1
     function GetMaxDegree: Integer;
     procedure SetMaxDegree(const Value: Integer);
   public
@@ -102,7 +103,17 @@ type
        参数：
          LowToHighCoefficients: array of const            - 从 0 开始的低次到高次的多项式系数
 
-       返回值：                                           - 返回创建的对象实例
+       返回值：（无）
+    }
+
+    procedure SetCoefficent(Degree: Integer; Coefficient: Integer);
+    {* 设置某次项的系数。
+
+       参数：
+         Degree: Integer                                  - 该项的多项式的次数
+         Coefficient: Integer                             - 该项的多项式系数
+
+       返回值：（无）
     }
 
     procedure CorrectTop;
@@ -173,6 +184,51 @@ type
 
     property MaxDegree: Integer read GetMaxDegree write SetMaxDegree;
     {* 最高次数，0 开始，基于 Count 所以只能是 Integer，下标遍历时使用 0 到 MaxDegree}
+  end;
+
+  TCnInt64PolynomialList = class(TObjectList)
+  {* 容纳一元整系数多项式的对象列表，同时拥有一元整系数多项式对象们}
+  private
+
+  protected
+    function GetItem(Index: Integer): TCnInt64Polynomial;
+    procedure SetItem(Index: Integer; APoly: TCnInt64Polynomial);
+  public
+    constructor Create; reintroduce;
+    {* 构造函数}
+    destructor Destroy; override;
+    {* 析构函数}
+
+    function Add: TCnInt64Polynomial; overload;
+    {* 新增一个一元整系数多项式对象，返回该对象。
+       注意添加后返回的对象已由列表纳入管理，无需也不应手动释放。
+
+       参数：
+         （无）
+
+       返回值：TCnInt64Polynomial         - 内部新增的大数对象
+    }
+
+    function Add(APoly: TCnInt64Polynomial): Integer; overload;
+    {* 添加外部的一元整系数多项式对象。注意添加后该对象由列表纳入管理，无需也不应手动释放。
+
+       参数：
+         APoly: TCnInt64Polynomial        - 待添加的一元整系数多项式对象
+
+       返回值：Integer                    - 新增的该一元整系数多项式对象的索引值
+    }
+
+    function ToString: string; {$IFDEF OBJECT_HAS_TOSTRING} override; {$ENDIF}
+    {* 将一元整系数多项式列表转成字符串。
+
+       参数：
+         （无）
+
+       返回值：string                     - 返回字符串
+    }
+
+    property Items[Index: Integer]: TCnInt64Polynomial read GetItem write SetItem; default;
+    {* 一元整系数多项式列表项}
   end;
 
   TCnInt64RationalPolynomial = class(TPersistent)
@@ -309,8 +365,9 @@ type
 // =============================================================================
 
   TCnBigNumberPolynomial = class(TCnBigNumberList)
-  {* 一元大整系数多项式}
+  {* 一元大整系数多项式，Items[n] 就是 n 次项系数}
   private
+    procedure EnsureDegree(Degree: Integer);
     function GetMaxDegree: Integer;
     procedure SetMaxDegree(const Value: Integer);
   public
@@ -333,6 +390,16 @@ type
 
        参数：
          LowToHighCoefficients: array of const            - 从 0 开始的低次到高次的多项式系数
+
+       返回值：（无）
+    }
+
+    procedure SetCoefficent(Degree: Integer; Coefficient: TCnBigNumber);
+    {* 设置某次项的系数，内部值会从 Coefficient 中复制过去。
+
+       参数：
+         Degree: Integer                                  - 该项的多项式的次数
+         Coefficient: TCnBigNumber                        - 该项的多项式系数
 
        返回值：（无）
     }
@@ -571,6 +638,16 @@ function Int64PolynomialCopy(Dst: TCnInt64Polynomial; Src: TCnInt64Polynomial): 
      Src: TCnInt64Polynomial              - 源一元整系数多项式
 
    返回值：TCnInt64Polynomial             - 成功则返回目标对象，失败则返回 nil
+}
+
+procedure Int64PolynomialSwap(A: TCnInt64Polynomial; B: TCnInt64Polynomial);
+{* 交换两个一元整系数多项式对象的系数值。
+
+   参数：
+     A: TCnInt64Polynomial                - 待交换的一元整系数多项式一
+     B: TCnInt64Polynomial                - 待交换的一元整系数多项式二
+
+   返回值：（无）
 }
 
 function Int64PolynomialToString(P: TCnInt64Polynomial; const VarName: string = 'X'): string;
@@ -1723,6 +1800,16 @@ function BigNumberPolynomialCopy(Dst: TCnBigNumberPolynomial;
      Src: TCnBigNumberPolynomial          - 源一元大整系数多项式
 
    返回值：TCnBigNumberPolynomial         - 成功则返回目标对象，失败则返回 nil
+}
+
+procedure BigNumberPolynomialSwap(A: TCnBigNumberPolynomial; B: TCnBigNumberPolynomial);
+{* 交换两个一元大整系数多项式对象的系数值。
+
+   参数：
+     A: TCnBigNumberPolynomial            - 待交换的一元整系数多项式一
+     B: TCnBigNumberPolynomial            - 待交换的一元整系数多项式二
+
+   返回值：（无）
 }
 
 function BigNumberPolynomialToString(P: TCnBigNumberPolynomial;
@@ -4762,6 +4849,12 @@ begin
   inherited;
 end;
 
+procedure TCnInt64Polynomial.EnsureDegree(Degree: Integer);
+begin
+  if Degree > MaxDegree then
+    SetMaxDegree(Degree);
+end;
+
 function TCnInt64Polynomial.GetMaxDegree: Integer;
 begin
   if Count = 0 then
@@ -4792,6 +4885,13 @@ end;
 procedure TCnInt64Polynomial.Negate;
 begin
   Int64PolynomialNegate(Self);
+end;
+
+procedure TCnInt64Polynomial.SetCoefficent(Degree, Coefficient: Integer);
+begin
+  CheckDegree(Degree);
+  EnsureDegree(Degree);
+  Items[Degree] := Coefficient;
 end;
 
 procedure TCnInt64Polynomial.SetCoefficents(LowToHighCoefficients: array of const);
@@ -4871,6 +4971,23 @@ begin
     for I := 0 to Src.Count - 1 do
       Dst.Add(Src[I]);
     Dst.CorrectTop;
+  end;
+end;
+
+procedure Int64PolynomialSwap(A: TCnInt64Polynomial; B: TCnInt64Polynomial);
+var
+  T: TCnInt64Polynomial;
+begin
+  if (A = nil) or (B = nil) then
+    Exit;
+
+  T := FLocalInt64PolynomialPool.Obtain;
+  try
+    Int64PolynomialCopy(T, A);
+    Int64PolynomialCopy(A, B);
+    Int64PolynomialCopy(B, T);
+  finally
+    FLocalInt64PolynomialPool.Recycle(T);
   end;
 end;
 
@@ -7403,6 +7520,12 @@ begin
   inherited;
 end;
 
+procedure TCnBigNumberPolynomial.EnsureDegree(Degree: Integer);
+begin
+  if Degree > MaxDegree then
+    SetMaxDegree(Degree);
+end;
+
 function TCnBigNumberPolynomial.GetMaxDegree: Integer;
 begin
   if Count = 0 then
@@ -7433,6 +7556,14 @@ end;
 procedure TCnBigNumberPolynomial.Negate;
 begin
   BigNumberPolynomialNegate(Self);
+end;
+
+procedure TCnBigNumberPolynomial.SetCoefficent(Degree: Integer;
+  Coefficient: TCnBigNumber);
+begin
+  CheckDegree(Degree);
+  EnsureDegree(Degree);
+  BigNumberCopy(Items[Degree], Coefficient);
 end;
 
 procedure TCnBigNumberPolynomial.SetCoefficents(LowToHighCoefficients: array of const);
@@ -7698,6 +7829,23 @@ begin
     for I := 0 to Src.Count - 1 do
       BigNumberCopy(Dst[I], Src[I]);
     Dst.CorrectTop;
+  end;
+end;
+
+procedure BigNumberPolynomialSwap(A: TCnBigNumberPolynomial; B: TCnBigNumberPolynomial);
+var
+  T: TCnBigNumberPolynomial;
+begin
+  if (A = nil) or (B = nil) then
+    Exit;
+
+  T := FLocalBigNumberPolynomialPool.Obtain;
+  try
+    BigNumberPolynomialCopy(T, A);
+    BigNumberPolynomialCopy(A, B);
+    BigNumberPolynomialCopy(B, T);
+  finally
+    FLocalBigNumberPolynomialPool.Recycle(T);
   end;
 end;
 
@@ -13354,6 +13502,55 @@ procedure TCnBigNumberBiPolynomialPool.Recycle(
   Poly: TCnBigNumberBiPolynomial);
 begin
   inherited Recycle(Poly);
+end;
+
+{ TCnInt64PolynomialList }
+
+function TCnInt64PolynomialList.Add: TCnInt64Polynomial;
+begin
+  Result := TCnInt64Polynomial.Create;
+  Add(Result);
+end;
+
+function TCnInt64PolynomialList.Add(APoly: TCnInt64Polynomial): Integer;
+begin
+  Result := inherited Add(APoly);
+end;
+
+constructor TCnInt64PolynomialList.Create;
+begin
+  inherited Create(True);
+end;
+
+destructor TCnInt64PolynomialList.Destroy;
+begin
+
+  inherited;
+end;
+
+function TCnInt64PolynomialList.GetItem(Index: Integer): TCnInt64Polynomial;
+begin
+  Result := TCnInt64Polynomial(inherited GetItem(Index));
+end;
+
+procedure TCnInt64PolynomialList.SetItem(Index: Integer;
+  APoly: TCnInt64Polynomial);
+begin
+  inherited SetItem(Index, APoly);
+end;
+
+function TCnInt64PolynomialList.ToString: string;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 0 to Count - 1 do
+  begin
+    if I = 0 then
+      Result := Items[I].ToString
+    else
+      Result := Result + ',' + Items[I].ToString;
+  end;
 end;
 
 initialization

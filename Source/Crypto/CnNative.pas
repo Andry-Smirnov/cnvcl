@@ -1494,6 +1494,16 @@ function HexToStream(const Hex: string; Stream: TStream): Integer;
    返回值：Integer                        - 返回写入的字节数
 }
 
+function WriteBytesToStream(Data: TBytes; Stream: TStream): Integer;
+{* 将字节数组写入流中，返回写入的字节数。
+
+   参数：
+     Data: TBytes                         - 待写入的字节数组
+     Stream: TStream                      - 写入的流
+
+   返回值：Integer                        - 返回写入的字节数
+}
+
 procedure ReverseBytes(Data: TBytes);
 {* 按字节顺序倒置一字节数组。
 
@@ -1577,12 +1587,35 @@ function BitsToString(Bits: TBits): string;
    返回值：string                         - 返回转换的字符串
 }
 
-function ConcatBytes(A: TBytes; B: TBytes): TBytes;
+function ConcatBytes(A: TBytes; B: TBytes): TBytes; overload;
 {* 将 A B 两个字节数组顺序拼好返回一个新字节数组，A B 自身保持不变。
 
    参数：
      A: TBytes                            - 待拼接的字节数组一
      B: TBytes                            - 待拼接的字节数组二
+
+   返回值：TBytes                         - 返回拼接的新字节数组
+}
+
+function ConcatBytes(A: TBytes; B: TBytes; C: TBytes): TBytes; overload;
+{* 将 A B C 三个字节数组顺序拼好返回一个新字节数组，A B C 自身保持不变。
+
+   参数：
+     A: TBytes                            - 待拼接的字节数组一
+     B: TBytes                            - 待拼接的字节数组二
+     C: TBytes                            - 待拼接的字节数组三
+
+   返回值：TBytes                         - 返回拼接的新字节数组
+}
+
+function ConcatBytes(A: TBytes; B: TBytes; C: TBytes; D: TBytes): TBytes; overload;
+{* 将 A B C D 四个字节数组顺序拼好返回一个新字节数组，A B C D 自身保持不变。
+
+   参数：
+     A: TBytes                            - 待拼接的字节数组一
+     B: TBytes                            - 待拼接的字节数组二
+     C: TBytes                            - 待拼接的字节数组三
+     D: TBytes                            - 待拼接的字节数组四
 
    返回值：TBytes                         - 返回拼接的新字节数组
 }
@@ -1595,6 +1628,17 @@ function NewBytesFromMemory(Data: Pointer; DataByteLen: Integer): TBytes;
      DataByteLen: Integer                 - 待处理的数据块字节长度
 
    返回值：TBytes                         - 返回新建的字节数组
+}
+
+procedure PutBytesToMemory(Data: TBytes; Mem: Pointer; MaxByteSize: Integer = 0);
+{* 将一字节数组的内容写入指定内存区域，允许设置写入的最大数量。
+
+   参数：
+     Data: TBytes                         - 待处理的字节数组
+     Mem: Pointer                         - 待写入的数据块地址
+     MaxByteSize: Integer                 - 控制写入的最大字节数，0 表示不控制
+
+   返回值：（无）
 }
 
 function CompareBytes(A: TBytes; B: TBytes): Boolean; overload;
@@ -2050,7 +2094,7 @@ uses
   CnFloat;
 
 resourcestring
-  SCnErrorNotAHexPChar = 'Error: NOT a Hex PChar: %c';
+  SCnErrorNotAHexPChar = 'Error: NOT a Hex Char: #%d';
   SCnErrorLengthNotHex = 'Error Length %d: NOT a Hex String';
   SCnErrorLengthNotHexAnsi = 'Error Length %d: NOT a Hex AnsiString';
 
@@ -2970,7 +3014,7 @@ begin
     else if (C >= 'a') and (C <= 'f') then
       Res := Res * 16 + Ord(C) - Ord('a') + 10
     else
-      raise ECnNativeException.CreateFmt(SCnErrorNotAHexPChar, [C]);
+      raise ECnNativeException.CreateFmt(SCnErrorNotAHexPChar, [Ord(C)]);
   end;
   Result := Res;
 end;
@@ -3261,6 +3305,14 @@ begin
   end;
 end;
 
+function WriteBytesToStream(Data: TBytes; Stream: TStream): Integer;
+begin
+  if Length(Data) > 0 then
+    Result := Stream.Write(Data[0], Length(Data))
+  else
+    Result := 0;
+end;
+
 procedure ReverseBytes(Data: TBytes);
 var
   I, L, M: Integer;
@@ -3393,6 +3445,51 @@ begin
   end;
 end;
 
+function ConcatBytes(A: TBytes; B: TBytes; C: TBytes): TBytes;
+var
+  L1, L2, L3: Integer;
+begin
+  Result := nil;
+  L1 := Length(A);
+  L2 := Length(B);
+  L3 := Length(C);
+
+  if (L1 = 0) and (L2 = 0) and (L3 = 0) then
+    Exit;
+
+  SetLength(Result, L1 + L2 + L3);
+  if L1 > 0 then
+    Move(A[0], Result[0], L1);
+  if L2 > 0 then
+    Move(B[0], Result[L1], L2);
+  if L3 > 0 then
+    Move(C[0], Result[L1 + L2], L3);
+end;
+
+function ConcatBytes(A: TBytes; B: TBytes; C: TBytes; D: TBytes): TBytes;
+var
+  L1, L2, L3, L4: Integer;
+begin
+  Result := nil;
+  L1 := Length(A);
+  L2 := Length(B);
+  L3 := Length(C);
+  L4 := Length(D);
+
+  if (L1 = 0) and (L2 = 0) and (L3 = 0) and (L4 = 0) then
+    Exit;
+
+  SetLength(Result, L1 + L2 + L3 + L4);
+  if L1 > 0 then
+    Move(A[0], Result[0], L1);
+  if L2 > 0 then
+    Move(B[0], Result[L1], L2);
+  if L3 > 0 then
+    Move(C[0], Result[L1 + L2], L3);
+  if L4 > 0 then
+    Move(D[0], Result[L1 + L2 + L3], L4);
+end;
+
 function NewBytesFromMemory(Data: Pointer; DataByteLen: Integer): TBytes;
 begin
   if (Data = nil) or (DataByteLen <= 0) then
@@ -3401,6 +3498,20 @@ begin
   begin
     SetLength(Result, DataByteLen);
     Move(Data^, Result[0], DataByteLen);
+  end;
+end;
+
+procedure PutBytesToMemory(Data: TBytes; Mem: Pointer; MaxByteSize: Integer);
+var
+  L: Integer;
+begin
+  L := Length(Data);
+  if (L > 0) and (Mem <> nil) then
+  begin
+    if (MaxByteSize > 0) and (L > MaxByteSize) then
+      L := MaxByteSize;
+
+    Move(Data[0], Mem^, L);
   end;
 end;
 

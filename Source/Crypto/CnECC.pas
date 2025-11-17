@@ -32,6 +32,8 @@ unit CnECC;
 *           概念：椭圆曲线的阶是曲线上的总点数（似乎不包括无限远点）
 *           基点的阶是基点标量乘多少等于无限远点。两者是倍数整除关系，可能相等。
 *
+*           注意：不包括二元域上的魏尔斯特拉斯曲线 y^2 + xy = x^3 + ax^2 + b (mod f(x)) 的实现
+*
 * 开发平台：WinXP + Delphi 5.0
 * 兼容测试：暂未进行，注意部分辅助函数缺乏固定长度处理，待修正，但 ASN.1 包装可无需指定固定长度
 * 本 地 化：该单元无需本地化处理
@@ -107,7 +109,7 @@ const
   {* ecPublicKey 的 OID}
 
 type
-  TCnEccSignDigestType = (esdtMD5, esdtSHA1, esdtSHA256, esdtSM3);
+  TCnEccSignDigestType = (esdtMD5, esdtSHA1, esdtSHA256, esdtSM3, esdtSHA384, esdtSHA512);
   {* ECC 签名所支持的数字摘要算法，不支持无摘要的方式}
 
   ECnEccException = class(Exception);
@@ -463,6 +465,27 @@ type
        返回值：string                     - 返回 Base64 字符串
     }
 
+    procedure SetBytes(Data: TBytes; Ecc: TCnEcc = nil);
+    {* 从字节数组中加载点坐标，内部有 02 03 04 前缀的处理，
+       如果无 02 03 04 前缀则对半劈开分别赋值给 X 和 Y，
+       如果前缀是 02 或 03，说明内容只有 X 坐标，此时需传入椭圆曲线实例来计算 Y 坐标。
+
+       参数：
+         Data: TBytes                     - 待加载的字节数组
+         Ecc: TCnEcc                      - 需计算 Y 坐标时所需的椭圆曲线实例
+
+       返回值：（无）
+    }
+
+    function ToBytes(FixedLen: Integer = 0): TBytes;
+    {* 输出成带 03 或 04 前缀的字节数组，如果只有 X 值，使用 03 前缀。
+
+       参数：
+         FixedLen: Integer                - 指定数据的固定字节长度，不足则高位补 0
+
+       返回值：string                     - 返回字节数组
+    }
+
     property X: TCnBigNumber read FX write SetX;
     {* 椭圆曲线点的 X 坐标}
     property Y: TCnBigNumber read FY write SetY;
@@ -632,8 +655,8 @@ type
 
   TCnEccCurveType = (ctCustomized, ctSM2, ctSM2Example192, ctSM2Example256,
     ctRfc4754ECDSAExample256, ctSecp224r1, ctSecp224k1, ctSecp256k1, ctPrime256v1,
-    ctWapiPrime192v1, ctSM9Bn256v1, ctSecp384r1, ctSecp521r1);
-  {* 本单元支持的椭圆曲线类型}
+    ctWapiPrime192v1, ctSM9Bn256v1, ctSecp256r1, ctSecp384r1, ctSecp521r1);
+  {* 本单元支持的椭圆曲线类型，其中 ctSecp256r1 和 ctPrime256v1 是不同名但同系数的曲线}
 
   TCnEcc = class
   {* 描述一有限素域 p 也就是 0 到 p - 1 上的椭圆曲线 y^2 = x^3 + Ax + B mod p}
@@ -882,6 +905,15 @@ type
        参数：
          PrivateKey: TCnEccPrivateKey     - 生成的椭圆曲线的私钥
          PublicKey: TCnEccPublicKey       - 生成的椭圆曲线的公钥
+
+       返回值：（无）
+    }
+
+    procedure GenerateKey(PrivateKey: TCnEccPrivateKey);
+    {* 仅生成一该椭圆曲线的私钥，私钥是运算次数 k，不计算对应公钥。
+
+       参数：
+         PrivateKey: TCnEccPrivateKey     - 生成的椭圆曲线的私钥
 
        返回值：（无）
     }
@@ -2105,7 +2137,7 @@ function CnEccSignStream(InStream: TMemoryStream; OutSignStream: TMemoryStream;
 
    参数：
      InStream: TMemoryStream              - 待签名的内存流
-     OutSignStream: TMemoryStream         - 输出的签名内容内存流
+     OutSignStream: TMemoryStream         - 输出的签名内容内存流，ASN1 格式
      CurveType: TCnEccCurveType           - 用于签名的椭圆曲线类型
      PrivateKey: TCnEccPrivateKey         - 用来签名的椭圆曲线私钥
      SignType: TCnEccSignDigestType       - 签名的杂凑类型
@@ -2116,11 +2148,11 @@ function CnEccSignStream(InStream: TMemoryStream; OutSignStream: TMemoryStream;
 function CnEccVerifyStream(InStream: TMemoryStream; InSignStream: TMemoryStream;
   Ecc: TCnEcc; PublicKey: TCnEccPublicKey;
   SignType: TCnEccSignDigestType = esdtMD5): Boolean; overload;
-{* 用公钥与签名值验证指定内存流，Ecc 中需要预先指定曲线。
+{* 用公钥与签名值验证指定内存流，签名格式是 ASN1/BER 包装的 R S，Ecc 中需要预先指定曲线。
 
    参数：
      InStream: TMemoryStream              - 待验证的内存流
-     InSignStream: TMemoryStream          - 签名内容内存流
+     InSignStream: TMemoryStream          - 签名内容内存流，应是 ASN1 格式
      Ecc: TCnEcc                          - 用于验证的椭圆曲线实例
      PublicKey: TCnEccPublicKey           - 用来验证的椭圆曲线公钥
      SignType: TCnEccSignDigestType       - 签名的杂凑类型，需和签名内容保持一致
@@ -2502,6 +2534,15 @@ const
       X: '93DE051D62BF718FF5ED0704487D01D6E1E4086909DC3280E8C4E4817C66DDDD';
       Y: '21FE8DDA4F21E607631065125C395BBC1C1C00CBFA6024350C464CD70A3EA616';
       N: 'B640000002A3A6F1D603AB4FF58EC74449F2934B18EA8BEEE56EE19CD69ECF25';
+      H: '01'
+    ),
+    ( // ctSecp256r1 = ctPrime256v1
+      P: 'FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF';
+      A: 'FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC';
+      B: '5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B';
+      X: '6B17D1F2E12C4247F8BCE6E563A440F277037D812DEB33A0F4A13945D898C296';
+      Y: '4FE342E2FE1A7F9B8EE7EB4A7C0F9E162BCE33576B315ECECBB6406837BF51F5';
+      N: 'FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551';
       H: '01'
     ),
     ( // ctSecp384r1
@@ -3726,6 +3767,14 @@ begin
     SetHex(AnsiString(BytesToHex(B)), Ecc);
 end;
 
+procedure TCnEccPoint.SetBytes(Data: TBytes; Ecc: TCnEcc);
+var
+  H: AnsiString;
+begin
+  H := BytesToHex(Data);
+  SetHex(H, Ecc);
+end;
+
 procedure TCnEccPoint.SetHex(const Buf: AnsiString; Ecc: TCnEcc);
 var
   C: Integer;
@@ -3838,6 +3887,24 @@ begin
     Base64Encode(Stream.Memory, Stream.Size, Result);
   finally
     Stream.Free;
+  end;
+end;
+
+function TCnEccPoint.ToBytes(FixedLen: Integer): TBytes;
+var
+  Prefix: TBytes;
+begin
+  SetLength(Prefix, 1);
+  if FY.IsZero then
+  begin
+    Prefix[0] := 3; // 不知道 Y 具体值，无法确定奇偶，暂时写 03
+    Result := ConcatBytes(Prefix, BigNumberToBytes(FX, FixedLen));
+  end
+  else
+  begin
+    Prefix[0] := 4;
+    Result := ConcatBytes(Prefix, BigNumberToBytes(FX, FixedLen));
+    Result := ConcatBytes(Result, BigNumberToBytes(FY, FixedLen));
   end;
 end;
 
@@ -3970,6 +4037,13 @@ begin
 
   PublicKey.Assign(FGenerator);
   MultiplePoint(PrivateKey, PublicKey);             // 基点乘 PrivateKey 次
+end;
+
+procedure TCnEcc.GenerateKey(PrivateKey: TCnEccPrivateKey);
+begin
+  BigNumberRandRange(PrivateKey, FOrder);           // 比 0 大但比基点阶小的随机数
+  if PrivateKey.IsZero then                         // 万一真拿到 0，就加 1
+    PrivateKey.SetOne;
 end;
 
 function TCnEcc.GetBitsCount: Integer;
@@ -5638,6 +5712,8 @@ var
   Sha1: TCnSHA1Digest;
   Sha256: TCnSHA256Digest;
   Sm3Dig: TCnSM3Digest;
+  Sha384: TCnSHA384Digest;
+  Sha512: TCnSHA512Digest;
 begin
   Result := False;
   case SignType of
@@ -5665,6 +5741,18 @@ begin
         outStream.Write(Sm3Dig, SizeOf(TCnSM3Digest));
         Result := True;
       end;
+    esdtSHA384:
+      begin
+        Sha384 := SHA384Stream(InStream);
+        outStream.Write(Sha384, SizeOf(TCnSHA384Digest));
+        Result := True;
+      end;
+    esdtSHA512:
+      begin
+        Sha512 := SHA512Stream(InStream);
+        outStream.Write(Sha512, SizeOf(TCnSHA512Digest));
+        Result := True;
+      end;
   end;
 end;
 
@@ -5676,6 +5764,8 @@ var
   Sha1: TCnSHA1Digest;
   Sha256: TCnSHA256Digest;
   Sm3Dig: TCnSM3Digest;
+  Sha384: TCnSHA384Digest;
+  Sha512: TCnSHA512Digest;
 begin
   Result := False;
   case SignType of
@@ -5701,6 +5791,18 @@ begin
       begin
         Sm3Dig := SM3File(FileName);
         outStream.Write(Sm3Dig, SizeOf(TCnSM3Digest));
+        Result := True;
+      end;
+    esdtSHA384:
+      begin
+        Sha384 := SHA384File(FileName);
+        outStream.Write(Sha384, SizeOf(TCnSHA384Digest));
+        Result := True;
+      end;
+    esdtSHA512:
+      begin
+        Sha512 := SHA512File(FileName);
+        outStream.Write(Sha512, SizeOf(TCnSHA512Digest));
         Result := True;
       end;
   end;
@@ -6304,6 +6406,8 @@ begin
     esdtSHA1: Result := 'SHA1';
     esdtSHA256: Result := 'SHA256';
     esdtSM3: Result := 'SM3';
+    esdtSHA384: Result := 'SHA384';
+    esdtSHA512: Result := 'SHA512';
   else
     Result := '<Unknown>';
   end;

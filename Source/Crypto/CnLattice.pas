@@ -24,11 +24,17 @@ unit CnLattice;
 * 软件名称：开发包基础库
 * 单元名称：格密码计算单元
 * 单元作者：CnPack 开发组 (master@cnpack.org)
-* 备    注：本单元简略实现了基于格（Lattice）的 NTRU 加解密算法。
+* 备    注：本单元简略实现了基于格（Lattice）的 NTRU （数论研究单元）公开密钥加解密算法
+*           及 MLKEM （基于模块化格上的学习误差问题的密钥封装）算法。
+*           MLKEM 基于 NIST 的 FIPS 203 规范。
+*
+*           NTRU 只支持较短的明文加解密。
 * 开发平台：Win7 + Delphi 5.0
 * 兼容测试：暂未进行
 * 本 地 化：该单元无需本地化处理
-* 修改记录：2023.09.10 V1.1
+* 修改记录：2025.11.10 V1.2
+*               实现 MLKEM 的加解密与密钥封装解封算法
+*           2023.09.10 V1.1
 *               实现 NTRU 的加解密算法
 *           2023.08.25 V1.0
 *               创建单元，实现功能
@@ -40,13 +46,14 @@ interface
 {$I CnPack.inc}
 
 uses
-  SysUtils, Classes, CnNative, CnVector, CnBigNumber, CnPolynomial, CnRandom, CnBits;
+  SysUtils, Classes, Contnrs,
+  CnNative, CnVector, CnBigNumber, CnPolynomial, CnRandom, CnBits, CnSHA3;
 
 type
-  ECnLatticeException = class(Exception);
+  ECnNTRUException = class(Exception);
   {* NTRU 相关异常}
 
-  TCnNTRUParamType = (cnptCustomized, cnptClassic, cnptHPS2048509, cnptHPS2048677,
+  TCnNTRUParamType = (cnptHPS2048509, cnptHPS2048677,
     cnptHPS4096821);
   {* NTRU 几个推荐参数}
 
@@ -113,7 +120,7 @@ type
   TCnNTRU = class
   {* Number Theory Research Unit 实现类}
   private
-    FQ: Int64;
+    FQ: Int64;   // 提前计算出的模数 2^FQExponent
     FQExponent: Integer;
     FD: Integer;
     FN: Integer;
@@ -144,7 +151,7 @@ type
     }
 
   public
-    constructor Create(NTRUType: TCnNTRUParamType = cnptClassic); virtual;
+    constructor Create(NTRUType: TCnNTRUParamType = cnptHPS2048509); virtual;
     {* 构造函数，指定 NTRU 参数类型。
 
        参数：
@@ -243,12 +250,12 @@ procedure NTRUDataToInt64Polynomial(Res: TCnInt64Polynomial; Data: Pointer;
      Res: TCnInt64Polynomial              - 输出的结果多项式
      Data: Pointer                        - 待转换的数据块地址
      ByteLength: Integer                  - 待转换的数据块字节长度
-     N: Int64                             - 多项式位数
+     N: Int64                             - 多项式位数，一般取 NTRU 的 N
      Modulus: Int64                       - 模数
      CheckSum: Boolean                    - 取系数校验的方式
 
    返回值：（无）
-}                                                                              
+}
 
 function NTRUInt64PolynomialToData(P: TCnInt64Polynomial; N: Int64; Modulus: Int64;
   Data: Pointer; CheckSum: Boolean = True): Integer;
@@ -312,12 +319,9 @@ type
 
 const
   NTRU_PRE_DEFINED_PARAMS: array[TCnNTRUParamType] of TCnNTRUPredefinedParams = (
-    (N: 11; D: 3; P: 3; QExp: 2),
-    (N: 251; D: 72; P: 3; QExp: 8),
     (N: 509; D: 127; P: 3; QExp: 11),  // D 内部是 2^QExp div 16 - 1
     (N: 677; D: 127; P: 3; QExp: 11),  // D 内部是 2^QExp div 16 - 1
     (N: 821; D: 255; P: 3; QExp: 12)   // D 内部是 2^QExp div 16 - 1
-    // (N: 702; D: 0; P: 3; QExp: 13)
   );
 
 var
@@ -452,7 +456,7 @@ begin
     Exit;
 
   if Blk > 31 then // 限制在 Cardinal 内的模数
-    raise ECnLatticeException.CreateFmt(SCnErrorLatticeModulusTooMuch, [Modulus]);
+    raise ECnNTRUException.CreateFmt(SCnErrorLatticeModulusTooMuch, [Modulus]);
 
   if CheckSum then
     C := N - 1  // 读 N - 1 个，第 N 个留着做校验和
@@ -461,7 +465,7 @@ begin
 
   // 一共要读　Blk * C 个位，如果待读的内容字节数超出这么多位所占的字节数，则抛出异常
   if ByteLength > (Blk * C + 7) div 8 then
-    raise ECnLatticeException.CreateFmt(SCnErrorLatticeDataTooLong, [ByteLength]);
+    raise ECnNTRUException.CreateFmt(SCnErrorLatticeDataTooLong, [ByteLength]);
 
   Bld := TCnBitBuilder.Create;
   try
@@ -499,7 +503,7 @@ begin
     Exit;
 
   if Blk > 31 then // 限制在 Cardinal 内的模数
-    raise ECnLatticeException.CreateFmt(SCnErrorLatticeModulusTooMuch, [Modulus]);
+    raise ECnNTRUException.CreateFmt(SCnErrorLatticeModulusTooMuch, [Modulus]);
 
   if CheckSum then
     C := N - 1
@@ -760,7 +764,7 @@ var
 begin
   if (MaxDegree < 0) or (OneCount < 0) or (MinusOneCount < 0) or
     (OneCount + MinusOneCount >= MaxDegree) then
-    raise ECnLatticeException.Create(SCnErrorLatticeNTRUInvalidParam);
+    raise ECnNTRUException.Create(SCnErrorLatticeNTRUInvalidParam);
 
   SetLength(F, MaxDegree + 1);
   for I := 0 to OneCount - 1 do
@@ -785,7 +789,7 @@ var
   I: Integer;
 begin
   if MaxDegree < 0 then
-    raise ECnLatticeException.Create(SCnErrorLatticeNTRUInvalidParam);
+    raise ECnNTRUException.Create(SCnErrorLatticeNTRUInvalidParam);
 
   P.MaxDegree := MaxDegree;
   for I := 0 to MaxDegree do

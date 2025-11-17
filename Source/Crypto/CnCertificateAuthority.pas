@@ -54,7 +54,9 @@ unit CnCertificateAuthority;
 * 开发平台：WinXP + Delphi 5.0
 * 兼容测试：暂未进行
 * 本 地 化：该单元无需本地化处理
-* 修改记录：2023.11.27 V1.6
+* 修改记录：2025.11.03 V1.7
+*               增加两个从字节数组中读证书及证书请求的封装函数
+*           2023.11.27 V1.6
 *               读 PEM 格式的 CRT 证书时也支持二进制 ASN.1 格式的 CER 证书
 *           2021.12.09 V1.5
 *               加入 SM2/SM3 证书类型的解析支持
@@ -76,7 +78,7 @@ interface
 {$I CnPack.inc}
 
 uses
-  SysUtils, Classes, TypInfo, {$IFDEF MSWINDOWS} Windows, {$ENDIF}
+  SysUtils, Classes, TypInfo, {$IFDEF MSWINDOWS} Windows, {$ENDIF} CnNative,
   CnBigNumber, CnRSA, CnECC, CnBerUtils, CnPemUtils, CnMD5, CnSHA1, CnSHA2;
 
 const
@@ -92,7 +94,7 @@ type
   {* 证书相关异常}
 
   TCnCASignType = (ctMd5RSA, ctSha1RSA, ctSha256RSA, ctMd5Ecc, ctSha1Ecc,
-    ctSha256Ecc, ctSM2withSM3);
+    ctSha256Ecc, ctSM2withSM3, ctSha384Ecc, ctSha512Ecc);
   {* 证书签名使用的杂凑签名算法，ctSha1RSA 表示先 Sha1 再 RSA，但 ctSM2withSM3 表示先 SM3 再 SM2}
 
   TCnCASignTypes = set of TCnCASignType;
@@ -651,6 +653,17 @@ function CnCALoadCertificateSignRequestFromFile(const FileName: string;
    返回值：Boolean                                        - 返回加载是否成功
 }
 
+function CnCALoadCertificateSignRequestFromBytes(Data: TBytes;
+  CertificateRequest: TCnCertificateRequest): Boolean;
+{* 解析 PEM 格式的 CSR 字节数组并将内容加载入 TCnCertificateRequest 对象中。
+
+   参数：
+     Data: TBytes                                         - 待解析的 PEM 字节数组
+     CertificateRequest: TCnCertificateRequest            - 加载的证书请求对象
+
+   返回值：Boolean                                        - 返回加载是否成功
+}
+
 function CnCALoadCertificateSignRequestFromStream(Stream: TStream;
   CertificateRequest: TCnCertificateRequest): Boolean;
 {* 解析 PEM 格式的 CSR 流并将内容加载入 TCnCertificateRequest 对象中。
@@ -756,6 +769,18 @@ function CnCALoadCertificateFromFile(const FileName: string;
    返回值：Boolean                        - 返回加载是否成功
 }
 
+function CnCALoadCertificateFromBytes(Data: TBytes;
+  Certificate: TCnCertificate; const Password: string = ''): Boolean;
+{* 解析 PEM 格式的 CRT 证书流或原始的二进制 CER 字节数组，并将内容放入 TCnCertificate 对象中。
+
+   参数：
+     Data: TBytes                         - 待解析的流
+     Certificate: TCnCertificate          - 加载的证书对象
+     const Password: string               - 证书如加密，此处提供对应密码
+
+   返回值：Boolean                        - 返回加载是否成功
+}
+
 function CnCALoadCertificateFromStream(Stream: TStream;
   Certificate: TCnCertificate; const Password: string = ''): Boolean;
 {* 解析 PEM 格式的 CRT 证书流或原始的二进制 CER 流，并将内容放入 TCnCertificate 对象中。
@@ -830,10 +855,25 @@ function GetCASignNameFromSignType(Sign: TCnCASignType): string;
    返回值：string                         - 返回证书的签名杂凑算法
 }
 
-implementation
+function GetRSASignTypeFromCASignType(CASignType: TCnCASignType): TCnRSASignDigestType;
+{* 从 RSA 证书的签名杂凑算法中获取其对应的杂凑类型。
 
-uses
-  CnNative;
+   参数：
+     CASignType: TCnCASignType            - 证书的签名杂凑算法
+
+   返回值：TCnRSASignDigestType           - 返回对应的杂凑算法
+}
+
+function GetEccSignTypeFromCASignType(CASignType: TCnCASignType): TCnEccSignDigestType;
+{* 从 ECC 证书的签名类型中获取其对应的杂凑类型。
+
+   参数：
+     CASignType: TCnCASignType            - 证书的签名杂凑算法
+
+   返回值：TCnRSASignDigestType           - 返回对应的杂凑算法
+}
+
+implementation
 
 resourcestring
   SCnErrorNotSelfSignCanNotVerify = 'NOT Self-Sign. Can NOT Verify.';
@@ -926,6 +966,14 @@ const
     $2A, $81, $1C, $CF, $55, $01, $83, $75
   ); // 1.2.156.10197.1.501
 
+  OID_SHA384_ECDSA                : array[0..7] of Byte = (
+    $2A, $86, $48, $CE, $3D, $04, $03, $03
+  );// 1.2.840.10045.4.3.3
+
+  OID_SHA512_ECDSA                : array[0..7] of Byte = (
+    $2A, $86, $48, $CE, $3D, $04, $03, $04
+  );// 1.2.840.10045.4.3.4
+
   SCRLF = #13#10;
 
   // 用于交换字符串数据的常量
@@ -938,7 +986,7 @@ const
   SDN_EMAILADDRESS               = 'EmailAddress';
 
   RSA_CA_TYPES: TCnCASignTypes = [ctMd5RSA, ctSha1RSA, ctSha256RSA];
-  ECC_CA_TYPES: TCnCASignTypes = [ctMd5Ecc, ctSha1Ecc, ctSha256Ecc, ctSM2withSM3];
+  ECC_CA_TYPES: TCnCASignTypes = [ctMd5Ecc, ctSha1Ecc, ctSha256Ecc, ctSM2withSM3, ctSha384Ecc, ctSha512Ecc];
 
 var
   DummyPointer: Pointer;
@@ -965,7 +1013,13 @@ begin
         SizeOf(OID_SHA256_ECDSA), AParent);
     ctSM2withSM3:
       Result := AWriter.AddBasicNode(CN_BER_TAG_OBJECT_IDENTIFIER, @OID_SM2_SM3ENCRYPTION[0],
-        SizeOf(OID_SM2_SM3ENCRYPTION), AParent)
+        SizeOf(OID_SM2_SM3ENCRYPTION), AParent);
+    ctSha384Ecc:
+      Result := AWriter.AddBasicNode(CN_BER_TAG_OBJECT_IDENTIFIER, @OID_SHA384_ECDSA[0],
+        SizeOf(OID_SHA384_ECDSA), AParent);
+    ctSha512Ecc:
+      Result := AWriter.AddBasicNode(CN_BER_TAG_OBJECT_IDENTIFIER, @OID_SHA512_ECDSA[0],
+        SizeOf(OID_SHA512_ECDSA), AParent);
     // TODO: 其它算法类型支持
   end;
 end;
@@ -977,6 +1031,8 @@ var
   Md5: TCnMD5Digest;
   Sha1: TCnSHA1Digest;
   Sha256: TCnSHA256Digest;
+  Sha384: TCnSHA384Digest;
+  Sha512: TCnSHA512Digest;
 begin
   Result := False;
   case CASignType of
@@ -996,6 +1052,18 @@ begin
       begin
         Sha256 := SHA256Buffer(Buffer, Count);
         outStream.Write(Sha256, SizeOf(TCnSHA256Digest));
+        Result := True;
+      end;
+    ctSha384Ecc:
+      begin
+        Sha384 := SHA384Buffer(Buffer, Count);
+        outStream.Write(Sha384, SizeOf(TCnSHA384Digest));
+        Result := True;
+      end;
+    ctSha512Ecc:
+      begin
+        Sha512 := SHA512Buffer(Buffer, Count);
+        outStream.Write(Sha512, SizeOf(TCnSHA512Digest));
         Result := True;
       end;
   end;
@@ -1026,6 +1094,10 @@ begin
       Result := esdtSHA256;
     ctSM2withSM3:
       Result := esdtSM3;
+    ctSha384Ecc:
+      Result := esdtSHA384;
+    ctSha512Ecc:
+      Result := esdtSHA512;
   end;
 end;
 
@@ -1400,7 +1472,13 @@ begin
     Result := ctSha256Ecc
   else if CompareObjectIdentifier(ObjectIdentifierNode, @OID_SM2_SM3ENCRYPTION[0],
     SizeOf(OID_SM2_SM3ENCRYPTION)) then
-    Result := ctSM2withSM3;
+    Result := ctSM2withSM3
+  else if CompareObjectIdentifier(ObjectIdentifierNode, @OID_SHA384_ECDSA[0],
+    SizeOf(OID_SHA384_ECDSA)) then
+    Result := ctSha384Ecc
+  else if CompareObjectIdentifier(ObjectIdentifierNode, @OID_SHA512_ECDSA[0],
+    SizeOf(OID_SHA512_ECDSA)) then
+    Result := ctSha512Ecc;
 end;
 
 // 从以下结构中解出 RSA 公钥
@@ -1651,6 +1729,21 @@ var
 begin
   Stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
+    Result := CnCALoadCertificateSignRequestFromStream(Stream, CertificateRequest);
+  finally
+    Stream.Free;
+  end;
+end;
+
+function CnCALoadCertificateSignRequestFromBytes(Data: TBytes;
+  CertificateRequest: TCnCertificateRequest): Boolean;
+var
+  Stream: TMemoryStream;
+begin
+  Stream := TMemoryStream.Create;
+  try
+    WriteBytesToStream(Data, Stream);
+    Stream.Position := 0;
     Result := CnCALoadCertificateSignRequestFromStream(Stream, CertificateRequest);
   finally
     Stream.Free;
@@ -2238,6 +2331,8 @@ begin
     ctSha1Ecc: Result := 'SHA1 ECDSA';
     ctSha256Ecc: Result := 'SHA256 ECDSA';
     ctSM2withSM3: Result := 'SM2 with SM3';
+    ctSha384Ecc: Result := 'SHA384 ECDSA';
+    ctSha512Ecc: Result := 'SHA512 ECDSA';
   else
     Result := '<Unknown>';
   end;
@@ -2330,6 +2425,21 @@ var
 begin
   Stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
+    Result := CnCALoadCertificateFromStream(Stream, Certificate, Password);
+  finally
+    Stream.Free;
+  end;
+end;
+
+function CnCALoadCertificateFromBytes(Data: TBytes;
+  Certificate: TCnCertificate; const Password: string): Boolean;
+var
+  Stream: TMemoryStream;
+begin
+  Stream := TMemoryStream.Create;
+  try
+    WriteBytesToStream(Data, Stream);
+    Stream.Position := 0;
     Result := CnCALoadCertificateFromStream(Stream, Certificate, Password);
   finally
     Stream.Free;
@@ -2609,8 +2719,16 @@ begin
   Result := Result + SCRLF + 'Subject: ';
   Result := Result + SCRLF + FSubject.ToString;
   Result := Result + SCRLF + 'SubjectUniqueID: ' + FSubjectUniqueID;
-  Result := Result + SCRLF + 'Subject Public Key Modulus: ' + SubjectRSAPublicKey.PubKeyProduct.ToDec;
-  Result := Result + SCRLF + 'Subject Public Key Exponent: ' + SubjectRSAPublicKey.PubKeyExponent.ToDec;
+  if FSubjectIsRSA then
+  begin
+    Result := Result + SCRLF + 'Subject RSA Public Key Modulus: ' + SubjectRSAPublicKey.PubKeyProduct.ToDec;
+    Result := Result + SCRLF + 'Subject RSA Public Key Exponent: ' + SubjectRSAPublicKey.PubKeyExponent.ToDec;
+  end
+  else
+  begin
+    Result := Result + SCRLF + 'Subject ECC Public Key: ' + SubjectEccPublicKey.ToString;
+    Result := Result + SCRLF + 'Subject ECC CurveType: ' + GetEnumName(TypeInfo(TCnEccCurveType), Ord(SubjectEccCurveType));
+  end;
   Result := Result + SCRLF + FStandardExtension.ToString;
   Result := Result + SCRLF + FPrivateInternetExtension.ToString;
 end;

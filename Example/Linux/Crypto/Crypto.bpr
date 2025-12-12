@@ -8,7 +8,7 @@
       ..\..\..\Source\Crypto\CnAES.obj ..\..\..\Source\Crypto\CnBase64.obj 
       ..\..\..\Source\Crypto\CnBerUtils.obj ..\..\..\Source\Crypto\CnBigNumber.obj 
       ..\..\..\Source\Crypto\CnBits.obj ..\..\..\Source\Crypto\CnBLAKE.obj 
-      ..\..\..\Source\Crypto\CnBLAKE2.obj 
+      ..\..\..\Source\Crypto\CnBLAKE2.obj ..\..\..\Source\Crypto\CnCalendar.obj 
       ..\..\..\Source\Crypto\CnCertificateAuthority.obj 
       ..\..\..\Source\Crypto\CnChaCha20.obj ..\..\..\Source\Crypto\CnComplex.obj 
       ..\..\..\Source\Crypto\CnCRC32.obj ..\..\..\Source\Crypto\CnDES.obj 
@@ -16,7 +16,7 @@
       ..\..\..\Source\Crypto\CnFEC.obj ..\..\..\Source\Crypto\CnFNV.obj 
       ..\..\..\Source\Crypto\CnInt128.obj ..\..\..\Source\Crypto\CnKDF.obj 
       ..\..\..\Source\Crypto\CnLattice.obj ..\..\..\Source\Crypto\CnMD5.obj 
-      ..\..\..\Source\Crypto\CnMLKEM.obj 
+      ..\..\..\Source\Crypto\CnMLDSA.obj ..\..\..\Source\Crypto\CnMLKEM.obj 
       ..\..\..\Source\Crypto\CnNative.obj ..\..\..\Source\Crypto\CnOTP.obj 
       ..\..\..\Source\Crypto\CnOTS.obj ..\..\..\Source\Crypto\CnPaillier.obj 
       ..\..\..\Source\Crypto\CnPDFCrypt.obj 

@@ -1,6 +1,6 @@
 object FormLattice: TFormLattice
   Left = 192
-  Top = 114
+  Top = 115
   Width = 834
   Height = 615
   Caption = 'Lattice'
@@ -445,7 +445,7 @@ object FormLattice: TFormLattice
           TabOrder = 1
         end
         object cbbMLDSAType: TComboBox
-          Left = 400
+          Left = 328
           Top = 32
           Width = 145
           Height = 21
@@ -463,6 +463,78 @@ object FormLattice: TFormLattice
           Width = 761
           Height = 161
           TabOrder = 3
+        end
+        object btnMLDSALoadKey: TButton
+          Left = 670
+          Top = 32
+          Width = 107
+          Height = 25
+          Caption = 'MLDSA LoadKey'
+          TabOrder = 4
+          OnClick = btnMLDSALoadKeyClick
+        end
+        object btnMLDSATestNTT: TButton
+          Left = 568
+          Top = 32
+          Width = 75
+          Height = 25
+          Caption = 'Test NTT'
+          TabOrder = 5
+          OnClick = btnMLDSATestNTTClick
+        end
+        object btnMLDSATestSign: TButton
+          Left = 16
+          Top = 240
+          Width = 75
+          Height = 25
+          Caption = 'Test Sign 1'
+          TabOrder = 6
+          OnClick = btnMLDSATestSignClick
+        end
+        object btnMLDSATestSign2: TButton
+          Left = 112
+          Top = 240
+          Width = 75
+          Height = 25
+          Caption = 'Test Sign 2'
+          TabOrder = 7
+          OnClick = btnMLDSATestSign2Click
+        end
+        object btnMLDSATestVerify: TButton
+          Left = 208
+          Top = 240
+          Width = 75
+          Height = 25
+          Caption = 'Test Verify'
+          TabOrder = 8
+          OnClick = btnMLDSATestVerifyClick
+        end
+        object btnMLDSATestSignVer: TButton
+          Left = 304
+          Top = 240
+          Width = 75
+          Height = 25
+          Caption = 'Test Batch'
+          TabOrder = 9
+          OnClick = btnMLDSATestSignVerClick
+        end
+        object btnMLDSATestSign65: TButton
+          Left = 400
+          Top = 240
+          Width = 75
+          Height = 25
+          Caption = 'Test Sign 65'
+          TabOrder = 10
+          OnClick = btnMLDSATestSign65Click
+        end
+        object btnMLDSATest65KeyGen: TButton
+          Left = 496
+          Top = 240
+          Width = 89
+          Height = 25
+          Caption = 'Test 65 KeyGen'
+          TabOrder = 11
+          OnClick = btnMLDSATest65KeyGenClick
         end
       end
     end

@@ -72,6 +72,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="..\..\..\Source\Crypto\CnCalendar.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="..\..\..\Source\Crypto\CnCertificateAuthority.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
@@ -121,6 +125,14 @@
       </Unit>
       <Unit>
         <Filename Value="..\..\..\Source\Crypto\CnMD5.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\..\Source\Crypto\CnMLDSA.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\..\Source\Crypto\CnMLKEM.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>

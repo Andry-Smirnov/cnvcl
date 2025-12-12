@@ -22,7 +22,7 @@ unit CnMLDSA;
 {* |<PRE>
 ================================================================================
 * 软件名称：开发包基础库
-* 单元名称：基于模块化格的数字签名算法实现单元
+* 单元名称：基于模块化格的数字签名算法 MLDSA 实现单元
 * 单元作者：CnPack 开发组 (master@cnpack.org)
 * 备    注：本单元实现了 NIST 的 FIPS 204 规范中的 MLDSA
 *          （Module-Lattice-based Digital Signature Algorithm，基于模块化格的数字签名算法）。
@@ -41,7 +41,7 @@ interface
 
 uses
   SysUtils, Classes, Contnrs,
-  CnNative, CnVector, CnBigNumber, CnPolynomial, CnRandom, CnBits, CnSHA2, CnSHA3;
+  CnNative, CnVector, CnPolynomial, CnRandom, CnBits, CnSHA2, CnSHA3, CnSM3;
 
 const
   CN_MLDSA_KEY_SIZE    = 32;
@@ -75,7 +75,9 @@ type
   TCnMLDSAType = (cmdt44, cmdt65, cmdt87);
   {* MLDSA 的三种实现规范}
 
-  TCnMLDSAHashType = (cmhtNone, cmhtSHA256, cmhtSHA512, cmhtSHAKE128);
+  TCnMLDSAHashType = (cmhtNone, cmhtSHA224, cmhtSHA256, cmhtSHA384, cmhtSHA512,
+    cmhtSHA512_224, cmhtSHA512_256, cmhtSHA3_224, cmhtSHA3_256, cmhtSHA3_384,
+    cmhtSHA3_512, cmhtSHAKE128, cmhtSHAKE256, cmhtSM3);
   {* MLDSA 支持的杂凑算法}
 
   TCnMLDSASeed = array[0..CN_MLDSA_KEY_SIZE - 1] of Byte;
@@ -98,37 +100,27 @@ type
 
   TCnMLDSAPrivateKey = class
   {* MLDSA 的私钥}
-  private
-    FGenerationSeed: TCnMLDSASeed;
-    FKey: TCnMLDSASeed;
-    FTrace: TCnMLDSAKeyDigest;
-    FS1: TCnMLDSAPolyVector;
-    FS2: TCnMLDSAPolyVector;
-    FT0: TCnMLDSAPolyVector;
   public
-    property GenerationSeed: TCnMLDSASeed read FGenerationSeed;
+    GenerationSeed: TCnMLDSASeed;
     {* 用于生成矩阵的随机种子，相当于规范里的 rho 象形 p}
-    property Key: TCnMLDSASeed read FKey write FKey;
+    Key: TCnMLDSASeed;
     {* 规范里的从杂凑结果中抽取的 K}
-    property Trace: TCnMLDSAKeyDigest read FTrace write FTrace;
+    Trace: TCnMLDSAKeyDigest;
     {* 公钥流的 64 字节 SHAKE256 摘要}
-    property S1: TCnMLDSAPolyVector read FS1 write FS1;
+    S1: TCnMLDSAPolyVector;
     {* 秘密多项式向量 S1，维度为矩阵列数，系数为非 NTT 形式}
-    property S2: TCnMLDSAPolyVector read FS2 write FS2;
+    S2: TCnMLDSAPolyVector;
     {* 秘密多项式向量 S2，维度为矩阵行数，系数为非 NTT 形式}
-    property T0: TCnMLDSAPolyVector read FT0 write FT0;
+    T0: TCnMLDSAPolyVector;
     {* 矩阵运算得到的多项式向量 T 的分离私钥部分 T0，维度为矩阵行数，系数为非 NTT 形式}
   end;
 
   TCnMLDSAPublicKey = class
   {* MLDSA 的公钥}
-  private
-    FGenerationSeed: TCnMLDSASeed;
-    FT1: TCnMLDSAPolyVector;
   public
-    property GenerationSeed: TCnMLDSASeed read FGenerationSeed;
+    GenerationSeed: TCnMLDSASeed;
     {* 用于生成矩阵的随机种子，相当于规范里的 p}
-    property T1: TCnMLDSAPolyVector read FT1 write FT1;
+    T1: TCnMLDSAPolyVector;
     {* 矩阵运算得到的多项式向量 T 的分离公钥部分 T1，维度为矩阵行数}
   end;
 
@@ -146,8 +138,6 @@ type
     FBeta: Integer;
     FOmega: Integer;
 
-    function GetNoiseBitLength: Integer;
-
     procedure GenerateMatrix(const Seed: TCnMLDSASeed; out Matrix: TCnMLDSAPolyMatrix);
     {* 根据种子生成矩阵 A，系数是 NTT 形式，FMatrixRowCount 行，FMatrixColCount 列}
     procedure GenerateSecret(const Seed: TCnMLDSAKeyDigest; out S1, S2: TCnMLDSAPolyVector);
@@ -155,6 +145,7 @@ type
     procedure GenerateMask(const Dig: TBytes; Mu: Integer; out Mask: TCnMLDSAPolyVector);
     {* 根据种子生成掩码多项式向量}
 
+    function GetNoiseBitLength: Integer;
     function HintBitPackVector(const H: TCnMLDSAPolyVector): TBytes;
     procedure HintBitUnpackVector(const Data: TBytes; var V: TCnMLDSAPolyVector);
     procedure UseHintVector(var Res: TCnMLDSAPolyVector; const H: TCnMLDSAPolyVector;
@@ -187,23 +178,26 @@ type
     {* 用一个真随机 32 字节种子，生成一对 Key，如果不传则内部产生随机数生成}
 
     procedure LoadPrivateKeyFromBytes(PrivateKey: TCnMLDSAPrivateKey; const SK: TBytes);
-    {* 从字节数组中加载私钥}
+    {* 从字节数组中加载私钥，要求字节数组长度随三种规范不同分别是 2560、4032、4896}
     procedure LoadPublicKeyFromBytes(PublicKey: TCnMLDSAPublicKey; const PK: TBytes);
-    {* 从字节数组中加载公钥}
+    {* 从字节数组中加载公钥，要求字节数组长度随三种规范不同分别是 1312、1952、2592}
 
     function SavePrivateKeyToBytes(PrivateKey: TCnMLDSAPrivateKey): TBytes;
-    {* 将私钥保存成字节数组 SK}
+    {* 将私钥保存成字节数组 SK，长度随三种规范不同分别是 2560、4032、4896}
     function SavePublicKeyToBytes(PublicKey: TCnMLDSAPublicKey): TBytes;
-    {* 将公钥保存成字节数组 PK}
+    {* 将公钥保存成字节数组 PK，长度随三种规范不同分别是 1312、1952、2592}
 
     function SignBytes(PrivateKey: TCnMLDSAPrivateKey; const Msg: TBytes;
-      HashType: TCnMLDSAHashType = cmhtNone; const Ctx: AnsiString = '';
+      const Ctx: AnsiString = ''; HashType: TCnMLDSAHashType = cmhtNone;
       const RandHex: string = ''): TBytes;
-    {* 使用私钥针对字节数组签名，Ctx 是附加字符串，长度不能大于 255}
+    {* 使用私钥针对字节数组签名，Ctx 是附加字符串，长度不能大于 255。
+       RandHex 可指定随机数，注意不传时，内部使用 32 个 0。
+       签名字节数组长度随三种规范不同分别是 2420、3309、4627}
 
-    function VerifyBytes(PublicKey: TCnMLDSAPublicKey; const Signature: TBytes;
-      const Msg: TBytes; HashType: TCnMLDSAHashType = cmhtNone; const Ctx: AnsiString = ''): Boolean;
-    {* 使用公钥验证字节数组的签名，Ctx 是附加字符串，长度不能大于 255}
+    function VerifyBytes(PublicKey: TCnMLDSAPublicKey; const Msg: TBytes;
+      const Signature: TBytes; const Ctx: AnsiString = ''; HashType: TCnMLDSAHashType = cmhtNone): Boolean;
+    {* 使用公钥验证字节数组的签名，Ctx 是附加字符串，长度不能大于 255。
+       签名字节数组长度随三种规范不同分别是 2420、3309、4627}
 
     property MLDSAType: TCnMLDSAType read FMLDSAType;
     {* MLDSA 的算法类型，44、65、87 三种}
@@ -273,6 +267,16 @@ procedure MLDSAPolynomialSub(var Res: TCnMLDSAPolynomial;
    返回值：（无）
 }
 
+procedure MLDSAPolynomialNeg(var Res: TCnMLDSAPolynomial; const P: TCnMLDSAPolynomial);
+{* 一个 MKDSA 格式的多项式在 mod 8380417 有限域中取反。
+
+   参数：
+     Res: TCnMLDSAPolynomial              - MKDSA 格式的多项式取反的结果
+     P: TCnMLDSAPolynomial                - 待取反的 MKDSA 格式的多项式
+
+   返回值：（无）
+}
+
 procedure MLDSAPolynomialMul(var Res: TCnMLDSAPolynomial; const P1, P2: TCnMLDSAPolynomial;
   IsNTT: Boolean = True); overload;
 {* 两个 MKDSA 格式的多项式在 mod 8380417 及 x^256 + 1 的多项式环上相乘。
@@ -331,10 +335,46 @@ procedure MLDSAVectorAdd(var Res: TCnMLDSAPolyVector;
    返回值：（无）
 }
 
+procedure MLDSAVectorSub(var Res: TCnMLDSAPolyVector;
+  const V1: TCnMLDSAPolyVector; const V2: TCnMLDSAPolyVector);
+{* 两个 MKDSA 格式的多项式向量在 mod 8380417 有限域中相减，NTT 系数或 非 NTT 系数均适用。
+
+   参数：
+     Res: TCnMLDSAPolynomial              - MKDSA 格式的多项式向量差
+     V1: TCnMLDSAPolynomial               - MKDSA 格式的多项式向量被减数
+     V2: TCnMLDSAPolynomial               - MKDSA 格式的多项式向量减数
+
+   返回值：（无）
+}
+
+procedure MLDSAVectorNeg(var Res: TCnMLDSAPolyVector; const V: TCnMLDSAPolyVector);
+{* 一个 MKDSA 格式的多项式向量在 mod 8380417 有限域中取反。
+
+   参数：
+     Res: TCnMLDSAPolyVector              - MKDSA 格式的多项式向量取反的结果
+     V: TCnMLDSAPolyVector                - 待取反的 MKDSA 格式的多项式向量
+
+   返回值：（无）
+}
+
+procedure MLDSAPolynomialVectorMul(var Res: TCnMLDSAPolyVector;
+  const C: TCnMLDSAPolynomial; const V: TCnMLDSAPolyVector; IsNTT: Boolean = True);
+{* 一个 MKDSA 格式的多项式向量在 mod 8380417 及 x^256 + 1 的多项式环上乘以一个多项式，
+   得到一个多项式向量。结果维度为 V 的维度。
+
+   参数：
+     Res: TCnMLDSAPolyVector              - MKDSA 格式的多项式积
+     C: TCnMLDSAPolynomial                - MKDSA 格式的多项式向
+     V: TCnMLDSAPolyVector                - MKDSA 格式的多项式
+     IsNTT: Boolean                       - 多项式系数是否是 NTT 模式
+
+   返回值：（无）
+}
+
 procedure MLDSAMatrixVectorMul(var Res: TCnMLDSAPolyVector;
   const A: TCnMLDSAPolyMatrix; const S: TCnMLDSAPolyVector; IsNTT: Boolean = True);
 {* 一个 MKDSA 格式的多项式矩阵在 mod 8380417 及 x^256 + 1 的多项式环上乘以一个多项式向量，
-   得到一个多项式向量。用户需自行确保 A 的列数与 S 的维度一致，结果维度为 A 的行数。
+   得到一个多项式向量。用户需自行确保 A 的列数与 S 的维度一致，结果维度为 A 的行数。Res 不能是 S。
 
    参数：
      Res: TCnMLDSAPolyVector              - MKDSA 格式的多项式积
@@ -412,18 +452,60 @@ const
 
   MLDSA_INVALID_COEFF_HALFBYTE = $66;
 
-  MLDSA_HASH_SHAKE128_SIZE     = 256;
+  MLDSA_HASH_SHAKE128_SIZE     = 32;
+
+  MLDSA_HASH_SHAKE256_SIZE     = 64;
+
+  OID_MLDSA_PREHASH_SHA224: array[0..10] of Byte = ( // 2.16.840.1.101.3.4.2.4
+    $06, $09, $60, $86, $48, $01, $65, $03, $04, $02, $04
+  );
 
   OID_MLDSA_PREHASH_SHA256: array[0..10] of Byte = ( // 2.16.840.1.101.3.4.2.1
     $06, $09, $60, $86, $48, $01, $65, $03, $04, $02, $01
+  );
+
+  OID_MLDSA_PREHASH_SHA384: array[0..10] of Byte = ( // 2.16.840.1.101.3.4.2.2
+    $06, $09, $60, $86, $48, $01, $65, $03, $04, $02, $02
   );
 
   OID_MLDSA_PREHASH_SHA512: array[0..10] of Byte = ( // 2.16.840.1.101.3.4.2.3
     $06, $09, $60, $86, $48, $01, $65, $03, $04, $02, $03
   );
 
+  OID_MLDSA_PREHASH_SHA512_224: array[0..10] of Byte = ( // 2.16.840.1.101.3.4.2.5
+    $06, $09, $60, $86, $48, $01, $65, $03, $04, $02, $05
+  );
+
+  OID_MLDSA_PREHASH_SHA512_256: array[0..10] of Byte = ( // 2.16.840.1.101.3.4.2.6
+    $06, $09, $60, $86, $48, $01, $65, $03, $04, $02, $06
+  );
+
+  OID_MLDSA_PREHASH_SHA3_224: array[0..10] of Byte = ( // 2.16.840.1.101.3.4.2.7
+    $06, $09, $60, $86, $48, $01, $65, $03, $04, $02, $07
+  );
+
+  OID_MLDSA_PREHASH_SHA3_256: array[0..10] of Byte = ( // 2.16.840.1.101.3.4.2.8
+    $06, $09, $60, $86, $48, $01, $65, $03, $04, $02, $08
+  );
+
+  OID_MLDSA_PREHASH_SHA3_384: array[0..10] of Byte = ( // 2.16.840.1.101.3.4.2.9
+    $06, $09, $60, $86, $48, $01, $65, $03, $04, $02, $09
+  );
+
+  OID_MLDSA_PREHASH_SHA3_512: array[0..10] of Byte = ( // 2.16.840.1.101.3.4.2.10
+    $06, $09, $60, $86, $48, $01, $65, $03, $04, $02, $0A
+  );
+
   OID_MLDSA_PREHASH_SHAKE128: array[0..10] of Byte = ( // 2.16.840.1.101.3.4.2.11
     $06, $09, $60, $86, $48, $01, $65, $03, $04, $02, $0B
+  );
+
+  OID_MLDSA_PREHASH_SHAKE256: array[0..10] of Byte = ( // 2.16.840.1.101.3.4.2.12
+    $06, $09, $60, $86, $48, $01, $65, $03, $04, $02, $0C
+  );
+
+  OID_MLDSA_PREHASH_SM3: array[0..7] of Byte = ( // 1.0.10118.3.0.65
+    $06, $06, $28, $CF, $06, $03, $00, $41
   );
 
 // ================================ MLDSA ======================================
@@ -442,16 +524,6 @@ end;
 function MLDSAModMul(A, B: Integer): Integer; {$IFDEF SUPPORT_INLINE} inline; {$ENDIF}
 begin
   Result := Int64NonNegativeMulMod(A, B, CN_MLDSA_PRIME);
-end;
-
-// 将整数 A 模中心化，也就是映射到 [-(q-1)/2, (Q-1)/2] 范围内
-function MLDSACenterMod(A: Integer): Integer;
-begin
-  Result := A mod CN_MLDSA_PRIME;
-  if Result < 0 then
-    Result := Result + CN_MLDSA_PRIME;
-  if Result > (CN_MLDSA_PRIME - 1) div 2 then
-    Result := Result - CN_MLDSA_PRIME;
 end;
 
 // MLDSA 使用的特定数论变换
@@ -629,6 +701,9 @@ procedure MLDSAVectorNeg(var Res: TCnMLDSAPolyVector; const V: TCnMLDSAPolyVecto
 var
   I: Integer;
 begin
+  if (Res <> V) and (Length(Res) <> Length(V)) then
+    SetLength(Res, Length(V));
+
   for I := Low(V) to High(V) do
     MLDSAPolynomialNeg(Res[I], V[I]);
 end;
@@ -784,17 +859,17 @@ begin
   end;
 end;
 
-// 取 R 的低 D 位放 R0，其余的放 R1
+// 取 R 的低 D 位（13 位）放 R0，其余的放 R1
 procedure MLDSAPower2Round(R: Integer; out R0, R1: Integer);
 var
-  T: Integer;
+  RP: Integer;
 begin
-  T := R mod CN_MLDSA_PRIME;
-  if T < 0 then
-    T := T + CN_MLDSA_PRIME;
+  RP := R mod CN_MLDSA_PRIME;
+  if RP < 0 then
+    RP := RP + CN_MLDSA_PRIME;
 
-  R0 := T and ((1 shl CN_MLDSA_DROPBIT) - 1);
-  R1 := (T - R0) shr CN_MLDSA_DROPBIT;
+  R0 := Int64CenterMod(RP, 1 shl CN_MLDSA_DROPBIT);
+  R1 := (RP - R0) shr CN_MLDSA_DROPBIT;
 end;
 
 procedure MLDSAPower2RoundPolynomial(const R: TCnMLDSAPolynomial; var R0, R1: TCnMLDSAPolynomial);
@@ -824,29 +899,27 @@ var
   RP: Integer;
   Alpha: Integer;
 begin
-  // α = 2γ2
   Alpha := 2 * Gamma;
 
-  // r+ = r mod q
+  // 标准化到 [0, q)
   RP := R mod CN_MLDSA_PRIME;
   if RP < 0 then
     RP := RP + CN_MLDSA_PRIME;
 
-  // r0 = r0 mod α
+  // 计算 r0，映射到 (-γ, γ]
   R0 := RP mod Alpha;
-  if R0 < 0 then
-    R0 := R0 + Alpha;
 
-  // 检查特殊情况：如果 rp - r0 = q - 1
+  // 确保 r0 ∈ (-γ, γ]，当 r0 > γ 时，调整为 r0 - α
+  if R0 > Gamma then
+    R0 := R0 - Alpha;
+
+  R1 := (RP - R0) div Alpha;
+
+  // 边界情况处理，当 r - r0 = q - 1 时，设置 r1 = 0, r0 = r0 - 1
   if (RP - R0) = (CN_MLDSA_PRIME - 1) then
   begin
     R1 := 0;
     R0 := R0 - 1;
-  end
-  else
-  begin
-    // 正常情况：r1 = (rp - r0) / α
-    R1 := (RP - R0) div Alpha;
   end;
 end;
 
@@ -927,19 +1000,9 @@ begin
   begin
     Result := R1;
   end;
-end;
 
-procedure TCnMLDSA.UseHintVector(var Res: TCnMLDSAPolyVector;
-  const H: TCnMLDSAPolyVector; const R: TCnMLDSAPolyVector);
-var
-  I, J: Integer;
-begin
-  SetLength(Res, Length(H));
-  for I := Low(H) to High(H) do
-  begin
-    for J := Low(H[I]) to High(H[I]) do
-      Res[I][J] := MLDSAUseHint(H[I][J] <> 0, R[I][J], FGamma2);
-  end;
+  if Result < 0 then // 不能返回负值
+    Result := Result + M;
 end;
 
 procedure MLDSADecomposePolynomial(const R: TCnMLDSAPolynomial; Gamma: Integer;
@@ -1018,6 +1081,7 @@ begin
   try
     for I := Low(P) to High(P) do
       B.AppendDWordRange(P[I], D - 1);
+    Result := B.ToBytes;
   finally
     B.Free;
   end;
@@ -1100,8 +1164,8 @@ begin
     for I := Low(P) to High(P) do
     begin
       W := B - P[I];
-      L := GetUInt32HighBits(A + B);
-      T.AppendDWordRange(W, L);
+      L := GetUInt32BitLength(A + B);
+      T.AppendDWordRange(W, L - 1);
     end;
     Result := T.ToBytes;
   finally
@@ -1121,8 +1185,8 @@ begin
       for J := Low(V[I]) to High(V[I]) do
       begin
         W := B - V[I][J];
-        L := GetUInt32HighBits(A + B);
-        T.AppendDWordRange(W, L);
+        L := GetUInt32BitLength(A + B);
+        T.AppendDWordRange(W, L - 1);
       end;
     end;
     Result := T.ToBytes;
@@ -1132,17 +1196,17 @@ begin
 end;
 
 procedure MLDSABitUnpackPolynomial(const Data: TBytes;
-  P: TCnMLDSAPolynomial; A, B: Integer);
+  out P: TCnMLDSAPolynomial; A, B: Integer);
 var
   T: TCnBitBuilder;
   I, L: Integer;
 begin
-  I := 32 * (GetUInt32HighBits(A + B) + 1);
-  if Length(Data) <> I then
+  L := 32 * GetUInt32BitLength(A + B);
+  if Length(Data) <> L then
     raise ECnMLDSAException.CreateFmt(SCnErrorMLDSAPackLengthMismatch,
-      [I, Length(Data)]);
+      [L, Length(Data)]);
 
-  L := GetUInt32HighBits(A + B) + 1;
+  L := GetUInt32BitLength(A + B);
   T := TCnBitBuilder.Create;
   try
     T.SetBytes(Data);
@@ -1159,12 +1223,12 @@ var
   I, J, T, L: Integer;
   D: TCnBitBuilder;
 begin
-  I := 32 * (GetUInt32HighBits(A + B) + 1) * Length(V);
-  if Length(Data) <> I then
+  L := 32 * (GetUInt32BitLength(A + B)) * Length(V);
+  if Length(Data) <> L then
     raise ECnMLDSAException.CreateFmt(SCnErrorMLDSAPackLengthMismatch,
-      [I, Length(Data)]);
+      [L, Length(Data)]);
 
-  L := GetUInt32HighBits(A + B) + 1;
+  L := GetUInt32BitLength(A + B);
   D := TCnBitBuilder.Create;
   try
     D.SetBytes(Data);
@@ -1181,6 +1245,128 @@ begin
     D.Free;
   end;
 end;
+
+function MLDSAW1Encode(const W1: TCnMLDSAPolyVector; Gamma: Integer): TBytes;
+var
+  I, U: Integer;
+begin
+  Result := nil;
+
+  // 计算系数的上限: (q-1)/(2γ2)
+  U := (CN_MLDSA_PRIME - 1) div (2 * Gamma) - 1;
+
+  // 对向量中的每个多项式进行编码
+  for I := Low(W1) to High(W1) do
+    Result := ConcatBytes(Result, MLDSASimpleBitPackPolynomial(W1[I], GetUInt32BitLength(U)));
+end;
+
+procedure MLDSASampleInBall(const Seed: TBytes; Tau: Integer; out Res: TCnMLDSAPolynomial);
+var
+  Ctx: TCnSHA3Context;
+  S: TBytes;
+  H: array[0..63] of Byte;
+  I, J: Integer;
+  JByte: Byte;
+begin
+  FillChar(Res[0], SizeOf(TCnMLDSAPolynomial), 0);
+
+  SHAKE256Init(Ctx, 0);
+  SHAKE256Absorb(Ctx, PAnsiChar(@Seed[0]), Length(Seed));
+
+  S := SHAKE256Squeeze(Ctx, 8);
+  for I := 0 to 7 do
+  begin
+    for J := 0 to 7 do
+    begin
+      if I * 8 + J < 64 then
+        H[I * 8 + J] := (S[I] shr J) and 1;
+    end;
+  end;
+
+  for I := 256 - Tau to 255 do
+  begin
+    S := SHAKE256Squeeze(Ctx, 1);
+    JByte := S[0];
+
+    // 拒绝采样，确保 j ≤ i
+    while JByte > I do
+    begin
+      S := SHAKE256Squeeze(Ctx, 1);
+      JByte := S[0];
+    end;
+
+    J := JByte;
+    Res[I] := Res[J];
+
+    if H[I + Tau - 256] = 0 then
+      Res[J] := 1      // (-1)^0 = 1
+    else
+      Res[J] := -1;    // (-1)^1 = -1
+  end;
+end;
+
+function VectorInfinityNorm(const V: TCnMLDSAPolyVector): Integer;
+var
+  I, J: Integer;
+  AV: Integer;
+begin
+  Result := 0;
+  for I := Low(V) to High(V) do
+  begin
+    for J := Low(V[I]) to High(V[I]) do
+    begin
+      // 计算系数的绝对值
+      AV := Abs(V[I][J]);
+      if AV > CN_MLDSA_PRIME div 2 then
+        AV := CN_MLDSA_PRIME - AV;
+
+      if AV > Result then
+        Result := AV;
+    end;
+  end;
+end;
+
+function MLDSAVectorCountOne(const V: TCnMLDSAPolyVector): Integer;
+var
+  I, J: Integer;
+begin
+  Result := 0;
+  for I := Low(V) to High(V) do
+  begin
+    for J := Low(V[I]) to High(V[I]) do
+    begin
+      if V[I][J] <> 0 then
+        Inc(Result);
+    end;
+  end;
+end;
+
+procedure MLDSAVectorCenterMod(var Res: TCnMLDSAPolyVector;
+  const V: TCnMLDSAPolyVector);
+var
+  I, J: Integer;
+begin
+  if (Res <> V) and (Length(Res) <> Length(V)) then
+    SetLength(Res, Length(V));
+  
+  for I := Low(V) to High(V) do
+  begin
+    for J := Low(V[I]) to High(V[I]) do
+      Res[I][J] := Int64CenterMod(V[I][J], CN_MLDSA_PRIME);
+  end;
+end;
+
+function MLDSAHFunc(const Data: TBytes; DigestLen: Integer = CN_MLDSA_DIGEST_SIZE): TBytes;
+begin
+  Result := SHAKE256Bytes(Data, DigestLen);
+end;
+
+function MLDSAGFunc(const Data: TBytes; DigestLen: Integer = CN_MLDSA_DIGEST_SIZE): TBytes;
+begin
+  Result := SHAKE128Bytes(Data, DigestLen);
+end;
+
+{ TCnMLDSA }
 
 function TCnMLDSA.HintBitPackVector(const H: TCnMLDSAPolyVector): TBytes;
 var
@@ -1217,7 +1403,7 @@ end;
 procedure TCnMLDSA.HintBitUnpackVector(const Data: TBytes; var V: TCnMLDSAPolyVector);
 var
   Y: TBytes;
-  Index, First, I, J: Integer;
+  Index, First, I: Integer;
 begin
   // 验证数据长度
   if Length(Data) <> FOmega + FMatrixRowCount then
@@ -1270,141 +1456,34 @@ begin
   end;
 end;
 
-function MLDSAW1Encode(const W1: TCnMLDSAPolyVector; Gamma: Integer): TBytes;
-var
-  I, U: Integer;
-begin
-  Result := nil;
-
-  // 计算系数的上限: (q-1)/(2γ2) - 1
-  U := (CN_MLDSA_PRIME - 1) div (2 * Gamma) - 1;
-
-  // 对向量中的每个多项式进行编码
-  for I := Low(W1) to High(W1) do
-    Result := ConcatBytes(Result, MLDSASimpleBitPackPolynomial(W1[I], U));
-end;
-
-procedure MLDSASampleInBall(const Seed: TBytes; Tau: Integer; out Res: TCnMLDSAPolynomial);
-var
-  Ctx: TCnSHA3Context;
-  S: TBytes;
-  H: array[0..63] of Byte;
-  I, J: Integer;
-  Temp: Integer;
-  JByte: Byte;
-begin
-  FillChar(Res[0], SizeOf(TCnMLDSAPolynomial), 0);
-
-  SHAKE256Init(Ctx, 0);
-  SHAKE256Absorb(Ctx, PAnsiChar(@Seed[0]), Length(Seed));
-
-  S := SHAKE256Squeeze(Ctx, 8);
-  for I := 0 to 7 do
-  begin
-    for J := 0 to 7 do
-      H[I * 8 + J] := (S[I] shr J) and 1;
-  end;
-
-  for I := 0 to Tau - 1 do
-  begin
-    // 根据 h[i] 设置符号：h[i]=0 -> +1, h[i]=1 -> -1
-    if H[I] = 0 then
-      Res[I] := 1
-    else
-      Res[I] := -1;
-  end;
-
-  // 使用 Fisher-Yates 洗牌算法随机排列系数
-  for I := 255 downto 256 - Tau do
-  begin
-    S := SHAKE256Squeeze(Ctx, 1);
-    JByte := S[0];
-
-    // 拒绝采样：确保 j ≤ i
-    while JByte > I do
-    begin
-      S := SHAKE256Squeeze(Ctx, 1);
-      JByte := S[0];
-    end;
-
-    J := JByte;
-
-    // 交换 c[i] 和 c[j]
-    Temp := Res[I];
-    Res[I] := Res[J];
-    Res[J] := Temp;
-  end;
-end;
-
-function VectorInfinityNorm(const V: TCnMLDSAPolyVector): Integer;
-var
-  I, J: Integer;
-  AV: Integer;
-begin
-  Result := 0;
-  for I := Low(V) to High(V) do
-  begin
-    for J := Low(V[I]) to High(V[I]) do
-    begin
-      // 计算系数的绝对值
-      AV := Abs(V[I][J]);
-      if AV > CN_MLDSA_PRIME div 2 then
-        AV := CN_MLDSA_PRIME - AV;
-      
-      if AV > Result then
-        Result := AV;
-    end;
-  end;
-end;
-
-function MLDSAVectorCountOne(const V: TCnMLDSAPolyVector): Integer;
+procedure TCnMLDSA.UseHintVector(var Res: TCnMLDSAPolyVector;
+  const H: TCnMLDSAPolyVector; const R: TCnMLDSAPolyVector);
 var
   I, J: Integer;
 begin
-  Result := 0;
-  for I := Low(V) to High(V) do
+  SetLength(Res, Length(H));
+  for I := Low(H) to High(H) do
   begin
-    for J := Low(V[I]) to High(V[I]) do
-    begin
-      if V[I][J] <> 0 then
-        Inc(Result);
-    end;
+    for J := Low(H[I]) to High(H[I]) do
+      Res[I][J] := MLDSAUseHint(H[I][J] <> 0, R[I][J], FGamma2);
   end;
 end;
-
-procedure MLDSAVectorCenterMod(var Res: TCnMLDSAPolyVector;
-  const V: TCnMLDSAPolyVector);
-var
-  I, J: Integer;
-begin
-  if (Res <> V) and (Length(Res) <> Length(V)) then
-    SetLength(Res, Length(V));
-  
-  for I := Low(V) to High(V) do
-  begin
-    for J := Low(V[I]) to High(V[I]) do
-      Res[I][J] := MLDSACenterMod(V[I][J]);
-  end;
-end;
-
-function MLDSAHFunc(const Data: TBytes; DigestLen: Integer = CN_MLDSA_DIGEST_SIZE): TBytes;
-begin
-  Result := SHAKE256Bytes(Data, DigestLen);
-end;
-
-function MLDSAGFunc(const Data: TBytes; DigestLen: Integer = CN_MLDSA_DIGEST_SIZE): TBytes;
-begin
-  Result := SHAKE128Bytes(Data, DigestLen);
-end;
-
-{ TCnMLDSA }
 
 function TCnMLDSA.CalcSignHashBytes(const Msg: TBytes;
   HashType: TCnMLDSAHashType; const Ctx: AnsiString): TBytes;
 var
   DigShake: TBytes;
+  DigSha224: TCnSHA224Digest;
   DigSha256: TCnSHA256Digest;
+  DigSha384: TCnSHA384Digest;
   DigSha512: TCnSHA512Digest;
+  DigSha512_224: TCnSHA512_224Digest;
+  DigSha512_256: TCnSHA512_256Digest;
+  DigSha3_224: TCnSHA3_224Digest;
+  DigSha3_256: TCnSHA3_256Digest;
+  DigSha3_384: TCnSHA3_384Digest;
+  DigSha3_512: TCnSHA3_512Digest;
+  DigSm3: TCnSM3Digest;
 begin
   case HashType of
     cmhtNone:
@@ -1412,44 +1491,178 @@ begin
         SetLength(Result, 2 + Length(Ctx) + Length(Msg));
         Result[0] := 0;
         Result[1] := Length(Ctx);
-        Move(Ctx[1], Result[2], Length(Ctx));
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
         Move(Msg[0], Result[2 + Length(Ctx)], Length(Msg));
+      end;
+    cmhtSHA224:
+      begin
+        SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SHA224) + Length(Ctx) + SizeOf(TCnSHA224Digest));
+        Result[0] := 1;
+        Result[1] := Length(Ctx);
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
+
+        Move(OID_MLDSA_PREHASH_SHA224[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SHA224));
+
+        DigSha224 := SHA224Bytes(Msg);
+        Move(DigSha224[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SHA224)], SizeOf(TCnSHA224Digest));
       end;
     cmhtSHA256:
       begin
         SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SHA256) + Length(Ctx) + SizeOf(TCnSHA256Digest));
         Result[0] := 1;
         Result[1] := Length(Ctx);
-        Move(Ctx[1], Result[2], Length(Ctx));
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
 
         Move(OID_MLDSA_PREHASH_SHA256[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SHA256));
 
         DigSha256 := SHA256Bytes(Msg);
         Move(DigSha256[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SHA256)], SizeOf(TCnSHA256Digest));
       end;
+    cmhtSHA384:
+      begin
+        SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SHA384) + Length(Ctx) + SizeOf(TCnSHA384Digest));
+        Result[0] := 1;
+        Result[1] := Length(Ctx);
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
+
+        Move(OID_MLDSA_PREHASH_SHA384[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SHA384));
+
+        DigSha384 := SHA384Bytes(Msg);
+        Move(DigSha384[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SHA384)], SizeOf(TCnSHA384Digest));
+      end;
     cmhtSHA512:
       begin
         SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SHA512) + Length(Ctx) + SizeOf(TCnSHA512Digest));
         Result[0] := 1;
         Result[1] := Length(Ctx);
-        Move(Ctx[1], Result[2], Length(Ctx));
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
 
         Move(OID_MLDSA_PREHASH_SHA512[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SHA512));
 
         DigSha512 := SHA512Bytes(Msg);
         Move(DigSha512[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SHA512)], SizeOf(TCnSHA512Digest));
       end;
+    cmhtSHA512_224:
+      begin
+        SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SHA512_224) + Length(Ctx) + SizeOf(TCnSHA512_224Digest));
+        Result[0] := 1;
+        Result[1] := Length(Ctx);
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
+
+        Move(OID_MLDSA_PREHASH_SHA512_224[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SHA512_224));
+
+        DigSha512_224 := SHA512_224Bytes(Msg);
+        Move(DigSha512_224[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SHA512_224)], SizeOf(TCnSHA512_224Digest));
+      end;
+    cmhtSHA512_256:
+      begin
+        SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SHA512_256) + Length(Ctx) + SizeOf(TCnSHA512_256Digest));
+        Result[0] := 1;
+        Result[1] := Length(Ctx);
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
+
+        Move(OID_MLDSA_PREHASH_SHA512_256[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SHA512_256));
+
+        DigSha512_256 := SHA512_256Bytes(Msg);
+        Move(DigSha512_256[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SHA512_256)], SizeOf(TCnSHA512_256Digest));
+      end;
+    cmhtSHA3_224:
+      begin
+        SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SHA3_224) + Length(Ctx) + SizeOf(TCnSHA3_224Digest));
+        Result[0] := 1;
+        Result[1] := Length(Ctx);
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
+
+        Move(OID_MLDSA_PREHASH_SHA3_224[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SHA3_224));
+
+        DigSHA3_224 := SHA3_224Bytes(Msg);
+        Move(DigSHA3_224[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SHA3_224)], SizeOf(TCnSHA3_224Digest));
+      end;
+    cmhtSHA3_256:
+      begin
+        SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SHA3_256) + Length(Ctx) + SizeOf(TCnSHA3_256Digest));
+        Result[0] := 1;
+        Result[1] := Length(Ctx);
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
+
+        Move(OID_MLDSA_PREHASH_SHA3_256[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SHA3_256));
+
+        DigSHA3_256 := SHA3_256Bytes(Msg);
+        Move(DigSHA3_256[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SHA3_256)], SizeOf(TCnSHA3_256Digest));
+      end;
+    cmhtSHA3_384:
+      begin
+        SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SHA3_384) + Length(Ctx) + SizeOf(TCnSHA3_384Digest));
+        Result[0] := 1;
+        Result[1] := Length(Ctx);
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
+
+        Move(OID_MLDSA_PREHASH_SHA3_384[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SHA3_384));
+
+        DigSHA3_384 := SHA3_384Bytes(Msg);
+        Move(DigSHA3_384[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SHA3_384)], SizeOf(TCnSHA3_384Digest));
+      end;
+    cmhtSHA3_512:
+      begin
+        SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SHA3_512) + Length(Ctx) + SizeOf(TCnSHA3_512Digest));
+        Result[0] := 1;
+        Result[1] := Length(Ctx);
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
+
+        Move(OID_MLDSA_PREHASH_SHA3_512[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SHA3_512));
+
+        DigSHA3_512 := SHA3_512Bytes(Msg);
+        Move(DigSHA3_512[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SHA3_512)], SizeOf(TCnSHA3_512Digest));
+      end;
     cmhtSHAKE128:
       begin
         SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SHAKE128) + Length(Ctx) + MLDSA_HASH_SHAKE128_SIZE);
         Result[0] := 1;
         Result[1] := Length(Ctx);
-        Move(Ctx[1], Result[2], Length(Ctx));
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
 
         Move(OID_MLDSA_PREHASH_SHAKE128[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SHAKE128));
 
         DigShake := SHAKE128Bytes(Msg, MLDSA_HASH_SHAKE128_SIZE);
         Move(DigShake[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SHAKE128)], MLDSA_HASH_SHAKE128_SIZE);
+      end;
+    cmhtSHAKE256:
+      begin
+        SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SHAKE256) + Length(Ctx) + MLDSA_HASH_SHAKE256_SIZE);
+        Result[0] := 1;
+        Result[1] := Length(Ctx);
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
+
+        Move(OID_MLDSA_PREHASH_SHAKE256[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SHAKE256));
+
+        DigShake := SHAKE256Bytes(Msg, MLDSA_HASH_SHAKE256_SIZE);
+        Move(DigShake[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SHAKE256)], MLDSA_HASH_SHAKE256_SIZE);
+      end;
+    cmhtSM3:
+      begin
+        SetLength(Result, 2 + SizeOf(OID_MLDSA_PREHASH_SM3) + Length(Ctx) + SizeOf(TCnSM3Digest));
+        Result[0] := 1;
+        Result[1] := Length(Ctx);
+        if Length(Ctx) > 0 then
+          Move(Ctx[1], Result[2], Length(Ctx));
+
+        Move(OID_MLDSA_PREHASH_SM3[0], Result[2 + Length(Ctx)], SizeOf(OID_MLDSA_PREHASH_SM3));
+
+        DigSm3 := SM3Bytes(Msg);
+        Move(DigSm3[0], Result[2 + Length(Ctx) + SizeOf(OID_MLDSA_PREHASH_SM3)], SizeOf(TCnSM3Digest));
       end;
   end;
 end;
@@ -1532,32 +1745,32 @@ begin
   DB := MLDSAHFunc(B, 128);
 
   // 128 字节摘要拆成 32 字节 p、64 字节 p1、32 字节 K
-  Move(DB[0], PrivateKey.FGenerationSeed[0], SizeOf(TCnMLDSASeed));
-  Move(DB[0], PublicKey.FGenerationSeed[0], SizeOf(TCnMLDSASeed));
+  Move(DB[0], PrivateKey.GenerationSeed[0], SizeOf(TCnMLDSASeed));
+  Move(DB[0], PublicKey.GenerationSeed[0], SizeOf(TCnMLDSASeed));
   Move(DB[SizeOf(TCnMLDSASeed)], P1[0], CN_MLDSA_DIGEST_SIZE);
-  Move(DB[SizeOf(TCnMLDSASeed) + CN_MLDSA_DIGEST_SIZE], PrivateKey.FKey[0], CN_MLDSA_DIGEST_SIZE);
+  Move(DB[SizeOf(TCnMLDSASeed) + CN_MLDSA_DIGEST_SIZE], PrivateKey.Key[0], CN_MLDSA_DIGEST_SIZE);
 
   // 用 p 生成矩阵，NTT 形式，Row 行 Col 列
   GenerateMatrix(PrivateKey.GenerationSeed, Matrix);
 
   // 用 p1 生成两个秘密多项式向量，均非 NTT 形式，前者维度 Col，后者维度 Row
-  GenerateSecret(P1, PrivateKey.FS1, PrivateKey.FS2);
+  GenerateSecret(P1, PrivateKey.S1, PrivateKey.S2);
 
   // S1 转 NTT 形式到 S，维度 Col
-  MLDSAVectorToNTT(S, PrivateKey.FS1);
+  MLDSAVectorToNTT(S, PrivateKey.S1);
 
   // 计算 T = A * S1 + S2
   MLDSAMatrixVectorMul(T, Matrix, S);      // 两个 NTT 相乘，得到维度 Row
   MLDSAVectorToINTT(T, T);                 // 结果向量转回非 NTT
-  MLDSAVectorAdd(T, T, PrivateKey.FS2);    // 和 S2 相加，两个维度都是 Row
+  MLDSAVectorAdd(T, T, PrivateKey.S2);    // 和 S2 相加，两个维度都是 Row
 
   // 结果 T 向量拆分为 T0 和 T1
-  MLDSAPower2RoundVector(T, PrivateKey.FT0, PublicKey.FT1);
+  MLDSAPower2RoundVector(T, PrivateKey.T0, PublicKey.T1);
 
   // 公钥字节数组求杂凑作为私钥 tr
   B := SavePublicKeyToBytes(PublicKey);
   B := MLDSAHFunc(B);
-  Move(B[0], PrivateKey.FTrace[0], CN_MLDSA_DIGEST_SIZE);
+  Move(B[0], PrivateKey.Trace[0], CN_MLDSA_DIGEST_SIZE);
 end;
 
 procedure TCnMLDSA.GenerateMask(const Dig: TBytes; Mu: Integer;
@@ -1567,22 +1780,23 @@ var
   B, R: TBytes;
   V: TBytes;
   C: Integer;
+  P: PCnWord;
 begin
   if Length(Dig) <> CN_MLDSA_DIGEST_SIZE then
     raise ECnMLDSAException.Create(SCnErrorMLDSAInvalidParam);
 
   // 计算每个系数需要的位数
-  C := 1 + GetUInt32HighBits(FGamma1 - 1);
+  C := 1 + GetUInt32BitLength(FGamma1 - 1);
 
   // 设置结果向量维度为矩阵列数
   SetLength(Mask, FMatrixColCount);
 
-  SetLength(B, 1);
+  SetLength(B, 2);
+  P := @B[0];
   for I := 0 to FMatrixColCount - 1 do
   begin
     // 构造种子: ρ' = ρ || IntegerToBytes(μ + r, 2)
-
-    B[0] := Mu + I;
+    P^ := UInt16ToLittleEndian(Word(Mu + I));
     R := ConcatBytes(Dig, B);
 
     // 计算杂凑: v = H(ρ', 32 * c)
@@ -1711,7 +1925,9 @@ begin
     MLDSAPolynomialVectorMul(CS2, CN, S2);  // CN 与 NTT 的 S2 相乘并转为非 NTT 放 CS2
     MLDSAVectorToINTT(CS2, CS2);
 
+    SetLength(Z, Length(Y));
     MLDSAVectorAdd(Z, Y, CS1);              // Z := Y + CS1
+    SetLength(R, Length(W));
     MLDSAVectorSub(R, W, CS2);              // R := W - CS2
     MLDSALowBitsVector(R0, R, FGamma2);
 
@@ -1735,6 +1951,7 @@ begin
     MLDSAVectorNeg(T1, CT0);
 
     // 计算 W - CS2 + CT0
+    SetLength(T2, Length(W));
     MLDSAVectorSub(T2, W, CS2);
     MLDSAVectorAdd(T2, T2, CT0);
 
@@ -1749,6 +1966,7 @@ begin
     // 都符合要求，签名生成完毕
     MLDSAVectorCenterMod(Z, Z);
     Result := SigEncode(CM, Z, H);
+    Exit;
   end;
 end;
 
@@ -1756,7 +1974,7 @@ function TCnMLDSA.InternalVerify(PublicKey: TCnMLDSAPublicKey; const Msg,
   Signature: TBytes): Boolean;
 var
   C, CM, TR, Miu: TBytes;
-  Z, H, ZN, T1, T1N, W1, WA: TCnMLDSAPolyVector;
+  Z, H, ZN, ZT, T1, T1N, W1, WA: TCnMLDSAPolyVector;
   M: TCnMLDSAPolyMatrix;
   CP, CPN: TCnMLDSAPolynomial;
 begin
@@ -1773,7 +1991,7 @@ begin
   MLDSASampleInBall(C, FTau, CP);  // 从 C 生成 CP
 
   MLDSAVectorToNTT(ZN, Z);
-  MLDSAMatrixVectorMul(ZN, M, ZN); // A * ntt(Z) -> ZN
+  MLDSAMatrixVectorMul(ZT, M, ZN); // A * ntt(Z) -> ZT
   MLDSAPolynomialToNTT(CPN, CP);
 
   MLDSAPolynomialVectorScaleByPower2(T1, PublicKey.T1, CN_MLDSA_DROPBIT); // T1 * 2^d
@@ -1781,16 +1999,18 @@ begin
   MLDSAPolynomialVectorMul(T1, CPN, T1N);  // ntt(C) * ntt(T1 * 2^d) -> T1
 
   // ZN - T1
-  MLDSAVectorSub(W1, ZN, T1);
+  SetLength(W1, Length(ZT));
+  MLDSAVectorSub(W1, ZT, T1);
   MLDSAVectorToINTT(WA, W1);               // 得到 Wapprox
 
   UseHintVector(W1, H, WA);                // 算出 W1
 
-  CM := MLDSAHFunc(ConcatBytes(Miu, MLDSAW1Encode(W1, FGamma2)), FLambda shr 2);
-  if CompareBytes(C, CM) then
-    Exit;
-
   Result := VectorInfinityNorm(Z) < FGamma1 - FBeta;
+  if Result then
+  begin
+    CM := MLDSAHFunc(ConcatBytes(Miu, MLDSAW1Encode(W1, FGamma2)), FLambda shr 2);
+    Result := CompareBytes(C, CM);
+  end;
 end;
 
 procedure TCnMLDSA.LoadPrivateKeyFromBytes(PrivateKey: TCnMLDSAPrivateKey;
@@ -1806,27 +2026,27 @@ begin
     raise ECnMLDSAException.CreateFmt(SCnErrorMLDSAKeyLengthMismatch,
       [L, Length(SK)]);
 
-  Move(SK[0], PrivateKey.FGenerationSeed[0], SizeOf(TCnMLDSASeed));
-  Move(SK[SizeOf(TCnMLDSASeed)], PrivateKey.FKey[0], SizeOf(TCnMLDSASeed));
-  Move(SK[2 * SizeOf(TCnMLDSASeed)], PrivateKey.FTrace[0], SizeOf(TCnMLDSAKeyDigest));
+  Move(SK[0], PrivateKey.GenerationSeed[0], SizeOf(TCnMLDSASeed));
+  Move(SK[SizeOf(TCnMLDSASeed)], PrivateKey.Key[0], SizeOf(TCnMLDSASeed));
+  Move(SK[2 * SizeOf(TCnMLDSASeed)], PrivateKey.Trace[0], SizeOf(TCnMLDSAKeyDigest));
 
   // 复制出来给 S1
   L := 2 * SizeOf(TCnMLDSASeed) + SizeOf(TCnMLDSAKeyDigest);
   B := Copy(SK, L, 32 * FMatrixColCount * (GetNoiseBitLength + 1));
-  SetLength(PrivateKey.FS1, FMatrixColCount);
-  MLDSABitUnpackVector(B, PrivateKey.FS1, FNoise, FNoise);
+  SetLength(PrivateKey.S1, FMatrixColCount);
+  MLDSABitUnpackVector(B, PrivateKey.S1, FNoise, FNoise);
 
   // 复制出来给 S2
   Inc(L, 32 * FMatrixColCount * (GetNoiseBitLength + 1));
   B := Copy(SK, L, 32 * FMatrixRowCount * (GetNoiseBitLength + 1));
-  SetLength(PrivateKey.FS2, FMatrixRowCount);
-  MLDSABitUnpackVector(B, PrivateKey.FS2, FNoise, FNoise);
+  SetLength(PrivateKey.S2, FMatrixRowCount);
+  MLDSABitUnpackVector(B, PrivateKey.S2, FNoise, FNoise);
 
   // 复制出来给 T0
   Inc(L, 32 * FMatrixRowCount * (GetNoiseBitLength + 1));
   B := Copy(SK, L, MaxInt);
-  SetLength(PrivateKey.FT0, FMatrixRowCount);
-  MLDSABitUnpackVector(B, PrivateKey.FT0, CN_MLDSA_DROPVALUE - 1, CN_MLDSA_DROPVALUE);
+  SetLength(PrivateKey.T0, FMatrixRowCount);
+  MLDSABitUnpackVector(B, PrivateKey.T0, CN_MLDSA_DROPVALUE - 1, CN_MLDSA_DROPVALUE);
 end;
 
 procedure TCnMLDSA.LoadPublicKeyFromBytes(PublicKey: TCnMLDSAPublicKey;
@@ -1838,10 +2058,10 @@ begin
     raise ECnMLDSAException.CreateFmt(SCnErrorMLDSAKeyLengthMismatch,
       [SizeOf(TCnMLDSASeed) + 32 * FMatrixRowCount * CN_MLDSA_PUBKEY_BIT, Length(PK)]);
 
-  Move(PK[0], PublicKey.FGenerationSeed[0], SizeOf(TCnMLDSASeed));
+  Move(PK[0], PublicKey.GenerationSeed[0], SizeOf(TCnMLDSASeed));
   B := Copy(PK, SizeOf(TCnMLDSASeed), MaxInt);
-  SetLength(PublicKey.FT1, FMatrixRowCount);
-  MLDSASimpleBitUnpackVector(B, PublicKey.FT1, CN_MLDSA_PUBKEY_BIT);
+  SetLength(PublicKey.T1, FMatrixRowCount);
+  MLDSASimpleBitUnpackVector(B, PublicKey.T1, CN_MLDSA_PUBKEY_BIT);
 end;
 
 function TCnMLDSA.SavePrivateKeyToBytes(PrivateKey: TCnMLDSAPrivateKey): TBytes;
@@ -1861,7 +2081,7 @@ end;
 function TCnMLDSA.SavePublicKeyToBytes(PublicKey: TCnMLDSAPublicKey): TBytes;
 begin
   Result := NewBytesFromMemory(@PublicKey.GenerationSeed[0], SizeOf(TCnMLDSASeed));
-  Result := ConcatBytes(Result, MLDSASimpleBitPackVector(PublicKey.FT1, CN_MLDSA_PUBKEY_BIT));
+  Result := ConcatBytes(Result, MLDSASimpleBitPackVector(PublicKey.T1, CN_MLDSA_PUBKEY_BIT));
 end;
 
 procedure TCnMLDSA.SigDecode(const Signature: TBytes; out C: TBytes; out Z,
@@ -1872,8 +2092,8 @@ var
   I: Integer;
   PackedZ, PackedH: TBytes;
 begin
-  // 计算预期的签名长度，包括 c 长度、PackedZ 长度与 PackedH 长度
-  ExpLen := FLambda div 4 + FMatrixColCount * 32 * (1 + GetUInt32HighBits(FGamma1 - 1)) +
+  // 计算预期的签名长度，包括 c 长度、PackedZ 长度与 PackedH 长度，应该是 2420、3309、4627
+  ExpLen := FLambda div 4 + FMatrixColCount * 32 * (1 + GetUInt32BitLength(FGamma1 - 1)) +
     FOmega + FMatrixRowCount;
 
   // 检查签名长度是否合法
@@ -1888,7 +2108,7 @@ begin
   Offset := CLen;
 
   // 解码响应向量 z
-  ZLength := FMatrixColCount * 32 * (1 + GetUInt32HighBits(FGamma1 - 1));
+  ZLength := FMatrixColCount * 32 * (GetUInt32BitLength(FGamma1 - 1) + 1);
   SetLength(PackedZ, ZLength);
   Move(Signature[Offset], PackedZ[0], ZLength);
 
@@ -1931,7 +2151,7 @@ begin
 end;
 
 function TCnMLDSA.SignBytes(PrivateKey: TCnMLDSAPrivateKey; const Msg: TBytes;
-  HashType: TCnMLDSAHashType; const Ctx: AnsiString; const RandHex: string): TBytes;
+  const Ctx: AnsiString; HashType: TCnMLDSAHashType; const RandHex: string): TBytes;
 var
   Seed: TCnMLDSASeed;
   R, Data: TBytes;
@@ -1946,7 +2166,10 @@ begin
     raise ECnMLDSAException.Create(SCnErrorMLDSAInvalidCtxLength);
 
   if Length(RandHex) = 0 then
-    R := CnRandomBytes(CN_MLDSA_KEY_SIZE)
+  begin
+    SetLength(R, CN_MLDSA_KEY_SIZE);
+    FillChar(R[0], Length(R), 0);
+  end
   else
     R := HexToBytes(RandHex);
 
@@ -1957,8 +2180,8 @@ begin
   Result := InternalSign(PrivateKey, Data, Seed);
 end;
 
-function TCnMLDSA.VerifyBytes(PublicKey: TCnMLDSAPublicKey; const Signature: TBytes;
-  const Msg: TBytes; HashType: TCnMLDSAHashType;const Ctx: AnsiString): Boolean;
+function TCnMLDSA.VerifyBytes(PublicKey: TCnMLDSAPublicKey; const Msg: TBytes;
+  const Signature: TBytes; const Ctx: AnsiString; HashType: TCnMLDSAHashType): Boolean;
 var
   Data: TBytes;
 begin
@@ -1973,3 +2196,4 @@ begin
 end;
 
 end.
+

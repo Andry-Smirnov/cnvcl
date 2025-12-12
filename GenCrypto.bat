@@ -15,6 +15,7 @@ CD Source
 COPY ..\..\cnvcl\Source\Common\CnPack.inc .
 COPY ..\..\cnvcl\Source\Common\CnBigDecimal.pas .
 COPY ..\..\cnvcl\Source\Common\CnBigRational.pas .
+COPY ..\..\cnvcl\Source\Common\CnCalendar.pas .
 COPY ..\..\cnvcl\Source\Common\CnConsts.pas .
 COPY ..\..\cnvcl\Source\Common\CnContainers.pas .
 COPY ..\..\cnvcl\Source\Common\CnFileUtils.pas .
@@ -211,6 +212,7 @@ ECHO USEUNIT("..\Source\CnInt128.pas");                                         
 ECHO USEUNIT("..\Source\CnKDF.pas");                                                   >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnLattice.pas");                                               >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnMD5.pas");                                                   >> Crypto.bpf
+ECHO USEUNIT("..\Source\CnMLDSA.pas");                                                 >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnMLKEM.pas");                                                 >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnNative.pas");                                                >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnOTP.pas");                                                   >> Crypto.bpf
@@ -238,6 +240,7 @@ ECHO USEUNIT("..\Source\CnXXH.pas");                                            
 ECHO USEUNIT("..\Source\CnZUC.pas");                                                   >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnBigDecimal.pas");                                            >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnBigRational.pas");                                           >> Crypto.bpf
+ECHO USEUNIT("..\Source\CnCalendar.pas");                                              >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnConsts.pas");                                                >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnContainers.pas");                                            >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnFloat.pas");                                                 >> Crypto.bpf
@@ -272,8 +275,8 @@ ECHO       ..\Source\CnDFT.obj ..\Source\CnDSA.obj                              
 ECHO       ..\Source\CnECC.obj ..\Source\CnFEC.obj                                    >> Crypto.bpr
 ECHO       ..\Source\CnFNV.obj ..\Source\CnInt128.obj                                 >> Crypto.bpr
 ECHO       ..\Source\CnKDF.obj ..\Source\CnLattice.obj                                >> Crypto.bpr
-ECHO       ..\Source\CnMD5.obj ..\Source\MLKEM.obj                                    >> Crypto.bpr
-ECHO       ..\Source\CnNative.obj                                                     >> Crypto.bpr
+ECHO       ..\Source\CnMD5.obj ..\Source\MLDSA.obj                                    >> Crypto.bpr
+ECHO       ..\Source\MLKEM.obj ..\Source\CnNative.obj                                 >> Crypto.bpr
 ECHO       ..\Source\CnOTP.obj ..\Source\CnOTS.obj                                    >> Crypto.bpr
 ECHO       ..\Source\CnPaillier.obj ..\Source\CnPDFCrypt.obj                          >> Crypto.bpr
 ECHO       ..\Source\CnPemUtils.obj ..\Source\CnPoly1305.obj                          >> Crypto.bpr
@@ -287,7 +290,7 @@ ECHO       ..\Source\CnSM4.obj ..\Source\CnSM9.obj                              
 ECHO       ..\Source\CnTEA.obj ..\Source\CnVector.obj                                 >> Crypto.bpr
 ECHO       ..\Source\CnXXH.obj                                                        >> Crypto.bpr
 ECHO       ..\Source\CnZUC.obj ..\Source\CnBigDecimal.obj                             >> Crypto.bpr
-ECHO       ..\Source\CnBigRational.obj                                                >> Crypto.bpr
+ECHO       ..\Source\CnBigRational.obj ..\Source\CnCalendar.obj                       >> Crypto.bpr
 ECHO       ..\Source\CnConsts.obj ..\Source\CnContainers.obj                          >> Crypto.bpr
 ECHO       ..\Source\CnFileUtils.obj ..\Source\CnFloat.obj                            >> Crypto.bpr
 ECHO       ..\Source\CnHashMap.obj ..\Source\CnMath.obj                               >> Crypto.bpr
@@ -411,6 +414,7 @@ MKDIR Doc
 CD Doc
 COPY ..\..\cnvcl\Doc\Develop\CnRSA*.txt .
 COPY ..\..\cnvcl\Doc\Develop\如何在Delphi7下手动支持64位无符号整数运算.txt .
+COPY ..\..\cnvcl\Doc\Develop\CnCalendar历法说明.txt .
 CD ..
 SETLOCAL ENABLEDELAYEDEXPANSION
 MKDIR Example
@@ -431,6 +435,8 @@ CALL :COPYEXAMPLE ECC
 CALL :COPYEXAMPLE Float
 CALL :COPYEXAMPLE Int128
 CALL :COPYEXAMPLE KDF
+CALL :COPYEXAMPLE MLDSA
+CALL :COPYEXAMPLE MLKEM
 CALL :COPYEXAMPLE Native
 CALL :COPYEXAMPLE OTP
 CALL :COPYEXAMPLE OTS
@@ -484,6 +490,7 @@ ECHO   CnBigRational in '..\Source\CnBigRational.pas',                         >
 ECHO   CnBits in '..\Source\CnBits.pas',                                       >> %1
 ECHO   CnBLAKE in '..\Source\CnBLAKE.pas',                                     >> %1
 ECHO   CnBLAKE2 in '..\Source\CnBLAKE2.pas',                                   >> %1
+ECHO   CnCalendar in '..\Source\CnCalendar.pas',                               >> %1
 ECHO   CnCertificateAuthority in '..\Source\CnCertificateAuthority.pas',       >> %1
 ECHO   CnChaCha20 in '..\Source\CnChaCha20.pas',                               >> %1
 ECHO   CnComplex in '..\Source\CnComplex.pas',                                 >> %1
@@ -505,6 +512,7 @@ ECHO   CnLattice in '..\Source\CnLattice.pas',                                 >
 ECHO   CnMath in '..\Source\CnMath.pas',                                       >> %1
 ECHO   CnMatrix in '..\Source\CnMatrix.pas',                                   >> %1
 ECHO   CnMD5 in '..\Source\CnMD5.pas',                                         >> %1
+ECHO   CnMLDSA in '..\Source\CnMLDSA.pas',                                     >> %1
 ECHO   CnMLKEM in '..\Source\CnMLKEM.pas',                                     >> %1
 ECHO   CnNative in '..\Source\CnNative.pas',                                   >> %1
 ECHO   CnOTP in '..\Source\CnOTP.pas',                                         >> %1

@@ -4,7 +4,7 @@
 
 CnPack 密码算法库（CnPack Crypto Library）源于 CnPack 开发组的开源项目 CnVcl 组件包（CnVcl Component Package），是一套以纯 Object Pascal 语言编写的开源加解密源码库，支持 Delphi 5 至最新版本的 RAD Studio，支持 C++Builder 5/6 及 Lazarus/FPC，并支持 32 位与 64 位的 Windows、MacOS、Linux 等操作系统。
 
-CnPack 密码算法库致力于提供强大的加解密算法支持与数据安全保障。它覆盖了国内外常见的加解密算法及中国国家商用密码算法，包括对称加密、非对称加密、杂凑（或名散列、摘要、哈希）等大类及众多其他基础与辅助功能。
+CnPack 密码算法库致力于提供强大的加解密算法支持与数据安全保障。它覆盖了国内外常见的加解密算法及中国国家商用密码算法，包括对称加密、非对称加密、杂凑（或名散列、摘要、哈希）等大类算法、部分抗量子算法及众多其他基础与辅助功能。
 
 ## 许可协议
 
@@ -21,7 +21,8 @@ CnPack 开发包以开放源码（Open Source）的形式发布，遵守 CnPack 的许可协议，受 CnP
 - **大数支持**：大整数、大有理数、大浮点数、一元大数多项式、二元大数多项式、一元大有理数分式
 - **运算支持**：素数运算与判定、浮点复数运算、位运算、矩阵运算、离散傅立叶变换、128 位整型支持
 - **数论计算**：中国剩余定理、Lucas 序列、PollardRho 因数分解、模素数二次剩余、勒让德/雅可比符号
-- **其他**：DSA 签名验证、关联数据认证加密、动态口令 OTP、密钥派生 KDF、秘密共享的 Shamir 门限方案及 Feldman VSS 方案
+- **抗量子计算**：基于模块化格的密钥封装机制 MLKEM、基于模块化格的数字签名算法 MLDSA
+- **其他**：DSA 签名验证、关联数据认证加密 AEAD、动态口令 OTP、密钥派生 KDF、秘密共享的 Shamir 门限方案及 Feldman VSS 方案、历法计算
 
 ## 国密支持
 
@@ -52,6 +53,7 @@ CnPack 密码算法库不涉及 VCL/FMX 界面组件，仅是基础库的形式提供，因而可直接将 `cn
 ## 测试用例
 
 `cncrypto\Test` 目录下有一完整的命令行测试用例 `CryptoTest.dpr`，使用任一版本 Delphi 打开运行即可覆盖验证 CnPack 密码算法库的绝大多数功能，或用 C++Builder 5/6 打开 `Crypto.bpr`、或用 Lazarus 打开 `Crypto.lpi`，均同样可以运行。在没有 Lazarus 仅有 FPC 时，也可用 `fpc` 命令行编译 `Crypto.lpr` 以运行。尾部两个用例耗时较长以小时计，跑时需有耐心。
+
 另外，本加解密库仅在小端 CPU 上运行测试过，大端 CPU 暂不保证支持。
 
 ## 演示例子
@@ -74,7 +76,7 @@ CnPack 开发组由互联网上热爱 Delphi/C++Builder 程序开发的一群中国程序员自愿者自发
 
 The CnPack Crypto Library originates from the CnVcl Component Package, an open-source project by the CnPack Development Team. It is a pure Object Pascal-based open-source cryptographic library supporting Delphi 5 up to the latest versions of RAD Studio, C++Builder 5/6, and Lazarus/FPC. It supports 32-bit and 64-bit versions of operating systems including Windows, macOS, and Linux.
 
-The CnPack Crypto Library aims to provide robust cryptographic algorithm support and data security. It covers common domestic and international encryption/decryption algorithms, including China's State Cryptography Administration (Commercial Cryptography) standards, such as symmetric encryption, asymmetric encryption, hash (also known as digest or checksum) functions, and numerous other fundamental and auxiliary cryptographic features.
+The CnPack Crypto Library aims to provide robust cryptographic algorithm support and data security. It covers common domestic and international encryption/decryption algorithms, including China's State Cryptography Administration (Commercial Cryptography) standards, such as symmetric encryption, asymmetric encryption, hash (also known as digest or checksum) functions, some Post-Quantum algorithms and numerous other fundamental and auxiliary cryptographic features.
 
 ## License
 
@@ -91,7 +93,8 @@ The CnPack Development Package is released as open-source software under the CnP
 - **Big Number Support**: Big Integers, Big Rational Numbers, Big Floating-Point Numbers, Univariate and Bivariate Big Number Polynomials, Univariate Big Rational Functions
 - **Mathematical Operations**: Prime Number Operations and Primality Testing, Complex Floating-Point Arithmetic, Bitwise Operations, Matrix Operations, Discrete Fourier Transform, 128-bit Integer Support
 - **Number Theory Computations**: Chinese Remainder Theorem, Lucas Sequences, Pollard-Rho Factorization, Quadratic Residues Modulo Primes, Legendre and Jacobi Symbols
-- **Others**: DSA Signature Verification, Authenticated Encryption with Associated Data (AEAD), One-Time Password (OTP), Key Derivation Functions (KDF), Shamir's Secret Sharing Threshold Scheme, and Feldman Verifiable Secret Sharing (VSS)
+- **Post-Quantum Cryptography**: Module-Lattice-Based Key-Encapsulation Mechanism (MLKEM), Module-Lattice-Based Digital Signature Algorithm (MLDSA).
+- **Others**: DSA Signature Verification, Authenticated Encryption with Associated Data (AEAD), One-Time Password (OTP), Key Derivation Functions (KDF), Shamir's Secret Sharing Threshold Scheme, and Feldman Verifiable Secret Sharing (VSS), Calendar.
 
 ## Support for Chinese National Cryptography Standards
 

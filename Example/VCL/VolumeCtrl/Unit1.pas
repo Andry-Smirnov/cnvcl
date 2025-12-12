@@ -27,8 +27,8 @@ type
     procedure TrackBar2Change(Sender: TObject);
     procedure chk1Click(Sender: TObject);
     procedure btn2Click(Sender: TObject);
-    procedure CnVolumeCtrl1MuteChange(bMute: Boolean);
-    procedure CnVolumeCtrl1VolumeChange(Volume: TCnVolume;
+    procedure CnVolumeCtrl1MuteChange(Sender: TObject; bMute: Boolean);
+    procedure CnVolumeCtrl1VolumeChange(Sender: TObject; Volume: TCnVolume;
       Balance: TCnBalance);
   private
     procedure LoadDevs;
@@ -151,17 +151,27 @@ begin
   ShowMessage(strAbout);
 end;
 
-procedure TForm1.CnVolumeCtrl1MuteChange(bMute: Boolean);
+procedure TForm1.CnVolumeCtrl1MuteChange(Sender: TObject; bMute: Boolean);
 begin
   chk1.Checked := bMute;
   mmo1.Lines.Add(BoolToStr(bMute, True));
 end;
 
-procedure TForm1.CnVolumeCtrl1VolumeChange(Volume: TCnVolume;
+procedure TForm1.CnVolumeCtrl1VolumeChange(Sender: TObject; Volume: TCnVolume;
   Balance: TCnBalance);
+var
+  OldEvent: TNotifyEvent;
 begin
+  OldEvent := TrackBar1.OnChange;
+  TrackBar1.OnChange := nil;
   TrackBar1.Position := Balance;
+  TrackBar1.OnChange := OldEvent;
+
+  OldEvent := TrackBar2.OnChange;
+  TrackBar2.OnChange := nil;
   TrackBar2.Position := 255 - Volume;
+  TrackBar2.OnChange := OldEvent;
+
   mmo1.Lines.Add(Format('Volume: %d Balance: %d', [Volume, Balance]));
 end;
 

@@ -62,6 +62,8 @@ type
     btnVerifyLeapNumber: TButton;
     btnCheckAll: TButton;
     btnCheckFloatJieQi: TButton;
+    btnCheckStep: TButton;
+    btnGenCal: TButton;
     procedure btnCalcClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Button1Click(Sender: TObject);
@@ -81,6 +83,8 @@ type
     procedure btnVerifyLeapNumberClick(Sender: TObject);
     procedure btnCheckAllClick(Sender: TObject);
     procedure btnCheckFloatJieQiClick(Sender: TObject);
+    procedure btnCheckStepClick(Sender: TObject);
+    procedure btnGenCalClick(Sender: TObject);
   private
     procedure ConvertEditToDate;
   public
@@ -1024,6 +1028,135 @@ begin
     Inc(Y);
   until Y > 3;
 
+end;
+
+procedure TFormCalendar.btnCheckStepClick(Sender: TObject);
+var
+  Y, M, D: Integer;
+  AY, AM, AD: Integer;
+begin
+  mmoDays.Lines.Clear;
+
+  Y := -4713;
+  M := 1;
+  D := 1;
+
+  repeat
+    AY := Y;
+    AM := M;
+    AD := D;
+    StepToNextDay(Y, M, D);
+    StepToPreviousDay(Y, M, D);
+
+    if (AY <> Y) and (AM <> M) and (AD <> D) then
+      mmoDays.Lines.Add(Format('%4.4d %2.2d %2.2d', [Y, M, D]));
+
+    StepToNextDay(Y, M, D);
+  until Y > 3000;
+
+  if mmoDays.Lines.Count = 0 then
+    ShowMessage('OK');
+end;
+
+function GetDayDescription(AYear, AMonth, ADay: Integer): string;
+var
+  LunarYear, LunarMonth, LunarDay: Integer;
+  IsLeapMonth: Boolean;
+  GanZhiYear, GanZhiMonth, GanZhiDay: Integer;
+  WeekNum, XingZuoNum, JianNum, XiuNum: Integer;
+  NaYin, GanZhiYearStr, GanZhiMonthStr, GanZhiDayStr: string;
+  WeekStr, XingZuoStr, JianStr, XiuStr: string;
+  LunarMonthStr, LunarDayStr: string;
+  LunarYearStr: string;
+begin
+  Result := '';
+
+  try
+    // 验证日期合法性
+    if not GetDateIsValid(AYear, AMonth, ADay) then
+    begin
+      Result := Format('日期不合法: %d年%2.2d月%2.2d日', [AYear, AMonth, ADay]);
+      Exit;
+    end;
+
+    // 公历日期
+    Result := Format('公元%4.4d年%2.2d月%2.2d日', [AYear, AMonth, ADay]);
+
+    // 星期几
+    WeekNum := GetWeek(AYear, AMonth, ADay);
+    WeekStr := GetWeekFromNumber(WeekNum);
+    Result := Result + Format(' 星期%s', [WeekStr]);
+
+    // 年干支
+    GanZhiYear := GetGanZhiFromYear(AYear, AMonth, ADay);
+    GanZhiYearStr := GetGanZhiFromNumber(GanZhiYear);
+    Result := Result + Format(' %s年', [GanZhiYearStr]);
+
+    // 月干支
+    GanZhiMonth := GetGanZhiFromMonth(AYear, AMonth, ADay);
+    GanZhiMonthStr := GetGanZhiFromNumber(GanZhiMonth);
+    Result := Result + Format(' %s月', [GanZhiMonthStr]);
+
+    // 日干支
+    GanZhiDay := GetGanZhiFromDay(AYear, AMonth, ADay);
+    GanZhiDayStr := GetGanZhiFromNumber(GanZhiDay);
+    Result := Result + Format(' %s日', [GanZhiDayStr]);
+
+    // 纳音五行
+    NaYin := Get5XingLongFromDay(AYear, AMonth, ADay);
+    Result := Result + Format(' %s', [NaYin]);
+
+    // 十二建
+    JianNum := Get12JianFromDay(AYear, AMonth, ADay);
+    JianStr := Get12JianFromNumber(JianNum);
+    Result := Result + Format(' %s', [JianStr]);
+
+    // 二十八宿
+    XiuNum := Get28XiuFromDay(AYear, AMonth, ADay);
+    XiuStr := Get28XiuLongFromNumber(XiuNum);
+    Result := Result + Format(' %s', [XiuStr]);
+
+    // 星座
+    XingZuoNum := GetXingZuoFromMonthDay(AMonth, ADay);
+    XingZuoStr := GetXingZuoFromNumber(XingZuoNum);
+    Result := Result + Format(' %s座', [XingZuoStr]);
+
+    // 农历日期
+    if GetLunarFromDay(AYear, AMonth, ADay, LunarYear, LunarMonth, LunarDay, IsLeapMonth) then
+    begin
+      LunarMonthStr := GetLunarMonthFromNumber(LunarMonth, IsLeapMonth);
+      LunarDayStr := GetLunarDayFromNumber(LunarDay);
+      LunarYearStr := GetGanZhiFromNumber(GetGanZhiFromYear(LunarYear));
+      Result := Result + Format(' %s年%s%s', [LunarYearStr, LunarMonthStr, LunarDayStr]);
+    end;
+  except
+    on E: Exception do
+    begin
+      Result := Format('计算出错: %s', [E.Message]);
+    end;
+  end;
+end;
+
+procedure TFormCalendar.btnGenCalClick(Sender: TObject);
+var
+  Y, M, D: Integer;
+  SL: TStringList;
+begin
+  mmoDays.Lines.Clear;
+
+  Y := -1;
+  M := 12;
+  D := 31;
+
+  SL := TStringList.Create;
+  SL.BeginUpdate;
+  repeat
+    StepToNextDay(Y, M, D);
+    SL.Add(GetDayDescription(Y, M, D));
+  until Y > 2800;
+  SL.EndUpdate;
+  mmoDays.Lines.Assign(SL);
+  SL.Free;
 end;
 
 end.

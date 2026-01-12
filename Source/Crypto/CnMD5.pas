@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -121,7 +121,7 @@ function MD5Buffer(const Buffer; Count: Cardinal): TCnMD5Digest;
 {* 对数据块进行 MD5 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnMD5Digest                   - 返回的 MD5 杂凑值
@@ -665,7 +665,7 @@ var
   Context: TCnMD5Context;
 begin
   MD5Init(Context);
-  MD5Update(Context, PAnsiChar(Buffer), Count);
+  MD5Update(Context, PAnsiChar(@Buffer), Count);
   MD5Final(Context, Result);
 end;
 
@@ -850,7 +850,7 @@ var
 begin
   if KeyLength > HMAC_MD5_BLOCK_SIZE_BYTE then
   begin
-    Sum := MD5Buffer(Key, KeyLength);
+    Sum := MD5Buffer(Key^, KeyLength);
     KeyLength := HMAC_MD5_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;

@@ -28,7 +28,13 @@ COPY ..\..\cnvcl\Source\Common\CnStrings.pas .
 COPY ..\..\cnvcl\Source\Common\CnWideStrings.pas .
 COPY ..\..\cnvcl\Source\Common\CnZip.pas .
 COPY ..\..\cnvcl\Source\Crypto\*.pas .
+DEL CnCryptoIntf.pas
 CD ..
+MKDIR Include
+CD Include
+COPY ..\..\cnvcl\Source\Crypto\CnCryptoIntf.h .
+COPY ..\..\cnvcl\Source\Crypto\CnCryptoIntf.pas .
+CD..
 MKDIR Package
 CD Package
 CALL :PRINTHEAD CnCrypto.dpk
@@ -69,6 +75,32 @@ CALL :PRINTFILES CnCrypto.dpk ALLFILES
 ECHO.                                                                          >> CnCrypto.dpk
 ECHO end.                                                                      >> CnCrypto.dpk
 ECHO.                                                                          >> CnCrypto.dpk
+CALL :PRINTHEAD CnCrypto.dpr
+ECHO library CnCrypto;                                                         >> CnCrypto.dpr
+ECHO.                                                                          >> CnCrypto.dpr
+ECHO uses                                                                      >> CnCrypto.dpr
+CALL :PRINTFILES CnCrypto.dpr
+ECHO   CnCryptoExport in '..\Source\CnCryptoExport.pas';                       >> CnCrypto.dpr
+ECHO.                                                                          >> CnCrypto.dpr
+ECHO exports                                                                   >> CnCrypto.dpr
+CALL :PRINTEXPORTS CnCrypto.dpr
+ECHO.                                                                          >> CnCrypto.dpr
+ECHO begin                                                                     >> CnCrypto.dpr
+ECHO end.                                                                      >> CnCrypto.dpr
+ECHO.                                                                          >> CnCrypto.dpr
+CALL :PRINTHEAD CnCrypto.lpr
+ECHO library CnCrypto;                                                         >> CnCrypto.lpr
+ECHO.                                                                          >> CnCrypto.lpr
+ECHO uses                                                                      >> CnCrypto.lpr
+CALL :PRINTFILES CnCrypto.lpr
+ECHO   CnCryptoExport in '..\Source\CnCryptoExport.pas';                       >> CnCrypto.lpr
+ECHO.                                                                          >> CnCrypto.lpr
+ECHO exports                                                                   >> CnCrypto.lpr
+CALL :PRINTEXPORTS CnCrypto.lpr
+ECHO.                                                                          >> CnCrypto.lpr
+ECHO begin                                                                     >> CnCrypto.lpr
+ECHO end.                                                                      >> CnCrypto.lpr
+ECHO.                                                                          >> CnCrypto.lpr
 CD ..
 MKDIR Test
 CD Test
@@ -427,6 +459,8 @@ CALL :COPYEXAMPLE BigRational
 CALL :COPYEXAMPLE CertificateAuthority
 CALL :COPYEXAMPLE Complex
 CALL :COPYEXAMPLE Crypto
+CALL :COPYEXAMPLE CryptoDLL
+CALL :COPYEXAMPLE CryptoExport
 CALL :COPYEXAMPLE DFT
 CALL :COPYEXAMPLE DSA
 CALL :COPYEXAMPLE ECC
@@ -457,7 +491,7 @@ GOTO END
 ECHO {******************************************************************************}  > %1
 ECHO {                       CnPack For Delphi/C++Builder                           } >> %1
 ECHO {                     中国人自己的开放源码第三方开发包                         } >> %1
-ECHO {                   (C)Copyright 2001-2025 CnPack 开发组                       } >> %1
+ECHO {                   (C)Copyright 2001-2026 CnPack 开发组                       } >> %1
 ECHO {                   ------------------------------------                       } >> %1
 ECHO {                                                                              } >> %1
 ECHO {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        } >> %1
@@ -544,6 +578,115 @@ IF "%2" == "ALLFILES" (
 ) ELSE (
   ECHO   CnZUC in '..\Source\CnZUC.pas',                                       >> %1
 )
+GOTO :EOF
+
+:PRINTEXPORTS
+ECHO   cn_get_version                         name 'cn_get_version',                          >> %1
+ECHO   cn_get_abi_version                     name 'cn_get_abi_version',                      >> %1
+ECHO   cn_lib_init                            name 'cn_lib_init',                             >> %1
+ECHO   cn_lib_finalize                        name 'cn_lib_finalize',                         >> %1
+ECHO   cn_alloc                               name 'cn_alloc',                                >> %1
+ECHO   cn_free                                name 'cn_free',                                 >> %1
+ECHO   cn_memzero                             name 'cn_memzero',                              >> %1
+ECHO   cn_endian_is_le                        name 'cn_endian_is_le',                         >> %1
+ECHO   cn_endian_is_be                        name 'cn_endian_is_be',                         >> %1
+ECHO   cn_data_to_hex                         name 'cn_data_to_hex',                          >> %1
+ECHO   cn_const_time_equal                    name 'cn_const_time_equal',                     >> %1
+ECHO   cn_const_time_select                   name 'cn_const_time_select',                    >> %1
+ECHO   cn_str_to_uint64                       name 'cn_str_to_uint64',                        >> %1
+ECHO   cn_base64_encode                       name 'cn_base64_encode',                        >> %1
+ECHO   cn_base64_decode                       name 'cn_base64_decode',                        >> %1
+ECHO   cn_base64url_encode                    name 'cn_base64url_encode',                     >> %1
+ECHO   cn_base64url_decode                    name 'cn_base64url_decode',                     >> %1
+ECHO   cn_kdf_pbkdf2                          name 'cn_kdf_pbkdf2',                           >> %1
+ECHO   cn_kdf_hkdf                            name 'cn_kdf_hkdf',                             >> %1
+ECHO   cn_otp_hotp                            name 'cn_otp_hotp',                             >> %1
+ECHO   cn_otp_totp                            name 'cn_otp_totp',                             >> %1
+ECHO   cn_hash_digest                         name 'cn_hash_digest',                          >> %1
+ECHO   cn_hmac                                name 'cn_hmac',                                 >> %1
+ECHO   cn_cipher_encrypt                      name 'cn_cipher_encrypt',                       >> %1
+ECHO   cn_cipher_decrypt                      name 'cn_cipher_decrypt',                       >> %1
+ECHO   cn_aead_encrypt                        name 'cn_aead_encrypt',                         >> %1
+ECHO   cn_aead_decrypt                        name 'cn_aead_decrypt',                         >> %1
+ECHO   cn_rsa_privkey_new                     name 'cn_rsa_privkey_new',                      >> %1
+ECHO   cn_rsa_pubkey_new                      name 'cn_rsa_pubkey_new',                       >> %1
+ECHO   cn_rsa_key_free                        name 'cn_rsa_key_free',                         >> %1
+ECHO   cn_rsa_generate_keys                   name 'cn_rsa_generate_keys',                    >> %1
+ECHO   cn_rsa_pubkey_get_modulus_bytes        name 'cn_rsa_pubkey_get_modulus_bytes',         >> %1
+ECHO   cn_rsa_privkey_get_modulus_bytes       name 'cn_rsa_privkey_get_modulus_bytes',        >> %1
+ECHO   cn_rsa_encrypt_with_public             name 'cn_rsa_encrypt_with_public',              >> %1
+ECHO   cn_rsa_encrypt_with_private            name 'cn_rsa_encrypt_with_private',             >> %1
+ECHO   cn_rsa_decrypt_with_public             name 'cn_rsa_decrypt_with_public',              >> %1
+ECHO   cn_rsa_decrypt_with_private            name 'cn_rsa_decrypt_with_private',             >> %1
+ECHO   cn_rsa_sign                            name 'cn_rsa_sign',                             >> %1
+ECHO   cn_rsa_verify                          name 'cn_rsa_verify',                           >> %1
+ECHO   cn_rsa_load_keys_from_pem              name 'cn_rsa_load_keys_from_pem',               >> %1
+ECHO   cn_rsa_save_keys_to_pem                name 'cn_rsa_save_keys_to_pem',                 >> %1
+ECHO   cn_rsa_save_public_key_to_pem          name 'cn_rsa_save_public_key_to_pem',           >> %1
+ECHO   cn_ecc_privkey_new                     name 'cn_ecc_privkey_new',                      >> %1
+ECHO   cn_ecc_pubkey_new                      name 'cn_ecc_pubkey_new',                       >> %1
+ECHO   cn_ecc_key_free                        name 'cn_ecc_key_free',                         >> %1
+ECHO   cn_ecc_curve_bytes                     name 'cn_ecc_curve_bytes',                      >> %1
+ECHO   cn_ecc_generate_keys                   name 'cn_ecc_generate_keys',                    >> %1
+ECHO   cn_ecc_sign                            name 'cn_ecc_sign',                             >> %1
+ECHO   cn_ecc_verify                          name 'cn_ecc_verify',                           >> %1
+ECHO   cn_ecc_load_keys_from_pem              name 'cn_ecc_load_keys_from_pem',               >> %1
+ECHO   cn_ecc_save_keys_to_pem                name 'cn_ecc_save_keys_to_pem',                 >> %1
+ECHO   cn_ecc_save_public_key_to_pem          name 'cn_ecc_save_public_key_to_pem',           >> %1
+ECHO   cn_sm2_privkey_new                     name 'cn_sm2_privkey_new',                      >> %1
+ECHO   cn_sm2_pubkey_new                      name 'cn_sm2_pubkey_new',                       >> %1
+ECHO   cn_sm2_key_free                        name 'cn_sm2_key_free',                         >> %1
+ECHO   cn_sm2_generate_keys                   name 'cn_sm2_generate_keys',                    >> %1
+ECHO   cn_sm2_encrypt                         name 'cn_sm2_encrypt',                          >> %1
+ECHO   cn_sm2_decrypt                         name 'cn_sm2_decrypt',                          >> %1
+ECHO   cn_sm2_sign                            name 'cn_sm2_sign',                             >> %1
+ECHO   cn_sm2_verify                          name 'cn_sm2_verify',                           >> %1
+ECHO   cn_sm2_save_keys_to_pem                name 'cn_sm2_save_keys_to_pem',                 >> %1
+ECHO   cn_sm2_save_public_key_to_pem          name 'cn_sm2_save_public_key_to_pem',           >> %1
+ECHO   cn_ed25519_privkey_new                 name 'cn_ed25519_privkey_new',                  >> %1
+ECHO   cn_ed25519_pubkey_new                  name 'cn_ed25519_pubkey_new',                   >> %1
+ECHO   cn_ed25519_key_free                    name 'cn_ed25519_key_free',                     >> %1
+ECHO   cn_ed25519_generate_keys               name 'cn_ed25519_generate_keys',                >> %1
+ECHO   cn_ed25519_sign                        name 'cn_ed25519_sign',                         >> %1
+ECHO   cn_ed25519_verify                      name 'cn_ed25519_verify',                       >> %1
+ECHO   cn_ed25519_sign_ex                     name 'cn_ed25519_sign_ex',                      >> %1
+ECHO   cn_ed25519_verify_ex                   name 'cn_ed25519_verify_ex',                    >> %1
+ECHO   cn_curve25519_privkey_new              name 'cn_curve25519_privkey_new',               >> %1
+ECHO   cn_curve25519_pubkey_new               name 'cn_curve25519_pubkey_new',                >> %1
+ECHO   cn_curve25519_key_free                 name 'cn_curve25519_key_free',                  >> %1
+ECHO   cn_curve25519_generate_keys            name 'cn_curve25519_generate_keys',             >> %1
+ECHO   cn_curve25519_dh_step1                 name 'cn_curve25519_dh_step1',                  >> %1
+ECHO   cn_curve25519_dh_step2                 name 'cn_curve25519_dh_step2',                  >> %1
+ECHO   cn_curve25519_dh                       name 'cn_curve25519_dh',                        >> %1
+ECHO   cn_curve25519_dh_bytes                 name 'cn_curve25519_dh_bytes',                  >> %1
+ECHO   cn_ed25519_privkey_from_bytes          name 'cn_ed25519_privkey_from_bytes',           >> %1
+ECHO   cn_ed25519_privkey_to_bytes            name 'cn_ed25519_privkey_to_bytes',             >> %1
+ECHO   cn_ed25519_pubkey_from_bytes           name 'cn_ed25519_pubkey_from_bytes',            >> %1
+ECHO   cn_ed25519_pubkey_to_bytes             name 'cn_ed25519_pubkey_to_bytes',              >> %1
+ECHO   cn_ed25519_derive_public               name 'cn_ed25519_derive_public',                >> %1
+ECHO   cn_ed25519_derive_public_to_bytes      name 'cn_ed25519_derive_public_to_bytes',       >> %1
+ECHO   cn_curve25519_privkey_from_bytes       name 'cn_curve25519_privkey_from_bytes',        >> %1
+ECHO   cn_curve25519_privkey_to_bytes         name 'cn_curve25519_privkey_to_bytes',          >> %1
+ECHO   cn_curve25519_pubkey_from_bytes        name 'cn_curve25519_pubkey_from_bytes',         >> %1
+ECHO   cn_curve25519_pubkey_to_bytes          name 'cn_curve25519_pubkey_to_bytes',           >> %1
+ECHO   cn_curve25519_derive_public            name 'cn_curve25519_derive_public',             >> %1
+ECHO   cn_curve25519_derive_public_to_bytes   name 'cn_curve25519_derive_public_to_bytes',    >> %1
+ECHO   cn_mlkem_generate_keys                 name 'cn_mlkem_generate_keys',                  >> %1
+ECHO   cn_mlkem_encaps                        name 'cn_mlkem_encaps',                         >> %1
+ECHO   cn_mlkem_decaps                        name 'cn_mlkem_decaps',                         >> %1
+ECHO   cn_mldsa_generate_keys                 name 'cn_mldsa_generate_keys',                  >> %1
+ECHO   cn_mldsa_sign                          name 'cn_mldsa_sign',                           >> %1
+ECHO   cn_mldsa_verify                        name 'cn_mldsa_verify',                         >> %1
+ECHO   cn_mlkem_check_encap_key               name 'cn_mlkem_check_encap_key',                >> %1
+ECHO   cn_mlkem_check_decap_key               name 'cn_mlkem_check_decap_key',                >> %1
+ECHO   cn_mlkem_encaps_auto                   name 'cn_mlkem_encaps_auto',                    >> %1
+ECHO   cn_mlkem_expected_encap_key_len        name 'cn_mlkem_expected_encap_key_len',         >> %1
+ECHO   cn_mlkem_expected_decap_key_len        name 'cn_mlkem_expected_decap_key_len',         >> %1
+ECHO   cn_mlkem_expected_cipher_len           name 'cn_mlkem_expected_cipher_len',            >> %1
+ECHO   cn_mlkem_share_key_bytes               name 'cn_mlkem_share_key_bytes',                >> %1
+ECHO   cn_mldsa_expected_privkey_len          name 'cn_mldsa_expected_privkey_len',           >> %1
+ECHO   cn_mldsa_expected_pubkey_len           name 'cn_mldsa_expected_pubkey_len',            >> %1
+ECHO   cn_mldsa_expected_sig_len              name 'cn_mldsa_expected_sig_len';               >> %1
 GOTO :EOF
 
 :COPYEXAMPLE

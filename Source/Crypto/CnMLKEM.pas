@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -108,12 +108,9 @@ type
     FCompressU: Integer;
     FCompressV: Integer;
     FMLKEMType: TCnMLKEMType;
-    function GetEncapKeyByteLength: Integer;
-    function GetDecapKeyByteLength: Integer;
     function GetCipherUPolyByteLength: Integer;
     function GetCipherUByteLength: Integer;
     function GetCipherVByteLength: Integer;
-    function GetCipherByteLength: Integer;
 
     procedure GenerateMatrix(const Seed: TCnMLKEMSeed; out Matrix: TCnMLKEMPolyMatrix);
     {* 根据种子生成矩阵 A，系数是 NTT 形式}
@@ -142,13 +139,6 @@ type
     procedure ExtractUVFromCipherText(const CipherText: TBytes; out UVector: TCnMLKEMPolyVector;
       out VPolynomial: TCnMLKEMPolynomial);
     {* 从密文 CipherText 中解出密文对应的多项式向量与多项式，均是非 NTT 形式}
-
-    procedure CheckEncapKey(EnKey: TBytes);
-    {* 检查公开密钥字节数组是否合法，不合法则抛异常}
-    procedure CheckDecapKey(DeKey: TBytes);
-    {* 检查非公开密钥字节数组是否合法，不合法则抛异常}
-    procedure CheckKeyPair(EncapKey: TCnMLKEMEncapsulationKey; DecapKey: TCnMLKEMDecapsulationKey);
-    {* 检查一对 Key 是否匹配}
   public
     constructor Create(AType: TCnMLKEMType); virtual;
     {* 构造函数}
@@ -187,6 +177,20 @@ type
 
     function MLKEMDecaps(DeKey: TBytes; CipherText: TBytes): TBytes;
     {* 用非公开密钥解封密文，返回共享密钥。如失败，返回随机密钥}
+
+    function GetEncapKeyByteLength: Integer;
+    {* 返回公开密钥的字节长度}
+    function GetDecapKeyByteLength: Integer;
+    {* 返回非公开密钥的字节长度}
+    function GetCipherByteLength: Integer;
+    {* 返回密钥的字节长度}
+
+    procedure CheckEncapKey(EnKey: TBytes);
+    {* 检查公开密钥字节数组是否合法，不合法则抛异常}
+    procedure CheckDecapKey(DeKey: TBytes);
+    {* 检查非公开密钥字节数组是否合法，不合法则抛异常}
+    procedure CheckKeyPair(EncapKey: TCnMLKEMEncapsulationKey; DecapKey: TCnMLKEMDecapsulationKey);
+    {* 检查一对 Key 是否匹配}
 
     property MLKEMType: TCnMLKEMType read FMLKEMType;
     {* MLKEM 的算法类型，512、768、1024 三种}
@@ -516,6 +520,8 @@ var
   W: TWords;
 begin
   W := MLKEMByteDecode(B, D);
+  if Length(W) > CN_MLKEM_POLY_SIZE then
+    SetLength(W, CN_MLKEM_POLY_SIZE);
   Move(W[0], P[0], Length(W) * SizeOf(Word));
 end;
 

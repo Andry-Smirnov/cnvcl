@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -85,7 +85,7 @@ function SHA1Buffer(const Buffer; Count: Cardinal): TCnSHA1Digest;
 {* 对数据块进行 SHA1 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnSHA1Digest                  - 返回的 SHA1 杂凑值
@@ -469,7 +469,7 @@ var
   Context: TCnSHA1Context;
 begin
   SHA1Init(Context);
-  SHA1Update(Context, PAnsiChar(Buffer), Count);
+  SHA1Update(Context, PAnsiChar(@Buffer), Count);
   SHA1Final(Context, Result);
 end;
 
@@ -707,7 +707,7 @@ var
 begin
   if KeyLength > HMAC_SHA1_BLOCK_SIZE_BYTE then
   begin
-    Sum := SHA1Buffer(Key, KeyLength);
+    Sum := SHA1Buffer(Key^, KeyLength);
     KeyLength := HMAC_SHA1_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;

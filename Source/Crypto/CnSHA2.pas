@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -188,7 +188,7 @@ function SHA224Buffer(const Buffer; Count: Cardinal): TCnSHA224Digest;
 {* 对数据块进行 SHA224 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnSHA224Digest                - 返回的 SHA224 杂凑值
@@ -198,7 +198,7 @@ function SHA256Buffer(const Buffer; Count: Cardinal): TCnSHA256Digest;
 {* 对数据块进行 SHA256 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnSHA256Digest                - 返回的 SHA256 杂凑值
@@ -208,7 +208,7 @@ function SHA384Buffer(const Buffer; Count: Cardinal): TCnSHA384Digest;
 {* 对数据块进行 SHA384 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnSHA384Digest                - 返回的 SHA384杂凑值
@@ -218,7 +218,7 @@ function SHA512Buffer(const Buffer; Count: Cardinal): TCnSHA512Digest;
 {* 对数据块进行 SHA512 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnSHA512Digest                - 返回的 SHA512 杂凑值
@@ -228,7 +228,7 @@ function SHA512_224Buffer(const Buffer; Count: Cardinal): TCnSHA512_224Digest;
 {* 对数据块进行 SHA512_224 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnSHA512_224Digest            - 返回的 SHA512_224 杂凑值
@@ -238,7 +238,7 @@ function SHA512_256Buffer(const Buffer; Count: Cardinal): TCnSHA512_256Digest;
 {* 对数据块进行 SHA512_256 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnSHA512_256Digest            - 返回的 SHA512_256 杂凑值
@@ -1444,6 +1444,8 @@ begin
     J := 0;
     while I < 16 do
     begin
+      // 注意 Delphi 5 6 7 下此处的 Int64 左右移，在 Range Check 开关打开与否时
+      // 的行为竟然不一样。该开关必须关掉，才能得到正确结果。
       M[I] := (TUInt64(Data[J]) shl 56) or (TUInt64(Data[J + 1]) shl 48) or
         (TUInt64(Data[J + 2]) shl 40) or (TUInt64(Data[J + 3]) shl 32) or
         (TUInt64(Data[J + 4]) shl 24) or (TUInt64(Data[J + 5]) shl 16) or
@@ -1627,14 +1629,14 @@ begin
   end;
 
   Context.BitLen := Context.BitLen + Context.DataLen * 8;
-  Context.Data[63] := Context.Bitlen;
-  Context.Data[62] := Context.Bitlen shr 8;
-  Context.Data[61] := Context.Bitlen shr 16;
-  Context.Data[60] := Context.Bitlen shr 24;
-  Context.Data[59] := Context.Bitlen shr 32;
-  Context.Data[58] := Context.Bitlen shr 40;
-  Context.Data[57] := Context.Bitlen shr 48;
-  Context.Data[56] := Context.Bitlen shr 56;
+  Context.Data[63] := Byte(Context.Bitlen);
+  Context.Data[62] := Byte(Context.Bitlen shr 8);
+  Context.Data[61] := Byte(Context.Bitlen shr 16);
+  Context.Data[60] := Byte(Context.Bitlen shr 24);
+  Context.Data[59] := Byte(Context.Bitlen shr 32);
+  Context.Data[58] := Byte(Context.Bitlen shr 40);
+  Context.Data[57] := Byte(Context.Bitlen shr 48);
+  Context.Data[56] := Byte(Context.Bitlen shr 56);
   SHA256Transform(Context, @(Context.Data[0]));
 
   for I := 0 to 3 do
@@ -1939,7 +1941,7 @@ var
   Context: TCnSHA224Context;
 begin
   SHA224Init(Context);
-  SHA224Update(Context, PAnsiChar(Buffer), Count);
+  SHA224Update(Context, PAnsiChar(@Buffer), Count);
   SHA224Final(Context, Result);
 end;
 
@@ -1949,7 +1951,7 @@ var
   Context: TCnSHA256Context;
 begin
   SHA256Init(Context);
-  SHA256Update(Context, PAnsiChar(Buffer), Count);
+  SHA256Update(Context, PAnsiChar(@Buffer), Count);
   SHA256Final(Context, Result);
 end;
 
@@ -1959,7 +1961,7 @@ var
   Context: TCnSHA384Context;
 begin
   SHA384Init(Context);
-  SHA384Update(Context, PAnsiChar(Buffer), Count);
+  SHA384Update(Context, PAnsiChar(@Buffer), Count);
   SHA384Final(Context, Result);
 end;
 
@@ -1969,7 +1971,7 @@ var
   Context: TCnSHA512Context;
 begin
   SHA512Init(Context);
-  SHA512Update(Context, PAnsiChar(Buffer), Count);
+  SHA512Update(Context, PAnsiChar(@Buffer), Count);
   SHA512Final(Context, Result);
 end;
 
@@ -1979,7 +1981,7 @@ var
   Context: TCnSHA512_224Context;
 begin
   SHA512_224Init(Context);
-  SHA512_224Update(Context, PAnsiChar(Buffer), Count);
+  SHA512_224Update(Context, PAnsiChar(@Buffer), Count);
   SHA512_224Final(Context, Result);
 end;
 
@@ -1989,7 +1991,7 @@ var
   Context: TCnSHA512_256Context;
 begin
   SHA512_256Init(Context);
-  SHA512_256Update(Context, PAnsiChar(Buffer), Count);
+  SHA512_256Update(Context, PAnsiChar(@Buffer), Count);
   SHA512_256Final(Context, Result);
 end;
 
@@ -2918,7 +2920,7 @@ var
 begin
   if KeyLength > HMAC_SHA2_224_256_BLOCK_SIZE_BYTE then
   begin
-    Sum := SHA224Buffer(Key, KeyLength);
+    Sum := SHA224Buffer(Key^, KeyLength);
     KeyLength := HMAC_SHA2_224_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;
@@ -2962,7 +2964,7 @@ var
 begin
   if KeyLength > HMAC_SHA2_224_256_BLOCK_SIZE_BYTE then
   begin
-    Sum := SHA256Buffer(Key, KeyLength);
+    Sum := SHA256Buffer(Key^, KeyLength);
     KeyLength := HMAC_SHA2_256_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;
@@ -3044,7 +3046,7 @@ var
 begin
   if KeyLength > HMAC_SHA2_384_512_BLOCK_SIZE_BYTE then
   begin
-    Sum := SHA384Buffer(Key, KeyLength);
+    Sum := SHA384Buffer(Key^, KeyLength);
     KeyLength := HMAC_SHA2_384_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;
@@ -3107,7 +3109,7 @@ var
 begin
   if KeyLength > HMAC_SHA2_384_512_BLOCK_SIZE_BYTE then
   begin
-    Sum := SHA512Buffer(Key, KeyLength);
+    Sum := SHA512Buffer(Key^, KeyLength);
     KeyLength := HMAC_SHA2_512_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;
@@ -3170,7 +3172,7 @@ var
 begin
   if KeyLength > HMAC_SHA2_384_512_BLOCK_SIZE_BYTE then
   begin
-    Sum := SHA512_224Buffer(Key, KeyLength);
+    Sum := SHA512_224Buffer(Key^, KeyLength);
     KeyLength := HMAC_SHA2_512_224_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;
@@ -3233,7 +3235,7 @@ var
 begin
   if KeyLength > HMAC_SHA2_384_512_BLOCK_SIZE_BYTE then
   begin
-    Sum := SHA512_256Buffer(Key, KeyLength);
+    Sum := SHA512_256Buffer(Key^, KeyLength);
     KeyLength := HMAC_SHA2_512_256_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;

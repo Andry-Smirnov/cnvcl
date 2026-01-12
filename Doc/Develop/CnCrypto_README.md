@@ -48,13 +48,21 @@ CnPack 密码算法库不涉及 VCL/FMX 界面组件，仅是基础库的形式提供，因而可直接将 `cn
 
 另外 CnPack 密码算法库也提供了运行期包的形式，在任一版本 Delphi 中打开 `cncrypto\Package\CnCrypto.dpk`，即可编译成 BPL 使用。注意如果已经编译安装了 CnPack 组件包，则无需也不应编译使用 CnPack 密码算法库的包，会出现单元命名冲突。
 
-注：如果在 Delphi 5 下编译该 BPL，需手工将 `requires` 语句中的 `vcl` 改为 `vcl50`。
+注：如果在 Delphi 5 下编译该 BPL，需手工将 `requires` 语句中的 `vcl` 改为 `vcl50`，但 Delphi 5 由于其内存管理机制老旧，已不推荐使用。
+
+另外，对于部分版本较低的 Delphi 移动平台，因其机制不完善，缺乏单字节字符串类型，我们也无法支持。
 
 ## 测试用例
 
 `cncrypto\Test` 目录下有一完整的命令行测试用例 `CryptoTest.dpr`，使用任一版本 Delphi 打开运行即可覆盖验证 CnPack 密码算法库的绝大多数功能，或用 C++Builder 5/6 打开 `Crypto.bpr`、或用 Lazarus 打开 `Crypto.lpi`，均同样可以运行。在没有 Lazarus 仅有 FPC 时，也可用 `fpc` 命令行编译 `Crypto.lpr` 以运行。尾部两个用例耗时较长以小时计，跑时需有耐心。
 
 另外，本加解密库仅在小端 CPU 上运行测试过，大端 CPU 暂不保证支持。
+
+## 动态加载
+
+对于非源码集成方式的使用方，我们也提供将 CnPack 密码算法库编译成 DLL/SO/DYLIB 再动态加载使用的方式，以达到跨语言使用的目的。`cncrypto\Package` 目录下有 `CnCrypto.dpr` 和 `CnCrypto.lpr` 两个工程，允许用户用 Delphi 及 FPC 将 CnPack 密码算法库先行按需编译成动态库，如 Windows 的 DLL、Linux 上的 SO、MacOS 上的 DYLIB 等。`cncrypto\Include` 目录下的 `CnCryptoIntf.h` 头文件及 `CnCryptoIntf.pas` 接口文件则提供了对应 DLL/SO/DYLIB 的输出函数说明，供调用者链接、调用参考。
+
+注：输出函数中与字符串有关的参数可支持双字节字符串或单字节字符串，取决于编译动态库的编译器是否是 Unicode 版本，调用时需注意其说明。
 
 ## 演示例子
 
@@ -120,13 +128,25 @@ The CnPack Crypto Library does not involve VCL/FMX UI components and is provided
 
 Alternatively, the library also provides a runtime package. Open `cncrypto\Package\CnCrypto.dpk` in any version of Delphi to compile it into a BPL file for use. Note: If you have already installed the full CnPack Component Package, you should **not** compile or use the CnPack Crypto Library package, as this will cause unit naming conflicts.
 
-> **Note**: When compiling the BPL in Delphi 5, manually change `vcl` to `vcl50` in the `requires` clause.
+> **Note**: When compiling the BPL in Delphi 5, manually change `vcl` to `vcl50` in the `requires` clause. However, Delphi 5 is no longer recommended due to its dated memory management mechanism.
+
+> Additionally, for some older versions of the Delphi mobile platform, due to their incomplete implementation and lack of single-byte string and char types, we are unable to provide support.
 
 ## Test Cases
 
 The `cncrypto\Test` directory contains a complete command-line test suite, `CryptoTest.dpr`. Open and run it in any version of Delphi to verify the majority of the CnPack Crypto Library's functionality. It can also be opened with C++Builder 5/6 (`Crypto.bpr`) or Lazarus (`Crypto.lpi`) to run the tests. If only FPC (Free Pascal Compiler) is available without Lazarus, you may compile and run `Crypto.lpr` using the `fpc` command-line tool. The last two test cases are time-consuming and may take hours to complete. Please be patient during execution.
 
 > **Note**: This cryptographic library has only been tested on little-endian CPUs. Support for big-endian CPUs is not currently guaranteed.
+
+## Dynamic Loading
+
+For users who do not integrate the library via source code, we also provide a way to compile the CnPack Crypto Library into a DLL/SO/DYLIB and then load it dynamically, enabling cross-language usage.
+
+In the `cncrypto\Package directory`, you will find two projects: `CnCrypto.dpr` and `CnCrypto.lpr`, which allow users to pre-compile the CnPack Crypto Library into a dynamic library, such as a DLL on Windows, an SO on Linux, or a DYLIB on macOS, as needed, using either Delphi or Free Pascal Compiler (FPC).
+
+The CnCryptoIntf.h header file and the CnCryptoIntf.pas interface file located in the cncrypto\Include directory document the exported functions of the resulting DLL/SO/DYLIB, serving as reference for callers to link against and invoke the library.
+
+> **Note**: Among the exported functions, parameters related to strings can support either double-byte (Unicode) or single-byte (ANSI) strings, depending on whether the compiler used to build the dynamic library is a Unicode-enabled version. Callers should pay attention to this detail as specified in the comments.
 
 ## Example Demos
 

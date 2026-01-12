@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -37,7 +37,9 @@ unit CnRSA;
 * 开发平台：WinXP + Delphi 5.0
 * 兼容测试：暂未进行
 * 本 地 化：该单元无需本地化处理
-* 修改记录：2025.12.09 V3.3
+* 修改记录：2026.01.05 V3.4
+*               增加 RSA 的 PSS 模式的签名与验证函数并增加几种杂凑支持。
+*           2025.12.09 V3.3
 *               调整私钥加密时填充类型，统一使用 RFC2313 推荐的 01 也就是 CN_PKCS1_BLOCK_TYPE_PRIVATE_FF。
 *           2025.08.22 V3.2
 *               增加两个公钥加密私钥解密超长流的函数及两个私钥加密公钥解密超长流的函数，
@@ -156,7 +158,8 @@ const
   {* RSA 错误码之 PEM 加解密错误}
 
 type
-  TCnRSASignDigestType = (rsdtNone, rsdtMD5, rsdtSHA1, rsdtSHA256, rsdtSM3);
+  TCnRSASignDigestType = (rsdtNone, rsdtMD5, rsdtSHA1, rsdtSHA224,
+    rsdtSHA256, rsdtSHA384, rsdtSHA512, rsdtSM3);
   {* RSA 签名所支持的杂凑摘要类型，可无摘要}
 
   TCnRSAKeyType = (cktPKCS1, cktPKCS8);
@@ -257,7 +260,7 @@ type
     {* 密钥的字节数，等于素数乘积 n 的有效位数除以 8}
   end;
 
-// UInt64 范围内的 RSA 加解密实现
+// ===================== UInt64 范围内的 RSA 加解密实现 ========================
 
 function CnInt64RSAGenerateKeys(out PrimeKey1: Cardinal; out PrimeKey2: Cardinal;
   out PrivKeyProduct: TUInt64; out PrivKeyExponent: TUInt64; out PubKeyProduct: TUInt64;
@@ -319,7 +322,7 @@ function CnInt64RSADecrypt(Res: TUInt64; PubKeyProduct: TUInt64;
    返回值：Boolean                        - 返回解密是否成功
 }
 
-// 大数范围内的 RSA 加解密实现
+// ====================== 大数范围内的 RSA 加解密实现 ==========================
 
 function CnRSAGenerateKeysByPrimeBits(PrimeBits: Integer; PrivateKey: TCnRSAPrivateKey;
   PublicKey: TCnRSAPublicKey; PublicKeyUse3: Boolean = False): Boolean; {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
@@ -875,7 +878,7 @@ function CnRSADecryptLongStream(InStream, OutStream: TStream; PublicKey: TCnRSAP
 
 function CnRSASignFile(const InFileName: string; const OutSignFileName: string;
   PrivateKey: TCnRSAPrivateKey; SignType: TCnRSASignDigestType = rsdtMD5): Boolean;
-{* 用 RSA 私钥签名指定文件，签名结果直接存储至 OutSignFileName 文件中，返回签名是否成功。
+{* 用 RSA 私钥以 PKCS1 模式签名指定文件，签名结果直接存储至 OutSignFileName 文件中，返回签名是否成功。
    未指定签名杂凑摘要类型时，等于将源文件用 PKCS1 Private_FF 补齐后加密。
    当指定了签名杂凑摘要类型时，使用指定签名杂凑摘要算法对文件进行计算得到杂凑值，
    再将原始的二进制杂凑值进行 BER 编码，再 PKCS1 补齐再用私钥加密。
@@ -891,7 +894,7 @@ function CnRSASignFile(const InFileName: string; const OutSignFileName: string;
 
 function CnRSAVerifyFile(const InFileName: string; const InSignFileName: string;
   PublicKey: TCnRSAPublicKey; SignType: TCnRSASignDigestType = rsdtMD5): Boolean;
-{* 用 RSA 公钥与签名值文件验证指定文件，也即用指定签名杂凑摘要算法对文件进行计算得到杂凑值，
+{* 用 RSA 公钥与签名值文件以 PKCS1 模式验证指定文件，也即用指定签名杂凑摘要算法对文件进行计算得到杂凑值，
    并用公钥解密签名内容并解开 PKCS1 补齐再解开 BER 编码得到杂凑算法与杂凑值，
    并比对两个二进制杂凑值是否相同，返回验证是否通过。
 
@@ -906,7 +909,7 @@ function CnRSAVerifyFile(const InFileName: string; const InSignFileName: string;
 
 function CnRSASignStream(InStream: TMemoryStream; OutSignStream: TMemoryStream;
   PrivateKey: TCnRSAPrivateKey; SignType: TCnRSASignDigestType = rsdtMD5): Boolean;
-{* 用 RSA 私钥签名指定内存流，签名值写入 OutSignStream 中，返回签名是否成功
+{* 用 RSA 私钥以 PKCS1 模式签名指定内存流，签名值写入 OutSignStream 中，返回签名是否成功。
 
    参数：
      InStream: TMemoryStream              - 待签名的内存流
@@ -919,7 +922,7 @@ function CnRSASignStream(InStream: TMemoryStream; OutSignStream: TMemoryStream;
 
 function CnRSAVerifyStream(InStream: TMemoryStream; InSignStream: TMemoryStream;
   PublicKey: TCnRSAPublicKey; SignType: TCnRSASignDigestType = rsdtMD5): Boolean;
-{* 用 RSA 公钥与签名值内存流验证指定内存流，返回验证是否通过
+{* 用 RSA 公钥与签名值内存流以 PKCS1 模式验证指定内存流，返回验证是否通过。
 
    参数：
      InStream: TMemoryStream              - 待验证签名的内存流
@@ -932,7 +935,7 @@ function CnRSAVerifyStream(InStream: TMemoryStream; InSignStream: TMemoryStream;
 
 function CnRSASignBytes(InData: TBytes; PrivateKey: TCnRSAPrivateKey;
   SignType: TCnRSASignDigestType = rsdtMD5): TBytes;
-{* 用 RSA 私钥签名字节数组，返回签名值的字节数组，如签名失败则返回空。
+{* 用 RSA 私钥以 PKCS1 模式签名字节数组，返回签名值的字节数组，如签名失败则返回空。
 
    参数：
      InData: TBytes                       - 待签名的字节数组
@@ -944,7 +947,7 @@ function CnRSASignBytes(InData: TBytes; PrivateKey: TCnRSAPrivateKey;
 
 function CnRSAVerifyBytes(InData: TBytes; InSignBytes: TBytes;
   PublicKey: TCnRSAPublicKey; SignType: TCnRSASignDigestType = rsdtMD5): Boolean;
-{* 用 RSA 公钥与签名字节数组验证指定字节数组，返回验证是否通过。
+{* 用 RSA 公钥与签名字节数组以 PKCS1 模式验证指定字节数组，返回验证是否通过。
 
    参数：
      InData: TBytes                       - 待验证签名的字节数组
@@ -955,7 +958,7 @@ function CnRSAVerifyBytes(InData: TBytes; InSignBytes: TBytes;
    返回值：Boolean                        - 返回验证签名是否成功
 }
 
-// OAEP Padding 的生成与验证算法
+// ===================== OAEP Padding 的生成与验证算法 =========================
 
 function AddOaepSha1MgfPadding(ToBuf: PByte; ToByteLen: Integer; PlainData: PByte;
   DataByteLen: Integer; DigestParam: PByte = nil; ParamByteLen: Integer = 0): Boolean;
@@ -988,6 +991,87 @@ function RemoveOaepSha1MgfPadding(ToBuf: PByte; out OutByteLen: Integer; EnData:
      ParamByteLen: Integer                - 额外进行杂凑拼接的数据块字节长度
 
    返回值：Boolean                        - 返回去除填充是否成功
+}
+
+// ===================== RSA 的 PSS 模式的签名验证算法 =========================
+
+function CnRSAPSSSignFile(const InFileName: string; const OutSignFileName: string;
+  PrivateKey: TCnRSAPrivateKey; SignType: TCnRSASignDigestType = rsdtSHA256): Boolean;
+{* 用 RSA 私钥以 PSS 模式签名指定文件，签名结果直接存储至 OutSignFileName 文件中，返回签名是否成功。
+
+   参数：
+     const InFileName: string             - 待签名的文件名
+     const OutSignFileName: string        - 签名内容的输出文件名
+     PrivateKey: TCnRSAPrivateKey         - 用于签名的 RSA 私钥
+     SignType: TCnRSASignDigestType       - 指定签名杂凑摘要类型
+
+   返回值：Boolean                        - 返回签名是否成功
+}
+
+function CnRSAPSSVerifyFile(const InFileName: string; const InSignFileName: string;
+  PublicKey: TCnRSAPublicKey; SignType: TCnRSASignDigestType = rsdtSHA256): Boolean;
+{* 用 RSA 公钥与签名值文件以 PSS 模式验证指定文件，也即用指定签名杂凑摘要算法对文件进行计算得到杂凑值，
+   并用公钥解密签名内容并解开 PSS 补齐再解开 BER 编码得到杂凑算法与杂凑值，
+   并比对两个二进制杂凑值是否相同，返回验证是否通过。
+
+   参数：
+     const InFileName: string             - 待验证签名的文件名
+     const InSignFileName: string         - 签名内容的文件名
+     PublicKey: TCnRSAPublicKey           - 用于验证签名的 RSA 公钥
+     SignType: TCnRSASignDigestType       - 指定签名杂凑摘要类型
+
+   返回值：Boolean                        - 返回验证签名是否成功
+}
+
+function CnRSAPSSSignStream(InStream: TMemoryStream; OutSignStream: TMemoryStream;
+  PrivateKey: TCnRSAPrivateKey; SignType: TCnRSASignDigestType = rsdtSHA256): Boolean;
+{* 用 RSA 私钥以 PSS 模式签名指定内存流，签名值写入 OutSignStream 中，返回签名是否成功。
+
+   参数：
+     InStream: TMemoryStream              - 待签名的内存流
+     OutSignStream: TMemoryStream         - 输出的签名内容内存流
+     PrivateKey: TCnRSAPrivateKey         - 用于签名的 RSA 私钥
+     SignType: TCnRSASignDigestType       - 指定签名杂凑摘要类型
+
+   返回值：Boolean                        - 返回签名是否成功
+}
+
+function CnRSAPSSVerifyStream(InStream: TMemoryStream; InSignStream: TMemoryStream;
+  PublicKey: TCnRSAPublicKey; SignType: TCnRSASignDigestType = rsdtSHA256): Boolean;
+{* 用 RSA 公钥与签名值内存流以 PSS 模式验证指定内存流，返回验证是否通过。
+
+   参数：
+     InStream: TMemoryStream              - 待验证签名的内存流
+     InSignStream: TMemoryStream          - 签名内容内存流
+     PublicKey: TCnRSAPublicKey           - 用于验证签名的 RSA 公钥
+     SignType: TCnRSASignDigestType       - 指定签名杂凑摘要类型
+
+   返回值：Boolean                        - 返回验证签名是否成功
+}
+
+function CnRSAPSSSignBytes(InData: TBytes; PrivateKey: TCnRSAPrivateKey;
+  SignType: TCnRSASignDigestType = rsdtSHA256): TBytes;
+{* 用 RSA 私钥以 PSS 模式签名字节数组，返回签名值的字节数组，如签名失败则返回空。
+
+   参数：
+     InData: TBytes                       - 待签名的字节数组
+     PrivateKey: TCnRSAPrivateKey         - 用于签名的 RSA 私钥
+     SignType: TCnRSASignDigestType       - 指定签名杂凑摘要类型
+
+   返回值：TBytes                         - 返回签名内容的字节数组，失败则返回空
+}
+
+function CnRSAPSSVerifyBytes(InData: TBytes; InSignBytes: TBytes;
+  PublicKey: TCnRSAPublicKey; SignType: TCnRSASignDigestType = rsdtSHA256): Boolean;
+{* 用 RSA 公钥与签名字节数组以 PSS 模式验证指定字节数组，返回验证是否通过。
+
+   参数：
+     InData: TBytes                       - 待验证签名的字节数组
+     InSignBytes: TBytes                  - 签名内容字节数组
+     PublicKey: TCnRSAPublicKey           - 用于验证签名的 RSA 公钥
+     SignType: TCnRSASignDigestType       - 指定签名杂凑摘要类型
+
+   返回值：Boolean                        - 返回验证签名是否成功
 }
 
 // ================ Diffie-Hellman 离散对数密钥交换算法 ========================
@@ -1218,8 +1302,24 @@ const
     $2B, $0E, $03, $02, $1A
   );
 
+  OID_SIGN_SHA224: array[0..8] of Byte = (         // 2.16.840.1.101.3.4.2.4
+    $60, $86, $48, $01, $65, $03, $04, $02, $04
+  );
+
   OID_SIGN_SHA256: array[0..8] of Byte = (         // 2.16.840.1.101.3.4.2.1
     $60, $86, $48, $01, $65, $03, $04, $02, $01
+  );
+
+  OID_SIGN_SHA384: array[0..8] of Byte = (         // 2.16.840.1.101.3.4.2.2
+    $60, $86, $48, $01, $65, $03, $04, $02, $02
+  );
+
+  OID_SIGN_SHA512: array[0..8] of Byte = (         // 2.16.840.1.101.3.4.2.3
+    $60, $86, $48, $01, $65, $03, $04, $02, $03
+  );
+
+  OID_SIGN_SM3: array[0..5] of Byte = (            // 1.0.10118.3.0.65
+    $28, $CF, $06, $03, $00, $41
   );
 
 // 获取本线程内最近一次 ErrorCode，当以上函数返回 False 时可调用此函数获取错误详情}
@@ -3102,7 +3202,10 @@ function CalcDigestStream(InStream: TStream; SignType: TCnRSASignDigestType;
 var
   Md5: TCnMD5Digest;
   Sha1: TCnSHA1Digest;
+  Sha224: TCnSHA224Digest;
   Sha256: TCnSHA256Digest;
+  Sha384: TCnSHA384Digest;
+  Sha512: TCnSHA512Digest;
   Sm3Dig: TCnSM3Digest;
 begin
   Result := False;
@@ -3119,10 +3222,28 @@ begin
         outStream.Write(Sha1, SizeOf(TCnSHA1Digest));
         Result := True;
       end;
+    rsdtSHA224:
+      begin
+        Sha224 := SHA224Stream(InStream);
+        outStream.Write(Sha224, SizeOf(TCnSHA224Digest));
+        Result := True;
+      end;
     rsdtSHA256:
       begin
         Sha256 := SHA256Stream(InStream);
         outStream.Write(Sha256, SizeOf(TCnSHA256Digest));
+        Result := True;
+      end;
+    rsdtSHA384:
+      begin
+        Sha384 := SHA384Stream(InStream);
+        outStream.Write(Sha384, SizeOf(TCnSHA384Digest));
+        Result := True;
+      end;
+    rsdtSHA512:
+      begin
+        Sha512 := SHA512Stream(InStream);
+        outStream.Write(Sha512, SizeOf(TCnSHA512Digest));
         Result := True;
       end;
     rsdtSM3:
@@ -3130,7 +3251,7 @@ begin
         Sm3Dig := SM3Stream(InStream);
         outStream.Write(Sm3Dig, SizeOf(TCnSM3Digest));
         Result := True;
-      end
+      end;
   end;
 
   if Result then
@@ -3145,7 +3266,10 @@ function CalcDigestFile(const FileName: string; SignType: TCnRSASignDigestType;
 var
   Md5: TCnMD5Digest;
   Sha1: TCnSHA1Digest;
+  Sha224: TCnSHA224Digest;
   Sha256: TCnSHA256Digest;
+  Sha384: TCnSHA384Digest;
+  Sha512: TCnSHA512Digest;
   Sm3Dig: TCnSM3Digest;
 begin
   Result := False;
@@ -3162,10 +3286,28 @@ begin
         outStream.Write(Sha1, SizeOf(TCnSHA1Digest));
         Result := True;
       end;
+    rsdtSHA224:
+      begin
+        Sha224 := SHA224File(FileName);
+        outStream.Write(Sha224, SizeOf(TCnSHA224Digest));
+        Result := True;
+      end;
     rsdtSHA256:
       begin
         Sha256 := SHA256File(FileName);
         outStream.Write(Sha256, SizeOf(TCnSHA256Digest));
+        Result := True;
+      end;
+    rsdtSHA384:
+      begin
+        Sha384 := SHA384File(FileName);
+        outStream.Write(Sha384, SizeOf(TCnSHA384Digest));
+        Result := True;
+      end;
+    rsdtSHA512:
+      begin
+        Sha512 := SHA512File(FileName);
+        outStream.Write(Sha512, SizeOf(TCnSHA512Digest));
         Result := True;
       end;
     rsdtSM3:
@@ -3193,9 +3335,21 @@ begin
     rsdtSHA1:
       Result := AWriter.AddBasicNode(CN_BER_TAG_OBJECT_IDENTIFIER, @OID_SIGN_SHA1[0],
         SizeOf(OID_SIGN_SHA1), AParent);
+    rsdtSHA224:
+      Result := AWriter.AddBasicNode(CN_BER_TAG_OBJECT_IDENTIFIER, @OID_SIGN_SHA224[0],
+        SizeOf(OID_SIGN_SHA224), AParent);
     rsdtSHA256:
       Result := AWriter.AddBasicNode(CN_BER_TAG_OBJECT_IDENTIFIER, @OID_SIGN_SHA256[0],
         SizeOf(OID_SIGN_SHA256), AParent);
+    rsdtSHA384:
+      Result := AWriter.AddBasicNode(CN_BER_TAG_OBJECT_IDENTIFIER, @OID_SIGN_SHA384[0],
+        SizeOf(OID_SIGN_SHA384), AParent);
+    rsdtSHA512:
+      Result := AWriter.AddBasicNode(CN_BER_TAG_OBJECT_IDENTIFIER, @OID_SIGN_SHA512[0],
+        SizeOf(OID_SIGN_SHA512), AParent);
+    rsdtSM3:
+      Result := AWriter.AddBasicNode(CN_BER_TAG_OBJECT_IDENTIFIER, @OID_SIGN_SM3[0],
+        SizeOf(OID_SIGN_SM3), AParent);
   end;
 end;
 
@@ -3620,6 +3774,557 @@ begin
   end;
 end;
 
+function PSSMGF1(Seed: Pointer; SeedLen: Integer; OutMask: Pointer;
+  MaskLen: Integer; SignType: TCnRSASignDigestType): Boolean;
+var
+  I, OutLen, MdLen: Integer;
+  Cnt: array[0..3] of Byte;
+  Buf: TBytes;
+  Md5Dig: TCnMD5Digest;
+  Sha1Dig: TCnSHA1Digest;
+  Sha224Dig: TCnSHA224Digest;
+  Sha256Dig: TCnSHA256Digest;
+  Sha384Dig: TCnSHA384Digest;
+  Sha512Dig: TCnSHA512Digest;
+  Sm3Dig: TCnSM3Digest;
+begin
+  Result := False;
+  OutLen := 0;
+  if (Seed = nil) or (SeedLen <= 0) then
+    Exit;
+
+  if (OutMask = nil) or (MaskLen <= 0) then
+    Exit;
+
+  case SignType of
+    rsdtMD5: MdLen := SizeOf(TCnMD5Digest);
+    rsdtSHA1: MdLen := SizeOf(TCnSHA1Digest);
+    rsdtSHA224: MdLen := SizeOf(TCnSHA224Digest);
+    rsdtSHA256: MdLen := SizeOf(TCnSHA256Digest);
+    rsdtSHA384: MdLen := SizeOf(TCnSHA384Digest);
+    rsdtSHA512: MdLen := SizeOf(TCnSHA512Digest);
+    rsdtSM3: MdLen := SizeOf(TCnSM3Digest);
+  else
+    Exit;
+  end;
+
+  I := 0;
+  SetLength(Buf, SeedLen + SizeOf(Cnt));
+  while OutLen < MaskLen do
+  begin
+    Cnt[0] := (I shr 24) and $FF;
+    Cnt[1] := (I shr 16) and $FF;
+    Cnt[2] := (I shr 8) and $FF;
+    Cnt[3] := I and $FF;
+    Move(PAnsiChar(Seed)^, Buf[0], SeedLen);
+    Move(Cnt[0], Buf[SeedLen], SizeOf(Cnt));
+    if OutLen + MdLen <= MaskLen then
+    begin
+      case SignType of
+        rsdtMD5:
+          begin
+            Md5Dig := MD5Buffer(Buf[0], Length(Buf));
+            Move(Md5Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MdLen);
+          end;
+        rsdtSHA1:
+          begin
+            Sha1Dig := SHA1Buffer(Buf[0], Length(Buf));
+            Move(Sha1Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MdLen);
+          end;
+        rsdtSHA224:
+          begin
+            Sha224Dig := SHA224Buffer(Buf[0], Length(Buf));
+            Move(Sha224Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MdLen);
+          end;
+        rsdtSHA256:
+          begin
+            Sha256Dig := SHA256Buffer(Buf[0], Length(Buf));
+            Move(Sha256Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MdLen);
+          end;
+        rsdtSHA384:
+          begin
+            Sha384Dig := SHA384Buffer(Buf[0], Length(Buf));
+            Move(Sha384Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MdLen);
+          end;
+        rsdtSHA512:
+          begin
+            Sha512Dig := SHA512Buffer(Buf[0], Length(Buf));
+            Move(Sha512Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MdLen);
+          end;
+        rsdtSM3:
+          begin
+            Sm3Dig := SM3Buffer(Buf[0], Length(Buf));
+            Move(Sm3Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MdLen);
+          end;
+      end;
+      OutLen := OutLen + MdLen;
+    end
+    else
+    begin
+      case SignType of
+        rsdtMD5:
+          begin
+            Md5Dig := MD5Buffer(Buf[0], Length(Buf));
+            Move(Md5Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MaskLen - OutLen);
+          end;
+        rsdtSHA1:
+          begin
+            Sha1Dig := SHA1Buffer(Buf[0], Length(Buf));
+            Move(Sha1Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MaskLen - OutLen);
+          end;
+        rsdtSHA224:
+          begin
+            Sha224Dig := SHA224Buffer(Buf[0], Length(Buf));
+            Move(Sha224Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MaskLen - OutLen);
+          end;
+        rsdtSHA256:
+          begin
+            Sha256Dig := SHA256Buffer(Buf[0], Length(Buf));
+            Move(Sha256Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MaskLen - OutLen);
+          end;
+        rsdtSHA384:
+          begin
+            Sha384Dig := SHA384Buffer(Buf[0], Length(Buf));
+            Move(Sha384Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MaskLen - OutLen);
+          end;
+        rsdtSHA512:
+          begin
+            Sha512Dig := SHA512Buffer(Buf[0], Length(Buf));
+            Move(Sha512Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MaskLen - OutLen);
+          end;
+        rsdtSM3:
+          begin
+            Sm3Dig := SM3Buffer(Buf[0], Length(Buf));
+            Move(Sm3Dig[0], PByte(TCnIntAddress(OutMask) + OutLen)^, MaskLen - OutLen);
+          end;
+      end;
+      OutLen := MaskLen;
+    end;
+    Inc(I);
+  end;
+  SetLength(Buf, 0);
+  Result := True;
+end;
+
+function CnRSAPSSSignFile(const InFileName: string; const OutSignFileName: string;
+  PrivateKey: TCnRSAPrivateKey; SignType: TCnRSASignDigestType): Boolean;
+var
+  Stream, SignStream: TMemoryStream;
+begin
+  Result := False;
+  if (PrivateKey = nil) or not FileExists(InFileName) then
+    Exit;
+
+  Stream := nil;
+  SignStream := nil;
+
+  try
+    Stream := TMemoryStream.Create;
+    Stream.LoadFromFile(InFileName);
+
+    SignStream := TMemoryStream.Create;
+    if CnRSAPSSSignStream(Stream, SignStream, PrivateKey, SignType) then
+    begin
+      SignStream.SaveToFile(OutSignFileName);
+      Result := True;
+    end;
+  finally
+    SignStream.Free;
+    Stream.Free;
+  end;
+end;
+
+function CnRSAPSSVerifyFile(const InFileName: string; const InSignFileName: string;
+  PublicKey: TCnRSAPublicKey; SignType: TCnRSASignDigestType): Boolean;
+var
+  Stream, SignStream: TMemoryStream;
+begin
+  Result := False;
+  if (PublicKey = nil) or not FileExists(InFileName) or not FileExists(InSignFileName) then
+    Exit;
+
+  Stream := nil;
+  SignStream := nil;
+
+  try
+    Stream := TMemoryStream.Create;
+    Stream.LoadFromFile(InFileName);
+
+    SignStream := TMemoryStream.Create;
+    SignStream.LoadFromFile(InSignFileName);
+    Result := CnRSAPSSVerifyStream(Stream, SignStream, PublicKey, SignType);
+  finally
+    SignStream.Free;
+    Stream.Free;
+  end;
+end;
+
+function CnRSAPSSSignStream(InStream: TMemoryStream; OutSignStream: TMemoryStream;
+  PrivateKey: TCnRSAPrivateKey; SignType: TCnRSASignDigestType = rsdtSHA256): Boolean;
+var
+  DigestStream: TMemoryStream;
+  mHash, H, Salt, DB, dbMask, maskedDB, EM, ResBuf: TBytes;
+  hLen, emLen, sLen, psLen, mdBits, lBits, MPrimeLen, I: Integer;
+  MPrime: TBytes;
+  Data, Res: TCnBigNumber;
+  Md5Dig: TCnMD5Digest;
+  Sha1Dig: TCnSHA1Digest;
+  Sha224Dig: TCnSHA224Digest;
+  Sha256Dig: TCnSHA256Digest;
+  Sha384Dig: TCnSHA384Digest;
+  Sha512Dig: TCnSHA512Digest;
+  Sm3Dig: TCnSM3Digest;
+begin
+  Result := False;
+  if (InStream = nil) or (OutSignStream = nil) or (PrivateKey = nil) then
+    Exit;
+
+  DigestStream := nil;
+  Data := nil;
+  Res := nil;
+
+  try
+    DigestStream := TMemoryStream.Create;
+    if not CalcDigestStream(InStream, SignType, DigestStream) then
+      Exit;
+
+    SetLength(mHash, DigestStream.Size);
+    Move(DigestStream.Memory^, mHash[0], DigestStream.Size);
+    hLen := Length(mHash);
+    emLen := PrivateKey.GetBytesCount;
+    sLen := emLen - hLen - 2;
+    if sLen < 0 then
+      sLen := 0;
+    if sLen > hLen then
+      sLen := hLen;
+
+    SetLength(Salt, sLen);
+    if sLen > 0 then
+      CnRandomFillBytes2(PAnsiChar(@Salt[0]), sLen);
+    SetLength(H, hLen);
+    MPrimeLen := 8 + hLen + sLen;
+    SetLength(MPrime, MPrimeLen);
+    FillChar(MPrime[0], 8, 0);
+    Move(mHash[0], MPrime[8], hLen);
+    if sLen > 0 then
+      Move(Salt[0], MPrime[8 + hLen], sLen);
+
+    case SignType of
+      rsdtMD5:
+        begin
+          Md5Dig := MD5Buffer(MPrime[0], MPrimeLen);
+          Move(Md5Dig[0], H[0], hLen);
+        end;
+      rsdtSHA1:
+        begin
+          Sha1Dig := SHA1Buffer(MPrime[0], MPrimeLen);
+          Move(Sha1Dig[0], H[0], hLen);
+        end;
+      rsdtSHA224:
+        begin
+          Sha224Dig := SHA224Buffer(MPrime[0], MPrimeLen);
+          Move(Sha224Dig[0], H[0], hLen);
+        end;
+      rsdtSHA256:
+        begin
+          Sha256Dig := SHA256Buffer(MPrime[0], MPrimeLen);
+          Move(Sha256Dig[0], H[0], hLen);
+        end;
+      rsdtSHA384:
+        begin
+          Sha384Dig := SHA384Buffer(MPrime[0], MPrimeLen);
+          Move(Sha384Dig[0], H[0], hLen);
+        end;
+      rsdtSHA512:
+        begin
+          Sha512Dig := SHA512Buffer(MPrime[0], MPrimeLen);
+          Move(Sha512Dig[0], H[0], hLen);
+        end;
+      rsdtSM3:
+        begin
+          Sm3Dig := SM3Buffer(MPrime[0], MPrimeLen);
+          Move(Sm3Dig[0], H[0], hLen);
+        end;
+    else
+      Exit;
+    end;
+
+    SetLength(DB, emLen - hLen - 1);
+    psLen := emLen - hLen - sLen - 2;
+    if psLen < 0 then
+    begin
+      _CnSetLastError(ECN_RSA_PADDING_ERROR);
+      Exit;
+    end;
+
+    if psLen > 0 then
+      FillChar(DB[0], psLen, 0);
+    DB[psLen] := 1;
+    if sLen > 0 then
+      Move(Salt[0], DB[psLen + 1], sLen);
+    SetLength(dbMask, emLen - hLen - 1);
+    if not PSSMGF1(@H[0], hLen, @dbMask[0], Length(dbMask), SignType) then
+    begin
+      _CnSetLastError(ECN_RSA_PADDING_ERROR);
+      Exit;
+    end;
+
+    SetLength(maskedDB, Length(DB));
+    for I := 0 to Length(DB) - 1 do
+      maskedDB[I] := DB[I] xor dbMask[I];
+    mdBits := PrivateKey.GetBitsCount;
+    lBits := 8 * emLen - (mdBits - 1);
+    if lBits > 0 then
+      maskedDB[0] := maskedDB[0] and ($FF shr lBits);
+
+    SetLength(EM, emLen);
+    Move(maskedDB[0], EM[0], Length(maskedDB));
+    Move(H[0], EM[Length(maskedDB)], hLen);
+    EM[emLen - 1] := $BC;
+    Data := TCnBigNumber.FromBinary(PAnsiChar(@EM[0]), emLen);
+    Res := TCnBigNumber.Create;
+
+    if RSACrypt(Data, PrivateKey.PrivKeyProduct, PrivateKey.PrivKeyExponent, Res) then
+    begin
+      SetLength(ResBuf, PrivateKey.GetBytesCount);
+      Res.ToBinary(@ResBuf[0], PrivateKey.GetBytesCount);
+
+      OutSignStream.Size := 0; // 写之前先清空内容
+      OutSignStream.Write(ResBuf[0], Length(ResBuf));
+      Result := True;
+      _CnSetLastError(ECN_RSA_OK);
+    end;
+  finally
+    DigestStream.Free;
+    Data.Free;
+    Res.Free;
+    SetLength(mHash, 0);
+    SetLength(H, 0);
+    SetLength(Salt, 0);
+    SetLength(DB, 0);
+    SetLength(dbMask, 0);
+    SetLength(maskedDB, 0);
+    SetLength(EM, 0);
+    SetLength(ResBuf, 0);
+    SetLength(MPrime, 0);
+  end;
+end;
+
+function CnRSAPSSVerifyStream(InStream: TMemoryStream; InSignStream: TMemoryStream;
+  PublicKey: TCnRSAPublicKey; SignType: TCnRSASignDigestType = rsdtSHA256): Boolean;
+var
+  Data, Res: TCnBigNumber;
+  ResBuf: TBytes;
+  EM, maskedDB, H, dbMask, DB, mHashBytes, MPrime: TBytes;
+  emLen, hLen, mdBits, lBits, DBLen, I, OnePos, sLen, MPrimeLen: Integer;
+  DigestStream: TMemoryStream;
+  Md5Dig: TCnMD5Digest;
+  Sha1Dig: TCnSHA1Digest;
+  Sha224Dig: TCnSHA224Digest;
+  Sha256Dig: TCnSHA256Digest;
+  Sha384Dig: TCnSHA384Digest;
+  Sha512Dig: TCnSHA512Digest;
+  Sm3Dig: TCnSM3Digest;
+begin
+  Result := False;
+  if (InStream = nil) or (InSignStream = nil) or (PublicKey = nil) then
+    Exit;
+
+  Data := nil;
+  Res := nil;
+  DigestStream := nil;
+
+  try
+    Data := TCnBigNumber.FromBinary(PAnsiChar(InSignStream.Memory), InSignStream.Size);
+    Res := TCnBigNumber.Create;
+
+    if RSACrypt(Data, PublicKey.PubKeyProduct, PublicKey.PubKeyExponent, Res) then
+    begin
+      SetLength(ResBuf, PublicKey.GetBytesCount);
+      Res.ToBinary(@ResBuf[0], PublicKey.GetBytesCount);
+      EM := ResBuf;
+      emLen := Length(EM);
+      if emLen <= 0 then
+        Exit;
+      if EM[emLen - 1] <> $BC then
+      begin
+        _CnSetLastError(ECN_RSA_PADDING_ERROR);
+        Exit;
+      end;
+
+      DigestStream := TMemoryStream.Create;
+      if not CalcDigestStream(InStream, SignType, DigestStream) then
+        Exit;
+
+      SetLength(mHashBytes, DigestStream.Size);
+      Move(DigestStream.Memory^, mHashBytes[0], DigestStream.Size);
+      hLen := Length(mHashBytes);
+
+      if emLen < hLen + 2 then
+      begin
+        _CnSetLastError(ECN_RSA_PADDING_ERROR);
+        Exit;
+      end;
+
+      SetLength(maskedDB, emLen - hLen - 1);
+      Move(EM[0], maskedDB[0], Length(maskedDB));
+      SetLength(H, hLen);
+      Move(EM[Length(maskedDB)], H[0], hLen);
+      SetLength(dbMask, Length(maskedDB));
+      if not PSSMGF1(@H[0], hLen, @dbMask[0], Length(dbMask), SignType) then
+      begin
+        _CnSetLastError(ECN_RSA_PADDING_ERROR);
+        Exit;
+      end;
+
+      SetLength(DB, Length(maskedDB));
+      for I := 0 to Length(maskedDB) - 1 do
+        DB[I] := maskedDB[I] xor dbMask[I];
+      mdBits := PublicKey.GetBitsCount;
+      lBits := 8 * emLen - (mdBits - 1);
+      if lBits > 0 then
+      begin
+        DB[0] := DB[0] and ($FF shr lBits);
+      end;
+
+      DBLen := Length(DB);
+      OnePos := -1;
+      for I := 0 to DBLen - 1 do
+      begin
+        if DB[I] <> 0 then
+        begin
+          if DB[I] <> 1 then
+          begin
+            _CnSetLastError(ECN_RSA_PADDING_ERROR);
+            Exit;
+          end
+          else
+          begin
+            OnePos := I;
+            Break;
+          end;
+        end;
+      end;
+
+      if (OnePos < 0) or (OnePos + 1 > DBLen) then
+      begin
+        _CnSetLastError(ECN_RSA_PADDING_ERROR);
+        Exit;
+      end;
+
+      sLen := DBLen - (OnePos + 1);
+      if sLen < 0 then
+      begin
+        _CnSetLastError(ECN_RSA_PADDING_ERROR);
+        Exit;
+      end;
+
+      MPrimeLen := 8 + Length(mHashBytes) + sLen;
+      SetLength(MPrime, MPrimeLen);
+      FillChar(MPrime[0], 8, 0);
+      Move(mHashBytes[0], MPrime[8], Length(mHashBytes));
+      if sLen > 0 then
+        Move(DB[OnePos + 1], MPrime[8 + Length(mHashBytes)], sLen);
+
+      case SignType of
+        rsdtMD5:
+          begin
+            Md5Dig := MD5Buffer(MPrime[0], MPrimeLen);
+            Result := CompareMem(@Md5Dig[0], @H[0], hLen);
+          end;
+        rsdtSHA1:
+          begin
+            Sha1Dig := SHA1Buffer(MPrime[0], MPrimeLen);
+            Result := CompareMem(@Sha1Dig[0], @H[0], hLen);
+          end;
+        rsdtSHA224:
+          begin
+            Sha224Dig := SHA224Buffer(MPrime[0], MPrimeLen);
+            Result := CompareMem(@Sha224Dig[0], @H[0], hLen);
+          end;
+        rsdtSHA256:
+          begin
+            Sha256Dig := SHA256Buffer(MPrime[0], MPrimeLen);
+            Result := CompareMem(@Sha256Dig[0], @H[0], hLen);
+          end;
+        rsdtSHA384:
+          begin
+            Sha384Dig := SHA384Buffer(MPrime[0], MPrimeLen);
+            Result := CompareMem(@Sha384Dig[0], @H[0], hLen);
+          end;
+        rsdtSHA512:
+          begin
+            Sha512Dig := SHA512Buffer(MPrime[0], MPrimeLen);
+            Result := CompareMem(@Sha512Dig[0], @H[0], hLen);
+          end;
+        rsdtSM3:
+          begin
+            Sm3Dig := SM3Buffer(MPrime[0], MPrimeLen);
+            Result := CompareMem(@Sm3Dig[0], @H[0], hLen);
+          end;
+      else
+        Result := False;
+      end;
+      _CnSetLastError(ECN_RSA_OK);
+    end;
+  finally
+    Data.Free;
+    Res.Free;
+    DigestStream.Free;
+    SetLength(ResBuf, 0);
+    SetLength(EM, 0);
+    SetLength(maskedDB, 0);
+    SetLength(H, 0);
+    SetLength(dbMask, 0);
+    SetLength(DB, 0);
+    SetLength(mHashBytes, 0);
+    SetLength(MPrime, 0);
+  end;
+end;
+
+function CnRSAPSSSignBytes(InData: TBytes; PrivateKey: TCnRSAPrivateKey;
+  SignType: TCnRSASignDigestType): TBytes;
+var
+  InStream, OutStream: TMemoryStream;
+begin
+  Result := nil;
+  InStream := nil;
+  OutStream := nil;
+
+  try
+    InStream := TMemoryStream.Create;
+    BytesToStream(InData, InStream);
+
+    OutStream := TMemoryStream.Create;
+    if CnRSAPSSSignStream(InStream, OutStream, PrivateKey, SignType) then
+      Result := StreamToBytes(OutStream);
+  finally
+    OutStream.Free;
+    InStream.Free;
+  end;
+end;
+
+function CnRSAPSSVerifyBytes(InData: TBytes; InSignBytes: TBytes;
+  PublicKey: TCnRSAPublicKey; SignType: TCnRSASignDigestType): Boolean;
+var
+  InStream, SignStream: TMemoryStream;
+begin
+  InStream := nil;
+  SignStream := nil;
+
+  try
+    InStream := TMemoryStream.Create;
+    BytesToStream(InData, InStream);
+
+    SignStream := TMemoryStream.Create;
+    BytesToStream(InSignBytes, SignStream);
+    Result := CnRSAPSSVerifyStream(InStream, SignStream, PublicKey, SignType);
+  finally
+    SignStream.Free;
+    InStream.Free;
+  end;
+end;
+
 // 生成 Diffie-Hellman 密钥协商算法所需的素数与其最小原根，涉及到因素分解因此较慢
 function CnDiffieHellmanGeneratePrimeRootByBitsCount(BitsCount: Integer;
   Prime, MinRoot: TCnBigNumber): Boolean;
@@ -3873,8 +4578,16 @@ begin
     Result := rsdtMD5
   else if (OidByteLen = SizeOf(OID_SIGN_SHA1)) and CompareMem(OID, @OID_SIGN_SHA1[0], OidByteLen) then
     Result := rsdtSHA1
+  else if (OidByteLen = SizeOf(OID_SIGN_SHA224)) and CompareMem(OID, @OID_SIGN_SHA224[0], OidByteLen) then
+    Result := rsdtSHA224
   else if (OidByteLen = SizeOf(OID_SIGN_SHA256)) and CompareMem(OID, @OID_SIGN_SHA256[0], OidByteLen) then
-    Result := rsdtSHA256;
+    Result := rsdtSHA256
+  else if (OidByteLen = SizeOf(OID_SIGN_SHA384)) and CompareMem(OID, @OID_SIGN_SHA384[0], OidByteLen) then
+    Result := rsdtSHA384
+  else if (OidByteLen = SizeOf(OID_SIGN_SHA512)) and CompareMem(OID, @OID_SIGN_SHA512[0], OidByteLen) then
+    Result := rsdtSHA512
+   else if (OidByteLen = SizeOf(OID_SIGN_SM3)) and CompareMem(OID, @OID_SIGN_SM3[0], OidByteLen) then
+    Result := rsdtSM3;
 end;
 
 function GetRSADigestNameFromSignDigestType(Digest: TCnRSASignDigestType): string;
@@ -3883,7 +4596,11 @@ begin
     rsdtNone: Result := '<None>';
     rsdtMD5: Result := 'MD5';
     rsdtSHA1: Result := 'SHA1';
+    rsdtSHA224: Result := 'SHA224';
     rsdtSHA256: Result := 'SHA256';
+    rsdtSHA384: Result := 'SHA384';
+    rsdtSHA512: Result := 'SHA512';
+    rsdtSM3: Result := 'SM3';
   else
     Result := '<Unknown>';
   end;
@@ -3962,7 +4679,7 @@ begin
   // 00 | 20 位 Seed | DB
   // 其中 DB := ParamHash || PS || 0x01 || Data，长度是 EmLen - MdLen
   // 后面要 XOR 一次称为 MaskDB
-  SeedMask := SHA1Buffer(DigestParam, ParamByteLen);
+  SeedMask := SHA1Buffer(DigestParam^, ParamByteLen);
   Move(SeedMask[0], DB^, MdLen);
 
   // To 区 DB 的前 20 字节先留着，后面到尾巴先填满 0
@@ -4039,7 +4756,7 @@ begin
   MaskedSeed := PByteArray(TCnIntAddress(EnData) + 1);
   MaskedDB := PByteArray(TCnIntAddress(EnData) + MdLen + 1);
 
-  ParamHash := SHA1Buffer(DigestParam, ParamByteLen);
+  ParamHash := SHA1Buffer(DigestParam^, ParamByteLen);
 
   // 把 MaskedDB 先算出来
   if not Pkcs1Sha1MGF(@MaskedDB[0], DBLen, @Seed[0], MdLen) then

@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -149,7 +149,7 @@ begin
   K := PByteArray(Key);
   for I := 0 to CN_RC4_MAX_KEY_BYTE_LENGTH - 1 do
   begin
-    J := J + State.Permutation[I] + K^[I mod KeyByteLength];
+    J := Byte(J + State.Permutation[I] + K^[I mod KeyByteLength]);
     SwapByte(State.Permutation[I], State.Permutation[J]);
   end;
 end;
@@ -171,7 +171,7 @@ begin
 
     SwapByte(State.Permutation[State.Index1], State.Permutation[State.Index2]);
 
-    J := State.Permutation[State.Index1] + State.Permutation[State.Index2];
+    J := Byte(State.Permutation[State.Index1] + State.Permutation[State.Index2]);
     OP^[I] := IP^[I] xor State.Permutation[J];
   end;
 end;

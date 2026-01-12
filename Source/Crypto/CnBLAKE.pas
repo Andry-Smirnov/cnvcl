@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -145,7 +145,7 @@ function BLAKE224Buffer(const Buffer; Count: Cardinal): TCnBLAKE224Digest;
 {* 对数据块进行 BLAKE224 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnBLAKE224Digest              - 返回的 BLAKE224 杂凑值
@@ -155,7 +155,7 @@ function BLAKE256Buffer(const Buffer; Count: Cardinal): TCnBLAKE256Digest;
 {* 对数据块进行 BLAKE256 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnBLAKE256Digest              - 返回的 BLAKE256 杂凑值
@@ -165,7 +165,7 @@ function BLAKE384Buffer(const Buffer; Count: Cardinal): TCnBLAKE384Digest;
 {* 对数据块进行 BLAKE384 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnBLAKE384Digest              - 返回的 BLAKE384杂凑值
@@ -175,7 +175,7 @@ function BLAKE512Buffer(const Buffer; Count: Cardinal): TCnBLAKE512Digest;
 {* 对数据块进行 BLAKE512 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnBLAKE512Digest              - 返回的 BLAKE512 杂凑值
@@ -1604,7 +1604,7 @@ var
   Context: TCnBLAKE224Context;
 begin
   BLAKE224Init(Context);
-  BLAKE224Update(Context, PAnsiChar(Buffer), Count);
+  BLAKE224Update(Context, PAnsiChar(@Buffer), Count);
   BLAKE224Final(Context, Result);
 end;
 
@@ -1614,7 +1614,7 @@ var
   Context: TCnBLAKE256Context;
 begin
   BLAKE256Init(Context);
-  BLAKE256Update(Context, PAnsiChar(Buffer), Count);
+  BLAKE256Update(Context, PAnsiChar(@Buffer), Count);
   BLAKE256Final(Context, Result);
 end;
 
@@ -1624,7 +1624,7 @@ var
   Context: TCnBLAKE384Context;
 begin
   BLAKE384Init(Context);
-  BLAKE384Update(Context, PAnsiChar(Buffer), Count);
+  BLAKE384Update(Context, PAnsiChar(@Buffer), Count);
   BLAKE384Final(Context, Result);
 end;
 
@@ -1634,7 +1634,7 @@ var
   Context: TCnBLAKE512Context;
 begin
   BLAKE512Init(Context);
-  BLAKE512Update(Context, PAnsiChar(Buffer), Count);
+  BLAKE512Update(Context, PAnsiChar(@Buffer), Count);
   BLAKE512Final(Context, Result);
 end;
 
@@ -2325,7 +2325,7 @@ var
 begin
   if KeyLength > HMAC_BLAKE_224_256_BLOCK_SIZE_BYTE then
   begin
-    Sum := BLAKE224Buffer(Key, KeyLength);
+    Sum := BLAKE224Buffer(Key^, KeyLength);
     KeyLength := HMAC_BLAKE_224_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;
@@ -2369,7 +2369,7 @@ var
 begin
   if KeyLength > HMAC_BLAKE_224_256_BLOCK_SIZE_BYTE then
   begin
-    Sum := BLAKE256Buffer(Key, KeyLength);
+    Sum := BLAKE256Buffer(Key^, KeyLength);
     KeyLength := HMAC_BLAKE_256_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;
@@ -2451,7 +2451,7 @@ var
 begin
   if KeyLength > HMAC_BLAKE_384_512_BLOCK_SIZE_BYTE then
   begin
-    Sum := BLAKE384Buffer(Key, KeyLength);
+    Sum := BLAKE384Buffer(Key^, KeyLength);
     KeyLength := HMAC_BLAKE_384_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;
@@ -2514,7 +2514,7 @@ var
 begin
   if KeyLength > HMAC_BLAKE_384_512_BLOCK_SIZE_BYTE then
   begin
-    Sum := BLAKE512Buffer(Key, KeyLength);
+    Sum := BLAKE512Buffer(Key^, KeyLength);
     KeyLength := HMAC_BLAKE_512_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;

@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -89,8 +89,20 @@ type
 {$IFDEF COMPILER5}
   PByte = Windows.PByte;
   {* D5 下 PByte 定义在 Windows 中，其他版本定义在 System 中，
-    这里统一一下供外界使用 PByte 时无需 uses Windows，以有利于跨平台。
-    但不宜加其他类型，易触发 BCB5 的命令行编译 Bug}
+    这里统一一下供外界使用 PByte 时无需 uses Windows，以有利于跨平台，以下同}
+  PWord     = Windows.PWord;
+  {* D5 下 PWord 定义在 Windows 中}
+  PShortInt = Windows.PShortInt;
+  {* D5 下 PShortInt 定义在 Windows 中}
+  PSmallInt = Windows.PSmallInt;
+  {* D5 下 PSmallInt 定义在 Windows 中}
+  PInteger  = Windows.PInteger;
+  {* D5 下 PInteger 定义在 Windows 中}
+  PSingle   = Windows.PSingle;
+  {* D5 下 PSingle 定义在 Windows 中}
+  PDouble   = Windows.PDouble;
+  {* D5 下 PDouble 定义在 Windows 中}
+
   PCardinal = ^Cardinal;
   {* D5 下 System 单元中未定义 Cardinal 指针类型，定义上}
   PBoolean = ^Boolean;
@@ -1676,6 +1688,26 @@ function ConcatBytes(const A: TBytes; const B: TBytes; const C: TBytes; const D:
    返回值：TBytes                         - 返回拼接的新字节数组
 }
 
+function NewZeroBytes(ByteLen: Integer): TBytes;
+{* 返回 ByteLen 字节长度的新字节数组。
+
+   参数：
+     ByteLen: Integer                     - 字节数组所需的字节长度
+
+   返回值：TBytes                         - 返回全零的新字节数组
+}
+
+function ConcatBytesMemory(const A: TBytes; Data: Pointer; DataByteLen: Integer): TBytes;
+{* 将一个字节数组与一片内存区域拼好返回一个新数组，原有字节数组与内存区域均不变。
+
+   参数：
+     const A: TBytes                      - 待拼接的字节数组
+     Data: Pointer                        - 待拼接的数据块地址
+     DataByteLen: Integer                 - 待拼接的数据块字节长度
+
+   返回值：TBytes                         - 返回拼接的新字节数组
+}
+
 function NewBytesFromMemory(Data: Pointer; DataByteLen: Integer): TBytes;
 {* 新建一字节数组，并从一片内存区域复制内容过来。
 
@@ -2685,7 +2717,7 @@ begin
       if I > 1 then        // 最低一个字节 PF^[-1] 会超界
       begin
         PF := PByteArray(TCnIntAddress(PF) - 1);
-        PT^[0] := (PF^[0] shl LB) or PT^[0];
+        PT^[0] := Byte((PF^[0] shl LB) or PT^[0]);
       end
       else
         PF := PByteArray(TCnIntAddress(PF) - 1);
@@ -3558,6 +3590,34 @@ begin
     Move(D[0], Result[L1 + L2 + L3], L4);
 end;
 
+function NewZeroBytes(ByteLen: Integer): TBytes;
+begin
+  if ByteLen > 0 then
+  begin
+    SetLength(Result, ByteLen);
+    FillChar(Result[0], ByteLen, 0);
+  end
+  else
+    Result := nil;
+end;
+
+function ConcatBytesMemory(const A: TBytes; Data: Pointer; DataByteLen: Integer): TBytes;
+var
+  L: Integer;
+begin
+  L := Length(A) + DataByteLen;
+  if L > 0 then
+  begin
+    SetLength(Result, L);
+    if Length(A) > 0 then
+      Move(A[0], Result[0], Length(A));
+    if (Data <> nil) and (DataByteLen > 0) then
+      Move(Data^, Result[Length(A)], DataByteLen);
+  end
+  else
+    Result := nil;
+end;
+
 function NewBytesFromMemory(Data: Pointer; DataByteLen: Integer): TBytes;
 begin
   if (Data = nil) or (DataByteLen <= 0) then
@@ -4239,6 +4299,8 @@ begin
     Inc(I);
     while True do
     begin
+      if I > Length(S) then
+        Break;
       case Char(S[I]) of
         Char('0').. Char('9'): Dig := Ord(S[I]) - Ord('0');
         Char('A').. Char('F'): Dig := Ord(S[I]) - (Ord('A') - 10);
@@ -4261,6 +4323,8 @@ begin
   begin
     while True do
     begin
+      if I > Length(S) then
+        Break;
       case Char(S[I]) of
         Char('0').. Char('9'): Dig := Ord(S[I]) - Ord('0');
       else
@@ -4278,7 +4342,7 @@ begin
     end;
   end;
 
-  if (S[I] <> Char(#0)) or Empty then
+  if ((I <= Length(S)) and (S[I] <> Char(#0))) or Empty then
     Code := I + 1 - FirstIndex
   else
     Code := 0;
@@ -4324,6 +4388,8 @@ begin
     Inc(I);
     while True do
     begin
+      if I > Length(S) then
+        Break;
       case Char(S[I]) of
         Char('0').. Char('9'): Dig := Ord(S[I]) - Ord('0');
         Char('A').. Char('F'): Dig := Ord(S[I]) - (Ord('A') - 10);
@@ -4346,6 +4412,8 @@ begin
   begin
     while True do
     begin
+      if I > Length(S) then
+        Break;
       case Char(S[I]) of
         Char('0').. Char('9'): Dig := Ord(S[I]) - Ord('0');
       else
@@ -4363,7 +4431,7 @@ begin
     end;
   end;
 
-  if (S[I] <> Char(#0)) or Empty then
+  if ((I <= Length(S)) and (S[I] <> Char(#0))) or Empty then
     Code := I + 1 - FirstIndex
   else
     Code := 0;

@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -138,9 +138,9 @@ function BLAKE2SBuffer(const Buffer; Count: Cardinal; const Key; KeyCount: Cardi
 {* 对数据块进行 BLAKE2S 计算。注意当 Key 存在时长度将截断或补 #0 为 32 字节。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
-     const Key                            - BLAKE2S 密钥地址
+     const Key                            - BLAKE2S 密钥
      KeyCount: Cardinal                   - BLAKE2S 密钥字节长度
      DigestLength: Integer                - 指定输出的摘要字节长度，默认 32
 
@@ -152,9 +152,9 @@ function BLAKE2BBuffer(const Buffer; Count: Cardinal; const Key; KeyCount: Cardi
 {* 对数据块进行 BLAKE2B 计算。注意当 Key 存在时长度将截断或补 #0 为 64 字节。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
-     const Key                            - BLAKE2B 密钥地址
+     const Key                            - BLAKE2B 密钥
      KeyCount: Cardinal                   - BLAKE2B 密钥字节长度
      DigestLength: Integer                - 指定输出的摘要字节长度，默认 64
 
@@ -858,7 +858,8 @@ begin
     begin
       // 补计算上回的
       Context.BufLen := 0;
-      Move(Input^, Context.Buf[Left], Fill);
+      if Fill > 0 then
+        Move(Input^, Context.Buf[Left], Fill);
 
       IncBLAKE2SCounter(Context, CN_BLAKE2S_BLOCKBYTES);
       BLAKE2SCompress(Context, @Context.Buf[0]);
@@ -919,7 +920,8 @@ begin
   IncBLAKE2SCounter(Context, Context.BufLen);
 
   // 最后一块没算完的补 0 算完
-  FillChar(Context.Buf[Context.BufLen], CN_BLAKE2S_BLOCKBYTES - Context.BufLen, 0);
+  if CN_BLAKE2S_BLOCKBYTES > Context.BufLen then
+    FillChar(Context.Buf[Context.BufLen], CN_BLAKE2S_BLOCKBYTES - Context.BufLen, 0);
   Context.F[0] := Cardinal(-1);
   BLAKE2SCompress(Context, @Context.Buf[0]);
 
@@ -948,8 +950,8 @@ function BLAKE2SBuffer(const Buffer; Count: Cardinal; const Key;
 var
   Context: TCnBLAKE2SContext;
 begin
-  BLAKE2SInit(Context, PAnsiChar(Key), KeyCount, DigestLength);
-  BLAKE2SUpdate(Context, PAnsiChar(Buffer), Count);
+  BLAKE2SInit(Context, PAnsiChar(@Key), KeyCount, DigestLength);
+  BLAKE2SUpdate(Context, PAnsiChar(@Buffer), Count);
   BLAKE2SFinal(Context, Result);
 end;
 
@@ -1037,7 +1039,8 @@ begin
     begin
       // 补计算上回的
       Context.BufLen := 0;
-      Move(Input^, Context.Buf[Left], Fill);
+      if Fill > 0 then
+        Move(Input^, Context.Buf[Left], Fill);
 
       IncBLAKE2BCounter(Context, CN_BLAKE2B_BLOCKBYTES);
       BLAKE2BCompress(Context, @Context.Buf[0]);
@@ -1098,7 +1101,8 @@ begin
   IncBLAKE2BCounter(Context, Context.BufLen);
 
   // 最后一块没算完的补 0 算完
-  FillChar(Context.Buf[Context.BufLen], CN_BLAKE2B_BLOCKBYTES - Context.BufLen, 0);
+  if CN_BLAKE2B_BLOCKBYTES > Context.BufLen then
+    FillChar(Context.Buf[Context.BufLen], CN_BLAKE2B_BLOCKBYTES - Context.BufLen, 0);
   Context.F[0] := TUInt64(-1);
   BLAKE2BCompress(Context, @Context.Buf[0]);
 
@@ -1127,8 +1131,8 @@ function BLAKE2BBuffer(const Buffer; Count: Cardinal; const Key;
 var
   Context: TCnBLAKE2BContext;
 begin
-  BLAKE2BInit(Context, PAnsiChar(Key), KeyCount, DigestLength);
-  BLAKE2BUpdate(Context, PAnsiChar(Buffer), Count);
+  BLAKE2BInit(Context, PAnsiChar(@Key), KeyCount, DigestLength);
+  BLAKE2BUpdate(Context, PAnsiChar(@Buffer), Count);
   BLAKE2BFinal(Context, Result);
 end;
 

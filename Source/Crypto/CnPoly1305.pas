@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -74,10 +74,10 @@ type
   end;
 
 function Poly1305Buffer(const Buffer; Count: Cardinal; Key: TCnPoly1305Key): TCnPoly1305Digest;
-{* 对数据块进行 Poly1305 计算，Buffer 一般传个地址。
+{* 对数据块进行 Poly1305 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块的字节长度
      Key: TCnPoly1305Key                  - 密码
 
@@ -195,7 +195,7 @@ var
   C: TCnPoly1305Context;
 begin
   Poly1305Init(C, Key);
-  Poly1305Update(C, PAnsiChar(Buffer), Count);
+  Poly1305Update(C, PAnsiChar(@Buffer), Count);
   Poly1305Final(C, Result);
 end;
 

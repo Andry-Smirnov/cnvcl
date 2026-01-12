@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -425,7 +425,7 @@ function CnSM2VerifyData(const UserID: AnsiString; const PlainData: TBytes;
 function CnSM2SignFile(const UserID: AnsiString; const FileName: string;
   PrivateKey: TCnSM2PrivateKey; PublicKey: TCnSM2PublicKey = nil; SM2: TCnSM2 = nil): string;
 {* 封装的私钥对文件签名操作，返回签名值的十六进制字符串，注意内部操作是将文件全部加载入内存，
-  如签名出错则返回空字符串。
+   如签名出错则返回空字符串。
 
    参数：
      const UserID: AnsiString             - 用来签名的用户标识

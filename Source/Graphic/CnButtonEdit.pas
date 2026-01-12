@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -39,7 +39,7 @@ interface
 
 uses
   SysUtils, WinTypes, WinProcs, Messages, Classes, Graphics, Controls,
-  Forms, Dialogs, StdCtrls, Buttons, Menus;
+  Forms, Dialogs, StdCtrls, Buttons, Menus, CnNative;
 
 type
   TButtonKind = (bkCustom, bkLookup, bkDropDown, bkAccept, bkReject,
@@ -214,7 +214,7 @@ begin
     Dec(Rect.Right, FButton.Height)
   else
     Inc(Rect.Right, FButton.Height);
-  SendMessage(Handle, EM_SETRECTNP, 0, Longint(@Rect));
+  SendMessage(Handle, EM_SETRECTNP, 0, TCnNativeInt(@Rect));
 end;
 
 procedure TCnButtonEdit.WMSize(var Msg: TWMSize);

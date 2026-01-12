@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -83,7 +83,7 @@ function SM3Buffer(const Buffer; Count: Cardinal): TCnSM3Digest;
 {* 对数据块进行 SM3 计算。
 
    参数：
-     const Buffer                         - 待计算的数据块地址
+     const Buffer                         - 待计算的数据块
      Count: Cardinal                      - 待计算的数据块字节长度
 
    返回值：TCnSM3Digest                   - 返回的 SM3 杂凑值
@@ -565,7 +565,7 @@ var
 begin
   if KeyLength > HMAC_SM3_BLOCK_SIZE_BYTE then
   begin
-    Sum := SM3(Key, KeyLength);
+    Sum := SM3Buffer(Key^, KeyLength);
     KeyLength := HMAC_SM3_OUTPUT_LENGTH_BYTE;
     Key := @(Sum[0]);
   end;
@@ -625,7 +625,7 @@ var
   Context: TCnSM3Context;
 begin
   SM3Init(Context);
-  SM3Update(Context, PAnsiChar(Buffer), Count);
+  SM3Update(Context, PAnsiChar(@Buffer), Count);
   SM3Final(Context, Result);
 end;
 

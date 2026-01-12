@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -24,7 +24,7 @@ unit CnTCPClient;
 * 软件名称：网络通讯组件包
 * 单元名称：网络通讯组件包 TCP Client 实现单元
 * 单元作者：CnPack 开发组
-* 备    注：一个简易的 TCP 客户端
+* 备    注：一个简易的阻塞式 TCP 客户端，需要支持 Delphi 及 FPC 编译器以及 Windows、Mac、Linux 平台
 * 开发平台：PWin7 + Delphi 5
 * 兼容测试：PWin7 + Delphi 2009 ~
 * 本 地 化：该单元中的字符串均符合本地化处理方式
@@ -40,12 +40,10 @@ interface
 {$I CnPack.inc}
 
 uses
-  SysUtils, Classes, Contnrs,
-{$IFDEF MSWINDOWS}
-  Windows,  WinSock,
-{$ELSE}
+  SysUtils, Classes, Contnrs, {$IFDEF MSWINDOWS} Windows,  WinSock, {$ELSE}
+  {$IFDEF FPC} Sockets, {$ELSE}
   System.Net.Socket, Posix.NetinetIn, Posix.SysSocket, Posix.Unistd, Posix.ArpaInet,
-{$ENDIF}
+  {$ENDIF} {$ENDIF}
   CnConsts, CnNetConsts, CnSocket, CnClasses;
 
 type
@@ -53,16 +51,18 @@ type
 
   TCnClientSocketErrorEvent = procedure (Sender: TObject; SocketError: Integer) of object;
 
+{$IFNDEF FPC}
 {$IFDEF SUPPORT_32_AND_64}
   [ComponentPlatformsAttribute(pidWin32 or pidWin64)]
+{$ENDIF}
 {$ENDIF}
   TCnTCPClient = class(TCnComponent)
   private
     FSocket: TSocket;
     FActive: Boolean;
     FConnected: Boolean;
-    FBytesReceived: Cardinal;
-    FBytesSent: Cardinal;
+    FBytesReceived: Int64;
+    FBytesSent: Int64;
     FRemoteHost: string;
     FOnError: TCnClientSocketErrorEvent;
     FOnConnect: TNotifyEvent;
@@ -71,14 +71,20 @@ type
     procedure SetActive(const Value: Boolean);
     procedure SetRemoteHost(const Value: string);
     procedure SetRemotePort(const Value: Word);
-    function CheckSocketError(ResultCode: Integer): Integer;
   protected
     procedure GetComponentInfo(var AName, Author, Email, Comment: string); override;
+    function CheckSocketError(ResultCode: Integer): Integer;
+
     procedure DoConnect; virtual;
     procedure DoDisconnect; virtual;
+
+    property Socket: TSocket read FSocket;
+    {* 真正用于通讯的套接字}
   public
     constructor Create(AOwner: TComponent); override;
+    {* 构造函数}
     destructor Destroy; override;
+    {* 析构函数}
 
     procedure Open;
     {* 开始连接，等同于 Active := True}
@@ -88,14 +94,14 @@ type
     class function LookupHostAddr(const HostName: string): string;
 
     // send/recv 收发数据封装
-    function Send(var Buf; Len: Integer; Flags: Integer = 0): Integer;
-    function Recv(var Buf; Len: Integer; Flags: Integer = 0): Integer;
+    function Send(var Buf; Len: Integer; Flags: Integer = 0): Integer; virtual;
+    function Recv(var Buf; Len: Integer; Flags: Integer = 0): Integer; virtual;
     // 注意 Recv 返回 0 时说明当前网络对方已断开，本 Client 会自动 Close。
     // 调用者也需要根据返回值做断开处理。
 
-    property BytesSent: Cardinal read FBytesSent;
+    property BytesSent: Int64 read FBytesSent;
     {* 发送给各客户端的总字节数}
-    property BytesReceived: Cardinal read FBytesReceived;
+    property BytesReceived: Int64 read FBytesReceived;
     {* 从各客户端收取的总字节数}
     property Connected: Boolean read FConnected;
     {* 是否已连接}
@@ -130,13 +136,7 @@ begin
   if ResultCode = SOCKET_ERROR then
   begin
     if Assigned(FOnError) then
-    begin
-{$IFDEF MSWINDOWS}
-      FOnError(Self, WSAGetLastError);
-{$ELSE}
-      FOnError(Self, GetLastError);
-{$ENDIF};
-    end;
+      FOnError(Self, CnGetNetErrorNo);
   end;
 end;
 

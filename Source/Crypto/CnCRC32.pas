@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -696,13 +696,13 @@ begin
   P := PByte(@Data);
   while Len > 0 do
   begin                     // 这里用 or 比较奇怪
-    Result := ((Result shl 8) or P^) xor CRC16Table[Result shr 8];
+    Result := (Word(Result shl 8) or P^) xor CRC16Table[Result shr 8];
     Inc(P);
     Dec(Len);
   end;
 
-  Result := (Result shl 8) xor CRC16Table[Result shr 8];
-  Result := (Result shl 8) xor CRC16Table[Result shr 8];
+  Result := Word(Result shl 8) xor CRC16Table[Result shr 8];
+  Result := Word(Result shl 8) xor CRC16Table[Result shr 8];
 end;
 
 // 计算 CRC16 值

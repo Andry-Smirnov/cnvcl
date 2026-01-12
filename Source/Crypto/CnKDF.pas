@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -381,7 +381,6 @@ var
   I: Integer;
   Md5Dig, TM: TCnMD5Digest;
   Sha1Dig, TS: TCnSHA1Digest;
-  Ptr: PAnsiChar;
 begin
   Result := nil;
   if (Password = nil) or (Count <= 0) or (DerivedKeyByteLength <= 0) then
@@ -397,11 +396,10 @@ begin
         Md5Dig := MD5Bytes(ConcatBytes(Password, Salt));  // Got T1
         if Count > 1 then
         begin
-          Ptr := PAnsiChar(@TM[0]);
           for I := 2 to Count do
           begin
             TM := Md5Dig;
-            Md5Dig := MD5Buffer(Ptr, SizeOf(TCnMD5Digest)); // Got T_c
+            Md5Dig := MD5Buffer(TM[0], SizeOf(TCnMD5Digest)); // Got T_c
           end;
         end;
 
@@ -416,11 +414,10 @@ begin
         Sha1Dig := SHA1Bytes(ConcatBytes(Password, Salt));  // Got T1
         if Count > 1 then
         begin
-          Ptr := PAnsiChar(@TS[0]);
           for I := 2 to Count do
           begin
             TS := Sha1Dig;
-            Sha1Dig := SHA1Buffer(Ptr, SizeOf(TCnSHA1Digest)); // Got T_c
+            Sha1Dig := SHA1Buffer(TS[0], SizeOf(TCnSHA1Digest)); // Got T_c
           end;
         end;
 

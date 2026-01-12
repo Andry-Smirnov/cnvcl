@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -3449,6 +3449,7 @@
   {$DEFINE DOTNET}
 {$ENDIF}
 
+// Delphi 5 只定义 WIN32，没像高版本 Delphi 那样定义 MSWINDOWS，这里补上
 {$IFDEF WIN32}
   {$DEFINE MSWINDOWS}
 {$ENDIF}
@@ -3588,6 +3589,15 @@
   {$DEFINE VERSIONINFO_PER_CONFIGURATION}      // Every Configuruation can have a Version Info
   {$DEFINE OTA_ENVOPTIONS_PLATFORM_BUG}
   // A Bug Can't get Correct Env Option Values for Current Platform.
+{$ENDIF}
+
+{$IFDEF SUPPORT_CROSS_PLATFORM}
+{$IFDEF ANDROID}
+  {$DEFINE MOBILE_PLATFORM}
+{$ENDIF}
+{$IFDEF IOS}
+  {$DEFINE MOBILE_PLATFORM}
+{$ENDIF}
 {$ENDIF}
 
 {$IFDEF DELPHIXE_UP}

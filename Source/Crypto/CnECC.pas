@@ -1,7 +1,7 @@
 {******************************************************************************}
 {                       CnPack For Delphi/C++Builder                           }
 {                     中国人自己的开放源码第三方开发包                         }
-{                   (C)Copyright 2001-2025 CnPack 开发组                       }
+{                   (C)Copyright 2001-2026 CnPack 开发组                       }
 {                   ------------------------------------                       }
 {                                                                              }
 {            本开发包是开源的自由软件，您可以遵照 CnPack 的发布协议来修        }
@@ -2587,15 +2587,39 @@ const
   EC_PUBLICKEY_COMPRESSED_ODD   = 03; // 省略了 Y，其中 Y 是奇数
   EC_PUBLICKEY_UNCOMPRESSED     = 04; // X Y 都有
 
-  // 预定义的椭圆曲线类型的 OID 及其最大长度
-  EC_CURVE_TYPE_OID_MAX_LENGTH = 8;
+  // 预定义的椭圆曲线类型的 OID 及其最大长度，均不包括前面的 06 08 或 06 09
+  EC_CURVE_TYPE_OID_MAX_LENGTH = 9;
+
+  OID_ECPARAM_CURVE_TYPE_SECP224R1: array[0..4] of Byte = ( // 1.3.132.0.33
+    $2B, $81, $04, $00, $21
+  );
+
+  OID_ECPARAM_CURVE_TYPE_SECP224K1: array[0..4] of Byte = ( // 1.3.132.0.32
+    $2B, $81, $04, $00, $20
+  );
 
   OID_ECPARAM_CURVE_TYPE_SECP256K1: array[0..4] of Byte = ( // 1.3.132.0.10
     $2B, $81, $04, $00, $0A
   );
 
+  OID_ECPARAM_CURVE_TYPE_SECP384R1: array[0..4] of Byte = ( // 1.3.132.0.34
+    $2B, $81, $04, $00, $22
+  );
+
+  OID_ECPARAM_CURVE_TYPE_SECP521R1: array[0..4] of Byte = ( // 1.3.132.0.35
+    $2B, $81, $04, $00, $23
+  );
+
   OID_ECPARAM_CURVE_TYPE_SM2: array[0..7] of Byte = (       // 1.2.156.10197.301
     $2A, $81, $1C, $CF, $55, $01, $82, $2D
+  );
+
+  OID_ECPARAM_CURVE_TYPE_WAPI: array[0..8] of Byte = (      // 1.2.156.11235.1.1.2.1
+    $2A, $81, $1C, $D7, $63, $01, $01, $02, $01
+  );
+
+  OID_ECPARAM_CURVE_TYPE_SM9: array[0..7] of Byte = (       // 1.2.156.10197.301
+    $2A, $81, $1C, $CF, $55, $01, $82, $2E
   );
 
   OID_ECPARAM_CURVE_TYPE_PRIME256V1: array[0..7] of Byte = (  // 1.2.840.10045.3.1.7
@@ -5204,12 +5228,30 @@ begin
     Exit;
 
   Inc(P);
-  if CompareMem(P, @OID_ECPARAM_CURVE_TYPE_SECP256K1[0],
+  if CompareMem(P, @OID_ECPARAM_CURVE_TYPE_SECP224R1[0],
+    Min(L, SizeOf(OID_ECPARAM_CURVE_TYPE_SECP224R1))) then
+    Result := ctSecp224r1
+  else if CompareMem(P, @OID_ECPARAM_CURVE_TYPE_SECP224K1[0],
+    Min(L, SizeOf(OID_ECPARAM_CURVE_TYPE_SECP224K1))) then
+    Result := ctSecp224k1
+  else if CompareMem(P, @OID_ECPARAM_CURVE_TYPE_SECP256K1[0],
     Min(L, SizeOf(OID_ECPARAM_CURVE_TYPE_SECP256K1))) then
     Result := ctSecp256k1
+  else if CompareMem(P, @OID_ECPARAM_CURVE_TYPE_SECP384R1[0],
+    Min(L, SizeOf(OID_ECPARAM_CURVE_TYPE_SECP384R1))) then
+    Result := ctSecp384r1
+  else if CompareMem(P, @OID_ECPARAM_CURVE_TYPE_SECP521R1[0],
+    Min(L, SizeOf(OID_ECPARAM_CURVE_TYPE_SECP521R1))) then
+    Result := ctSecp521r1
   else if CompareMem(P, @OID_ECPARAM_CURVE_TYPE_SM2[0],
     Min(L, SizeOf(OID_ECPARAM_CURVE_TYPE_SM2))) then
     Result := ctSM2
+  else if CompareMem(P, @OID_ECPARAM_CURVE_TYPE_WAPI[0],
+    Min(L, SizeOf(OID_ECPARAM_CURVE_TYPE_WAPI))) then
+    Result := ctWapiPrime192v1
+  else if CompareMem(P, @OID_ECPARAM_CURVE_TYPE_SM9[0],
+    Min(L, SizeOf(OID_ECPARAM_CURVE_TYPE_SM9))) then
+    Result := ctSM9Bn256v1
   else if CompareMem(P, @OID_ECPARAM_CURVE_TYPE_PRIME256V1[0],
     Min(L, SizeOf(OID_ECPARAM_CURVE_TYPE_PRIME256V1))) then
     Result := ctPrime256v1
@@ -5232,10 +5274,40 @@ begin
         OIDAddr := @OID_ECPARAM_CURVE_TYPE_SM2[0];
         Result := SizeOf(OID_ECPARAM_CURVE_TYPE_SM2);
       end;
-    ctPrime256v1:
+    ctPrime256v1, ctSecp256r1:
       begin
         OIDAddr := @OID_ECPARAM_CURVE_TYPE_PRIME256V1[0];
         Result := SizeOf(OID_ECPARAM_CURVE_TYPE_PRIME256V1);
+      end;
+    ctSecp224r1:
+      begin
+        OIDAddr := @OID_ECPARAM_CURVE_TYPE_SECP224R1[0];
+        Result := SizeOf(OID_ECPARAM_CURVE_TYPE_SECP224R1);
+      end;
+    ctSecp224k1:
+      begin
+        OIDAddr := @OID_ECPARAM_CURVE_TYPE_SECP224K1[0];
+        Result := SizeOf(OID_ECPARAM_CURVE_TYPE_SECP224K1);
+      end;
+    ctWapiPrime192v1:
+      begin
+        OIDAddr := @OID_ECPARAM_CURVE_TYPE_WAPI[0];
+        Result := SizeOf(OID_ECPARAM_CURVE_TYPE_WAPI);
+      end;
+    ctSM9Bn256v1:
+      begin
+        OIDAddr := @OID_ECPARAM_CURVE_TYPE_SM9[0];
+        Result := SizeOf(OID_ECPARAM_CURVE_TYPE_SM9);
+      end;
+    ctSecp384r1:
+      begin
+        OIDAddr := @OID_ECPARAM_CURVE_TYPE_SECP384R1[0];
+        Result := SizeOf(OID_ECPARAM_CURVE_TYPE_SECP384R1);
+      end;
+    ctSecp521r1:
+      begin
+        OIDAddr := @OID_ECPARAM_CURVE_TYPE_SECP521R1[0];
+        Result := SizeOf(OID_ECPARAM_CURVE_TYPE_SECP521R1);
       end;
   end;
 end;
@@ -9387,6 +9459,8 @@ var
 
   function F(DPIdx: Integer): TCnBigNumberPolynomial; // 简化的得到 Division Polynomial 的
   begin
+    if DPIdx < 0 then
+      DPIdx := 0;
     Result := TCnBigNumberPolynomial(DPs[DPIdx]);
   end;
 
@@ -9395,6 +9469,14 @@ begin
     René Schoof’s Algorithm
   for Determining the Order of the Group of Points
     on an Elliptic Curve over a Finite Field
+或：
+  Elliptic Curves Over Finite Fields and the Computation of Square Roots mod p
+  Mathematics of Computation, Vol. 44, No. 170 (Apr., 1985), 483-494.
+
+及勘误：
+  书名 : The Arithmetic of Elliptic Curves (椭圆曲线的算术)
+  作者 : Joseph H. Silverman
+  章节 : 第 3 章 "The Geometry of Elliptic Curves" 的 习题 3.7 (Exercise 3.7)
 }
 
   Result := False;
@@ -9486,11 +9568,11 @@ begin
     Y2.SetCoefficents([B, A, 0, 1]);
 
     // Ta 与 Pa 数组已准备好，先处理 t = 2 的情况
-    P1.SetCoefficents([0, 1]); // P1 := X
+    P1.SetCoefficents([0, 1]);                        // P1 := X
     BigNumberPolynomialGaloisPower(P1, P1, Q, Q, Y2); // X^q 先 mod Y^2
 
-    P2.SetCoefficents([0, 1]); // P2 := X
-    BigNumberPolynomialGaloisSub(P1, P1, P2, Q); // P1 := (X^q mod Y^2) - x
+    P2.SetCoefficents([0, 1]);                        // P2 := X
+    BigNumberPolynomialGaloisSub(P1, P1, P2, Q);      // P1 := (X^q mod Y^2) - x
 
     // 求最大公约式
     BigNumberPolynomialGaloisGreatestCommonDivisor(G, P1, Y2, Q);
@@ -9504,7 +9586,7 @@ begin
     DPs := TObjectList.Create(True);
     CnGenerateGaloisDivisionPolynomials(A, B, Q, Pa[Pa.Count - 1] + 2, DPs);
 
-    for I := 1 to Ta.Count - 1 do  // 针对每一个 L，都满足 π^2(P) + K * (P) = J * π^(P) mod L阶可除多项式
+    for I := 1 to Ta.Count - 1 do  // 针对每一个 L，都满足 π^2(P) + K * (P) = J * π^(P) mod L 阶可除多项式
     begin
       L := Pa[I];
       K := BigNumberModWord(Q, L);
@@ -9520,10 +9602,10 @@ begin
       BigNumberPolynomialGaloisSub(PXP2X, PXP2X, T1, Q, LDP);  // x^(q^2) - x
 
       // 准备好 PXPX，等于 x^q - x
-      PXPX.SetCoefficents([0, 1]); // PXP2X := X
-      BigNumberPolynomialGaloisPower(PXPX, PXPX, Q, Q, LDP); // X^q
-      T1.SetCoefficents([0, 1]);   // T1 = x
-      BigNumberPolynomialGaloisSub(PXPX, PXPX, T1, Q, LDP);  // X^q - X
+      PXPX.SetCoefficents([0, 1]);                             // PXP2X := X
+      BigNumberPolynomialGaloisPower(PXPX, PXPX, Q, Q, LDP);   // X^q
+      T1.SetCoefficents([0, 1]);                               // T1 = x
+      BigNumberPolynomialGaloisSub(PXPX, PXPX, T1, Q, LDP);    // X^q - X
 
       // 判断是否存在 L 阶扭点 P，使得 π^2(P) = 正负 K * (P)，分 K 是奇偶来分别计算 P16，基本上和论文中的计算例子一致
       if K and 1 <> 0 then
@@ -9600,28 +9682,30 @@ begin
         Q12.ShiftRightOne;   // 得到 (Q - 1) / 2
 
         BigNumberCopy(Q32, Q);
-        Q32.SubWord(3);
-        Q32.ShiftRightOne;   // 得到 (Q - 3) / 2
+        Q32.AddWord(3);
+        Q32.ShiftRightOne;   // 得到 (Q + 3) / 2
 
+        // 注意，这里 Rene 论文里有笔误！下面已改成正确的了
+        // 文中的 F[W+2]^2 * F[W-1] 应该是 F[W+2] * F[W-1]^2，而 F[W-2]^2 * F[W+1] 应该是 F[W-2] * F[W+1]^2
         if W and 1 <> 0 then
         begin
-          // W 是奇数，P18 = 4*(x^3 + Ax + B)^(Q-1)/2) * F[W]^3 - F[W+2]^2 * F[W-1] + F[W-2]^2 * F[W+1]
+          // W 是奇数，P18 = 4*(x^3 + Ax + B)^(Q-1)/2) * F[W]^3 - F[W+2] * F[W-1]^2 + F[W-2] * F[W+1]^2
           BigNumberPolynomialGaloisPower(T1, Y2, Q12, Q, LDP);
         end
         else
         begin
-          // W 是偶数，P18 = 4*(x^3 + Ax + B)^(Q+3)/2) * F[W]^3 - F[W+2]^2 * F[W-1] + F[W-2]^2 * F[W+1]
+          // W 是偶数，P18 = 4*(x^3 + Ax + B)^(Q+3)/2) * F[W]^3 - F[W+2] * F[W-1]^2 + F[W-2] * F[W+1]^2
           BigNumberPolynomialGaloisPower(T1, Y2, Q32, Q, LDP);
         end;
         BigNumberPolynomialGaloisMulWord(T1, 4, Q);
         BigNumberPolynomialGaloisPower(T2, F(W), 3, Q, LDP);
-        BigNumberPolynomialGaloisMul(T1, T1, T2, Q, LDP); // T1 得到第一项大乘
+        BigNumberPolynomialGaloisMul(T1, T1, T2, Q, LDP);              // T1 得到第一项大乘
 
-        BigNumberPolynomialGaloisMul(T2, F(W + 2), F(W + 2), Q, LDP);  // T2 得到减项
-        BigNumberPolynomialGaloisMul(T2, T2, F(W - 1), Q, LDP);
+        BigNumberPolynomialGaloisMul(T2, F(W - 1), F(W - 1), Q, LDP);  // T2 得到减项
+        BigNumberPolynomialGaloisMul(T2, T2, F(W + 2), Q, LDP);
 
-        BigNumberPolynomialGaloisMul(T3, F(W - 2), F(W - 2), Q, LDP);  // T3 得到加项
-        BigNumberPolynomialGaloisMul(T3, T3, F(W + 1), Q, LDP);
+        BigNumberPolynomialGaloisMul(T3, F(W + 1), F(W + 1), Q, LDP);  // T3 得到加项
+        BigNumberPolynomialGaloisMul(T3, T3, F(W - 2), Q, LDP);
 
         BigNumberPolynomialGaloisSub(P18, T1, T2, Q, LDP);
         BigNumberPolynomialGaloisAdd(P18, P18, T3, Q, LDP);
@@ -9652,26 +9736,22 @@ begin
         Q23 := FEccBigNumberPool.Obtain;
         BigNumberMul(Q23, Q, Q);
 
-        if K and 1 <> 0 then  // K 偶数时需要 (Q^2 + 3)/2
-          Q23.AddWord(3)
-        else
-          Q23.AddWord(1);     // K 奇数时需要 (Q^2 + 1)/2
-
-        Q23.ShiftRightOne;  // 得到 (Q^2 + 3)/2 或 (Q^2 + 1)/2，用来做 Y^2 的指数
+        Q23.AddWord(3);     // K 无论奇偶都需要 (Q^2 + 3)/2，原论文有误，分成 + 3 和 + 1 了。
+        Q23.ShiftRightOne;  // 得到 (Q^2 + 3)/2，用来做 Y^2 的指数
 
         BigNumberPolynomialGaloisPower(T2, Y2, Q23, Q, LDP);
         BigNumberPolynomialGaloisPower(T3, F(K), 3, Q, LDP);
         BigNumberPolynomialGaloisMul(T2, T2, T3, Q, LDP);
         BigNumberPolynomialGaloisMulWord(T2, 4, Q); // 得到第三个减式
 
-        BigNumberPolynomialSub(PAlpha, T1, T2);     // 计算出 PAlpha，释放 T1 T2
+        BigNumberPolynomialGaloisSub(PAlpha, T1, T2, Q, LDP);     // 计算出 PAlpha，释放 T1 T2
         // 注意此处如果 K 是奇数，得到的 PAlpha 在使用时还要乘以一个 Y2
         // 如果 K 是偶数，得到的 PAlpha 其实是 Alpha / y 的值
 
         // 再计算 Beta
         NPXP2X := FEccPolynomialPool.Obtain;
         BigNumberPolynomialCopy(NPXP2X, PXP2X);
-        BigNumberPolynomialGaloisNegate(NPXP2X, Q); // NPXPX 得到 x - x^(q^2)
+        BigNumberPolynomialGaloisNegate(NPXP2X, Q);           // NPXPX 得到 x - x^(q^2)
 
         BigNumberPolynomialGaloisMul(T1, F(K), F(K), Q, LDP); // T1 得到 Fk^2
         BigNumberPolynomialGaloisMul(T1, NPXP2X, T1, Q, LDP); // T1 得到 Fk^2 * (x - x^(q^2))，备下面使用
@@ -9687,11 +9767,11 @@ begin
           // 再分别计算 Beta T2 要乘以 Y2
           BigNumberPolynomialGaloisMul(T2, T2, Y2, Q, LDP);
 
-          BigNumberPolynomialGaloisSub(T1, T1, T2, Q, LDP); // T1 得到减的结果
+          BigNumberPolynomialGaloisSub(T1, T1, T2, Q, LDP);   // T1 得到减的结果
 
           // 再乘以 4Fk
           BigNumberPolynomialGaloisMul(PBeta, T1, F(K), Q, LDP);
-          BigNumberPolynomialGaloisMulWord(PBeta, 4, Q);          // 得到的 PBeta 在使用时需要额外乘以一个 y
+          BigNumberPolynomialGaloisMulWord(PBeta, 4, Q);            // 得到的 PBeta 在使用时需要额外乘以一个 y
         end
         else // 偶数
         begin
@@ -9700,7 +9780,7 @@ begin
           // 再分别计算 Beta，T1 要乘以 Y2
           BigNumberPolynomialGaloisMul(T1, T1, Y2, Q, LDP);
 
-          BigNumberPolynomialGaloisSub(T1, T1, T2, Q, LDP); // T1 得到减的结果
+          BigNumberPolynomialGaloisSub(T1, T1, T2, Q, LDP);   // T1 得到减的结果
 
           // 再乘以 4Fk
           BigNumberPolynomialGaloisMul(PBeta, T1, F(K), Q, LDP);
@@ -9872,7 +9952,7 @@ begin
               BigNumberPolynomialGaloisMul(T2, T2, T3, Q, LDP);
             end;
 
-            BigNumberPolynomialGaloisSub(P19Y, T1, T2, Q, LDP);  // 俩公共项减后得到 P19Y
+            BigNumberPolynomialGaloisSub(P19Y, T1, T2, Q, LDP);                 // 俩公共项减后得到 P19Y
 
             BigNumberPolynomialGaloisGreatestCommonDivisor(T1, P19Y, LDP, Q);
 
@@ -9880,6 +9960,7 @@ begin
               Ta[I] := T
             else
               Ta[I] := L - T;
+            Break;
           end;
         end
         else
@@ -9897,12 +9978,12 @@ begin
             BigNumberPolynomialGaloisMul(T1, F(K), F(K), Q, LDP);
             BigNumberPolynomialGaloisMul(T2, PBeta, PBeta, Q, LDP);
             BigNumberPolynomialGaloisMul(T1, T1, T2, Q, LDP);
-            BigNumberPolynomialGaloisMul(T1, T1, Y2, Q, LDP); // T1 得到 Fk^2 * b^2 * Y^2
+            BigNumberPolynomialGaloisMul(T1, T1, Y2, Q, LDP);                   // T1 得到 Fk^2 * b^2 * Y^2
 
             BigNumberPolynomialGaloisMul(T2, F(T - 1), F(T + 1), Q, LDP);
             BigNumberPolynomialGaloisPower(T2, T2, Q, Q, LDP);
 
-            BigNumberPolynomialGaloisMul(T3, T1, T2, Q, LDP); // T3 得到 Fk^2 * b^2 * Y^2 * (Ft-1 * Ft+1)^p，释放 T1 T2
+            BigNumberPolynomialGaloisMul(T3, T1, T2, Q, LDP);                   // T3 得到 Fk^2 * b^2 * Y^2 * (Ft-1 * Ft+1)^p，释放 T1 T2
             if T and 1 <> 0 then // T 为奇数时要多乘一项
             begin
               BigNumberPolynomialGaloisPower(T1, Y2, Q, Q, LDP);
@@ -9914,23 +9995,23 @@ begin
 
             BigNumberPolynomialGaloisMul(T2, F(K), F(K), Q, LDP);
             BigNumberPolynomialGaloisMul(T2, T2, PXP2XPX, Q, LDP);
-            BigNumberPolynomialGaloisMul(T2, T2, Y2, Q, LDP);  // T2 得到 y^2 * Fk^2 *(x^(p^2) + x^p + x)
+            BigNumberPolynomialGaloisMul(T2, T2, Y2, Q, LDP);                   // T2 得到 y^2 * Fk^2 *(x^(p^2) + x^p + x)
 
-            BigNumberPolynomialGaloisSub(T1, T1, T2, Q, LDP); // T1 减后释放 T2
+            BigNumberPolynomialGaloisSub(T1, T1, T2, Q, LDP);                   // T1 减后释放 T2
 
             BigNumberPolynomialGaloisMul(T2, F(K), PAlpha, Q, LDP);
-            BigNumberPolynomialGaloisMul(T2, T2, T2, Q, LDP); // T2 得到 a^2 * Fk^2
+            BigNumberPolynomialGaloisMul(T2, T2, T2, Q, LDP);                   // T2 得到 a^2 * Fk^2
             BigNumberPolynomialGaloisMul(T2, T2, Y2, Q, LDP);
-            BigNumberPolynomialGaloisMul(T2, T2, Y2, Q, LDP); // T2 得到 (Y^2)^2 * a^2 * Fk^2
+            BigNumberPolynomialGaloisMul(T2, T2, Y2, Q, LDP);                   // T2 得到 (Y^2)^2 * a^2 * Fk^2
 
-            BigNumberPolynomialGaloisAdd(T1, T1, T2, Q, LDP); // T1 得到全减式，释放 T2
+            BigNumberPolynomialGaloisAdd(T1, T1, T2, Q, LDP);                   // T1 得到全减式，释放 T2
 
             BigNumberPolynomialGaloisMul(T2, PBeta, PBeta, Q, LDP);
-            BigNumberPolynomialGaloisMul(T1, T1, T2, Q, LDP); // 全减式乘 Beta^2 后放入 T1，释放 T2
+            BigNumberPolynomialGaloisMul(T1, T1, T2, Q, LDP);                   // 全减式乘 Beta^2 后放入 T1，释放 T2
 
-            BigNumberPolynomialGaloisMul(T2, F(T), F(T), Q, LDP);        // T2 得到 Ft^2
+            BigNumberPolynomialGaloisMul(T2, F(T), F(T), Q, LDP);               // T2 得到 Ft^2
 
-            BigNumberPolynomialGaloisPower(T2, T2, Q, Q, LDP);// T2 得到 (Ft^2)^p = Ft^2p
+            BigNumberPolynomialGaloisPower(T2, T2, Q, Q, LDP);                  // T2 得到 (Ft^2)^p = Ft^2p
 
             if T and 1 = 0 then // T 为偶数时 T2 要多乘一项 (Y^2)^p
             begin
@@ -9938,8 +10019,8 @@ begin
               BigNumberPolynomialGaloisMul(T2, T2, T4, Q, LDP);
             end;
 
-            BigNumberPolynomialGaloisMul(T1, T1, T2, Q, LDP); // T1 得到加号左边的，和右边相加
-            BigNumberPolynomialGaloisAdd(P19X, T1, T3, Q, LDP);  // 加后得到 P19X
+            BigNumberPolynomialGaloisMul(T1, T1, T2, Q, LDP);                   // T1 得到加号左边的，和右边相加
+            BigNumberPolynomialGaloisAdd(P19X, T1, T3, Q, LDP);                 // 加后得到 P19X
 
             BigNumberPolynomialGaloisGreatestCommonDivisor(T1, P19X, LDP, Q);
 
@@ -9956,7 +10037,7 @@ begin
             BigNumberMul(QT, Q, Q);
             BigNumberSubWord(QT, 1);
             QT.ShiftRightOne;
-            BigNumberPolynomialGaloisPower(T1, Y2, QT, Q, LDP);                // T1 得到 y^(p^2-1)
+            BigNumberPolynomialGaloisPower(T1, Y2, QT, Q, LDP);                 // T1 得到 y^(p^2-1)
             BigNumberPolynomialGaloisMul(T1, PBeta, T1, Q, LDP);
             BigNumberPolynomialGaloisMul(T1, PBeta, T1, Q, LDP);
             BigNumberPolynomialGaloisMul(T1, PBeta, T1, Q, LDP);                // T1 得到 b^3*y^(p^2-1)
@@ -10045,6 +10126,7 @@ begin
               Ta[I] := T
             else
               Ta[I] := L - T;
+            Break;
           end;
         end;
       end;

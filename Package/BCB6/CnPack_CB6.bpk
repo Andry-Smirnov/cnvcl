@@ -92,6 +92,7 @@
       ..\..\Source\Crypto\CnPemUtils.obj 
       ..\..\Source\Crypto\CnPolynomial.obj 
       ..\..\Source\Crypto\CnPrime.obj 
+      ..\..\Source\Crypto\CnQRCode.obj 
       ..\..\Source\Crypto\CnRandom.obj 
       ..\..\Source\Crypto\CnRC4.obj 
       ..\..\Source\Crypto\CnRSA.obj 
@@ -161,6 +162,7 @@
       ..\..\Source\Graphic\CnMonthCalendar.obj 
       ..\..\Source\Graphic\CnOpenGLPaintBox.obj 
       ..\..\Source\Graphic\CnPanel.obj 
+      ..\..\Source\Graphic\CnQRImage.obj 
       ..\..\Source\Graphic\CnShellCtrls.obj 
       ..\..\Source\Graphic\CnSkinMagic.obj 
       ..\..\Source\Graphic\CnSpin.obj 
@@ -393,6 +395,7 @@
       <FILE FILENAME="..\..\Source\Crypto\CnPemUtils.pas" FORMNAME="" UNITNAME="CnPemUtils" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnPolynomial.pas" FORMNAME="" UNITNAME="CnPolynomial" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnPrime.pas" FORMNAME="" UNITNAME="CnPrime" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
+      <FILE FILENAME="..\..\Source\Crypto\CnQRCode.pas" FORMNAME="" UNITNAME="CnQRCode" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnRandom.pas" FORMNAME="" UNITNAME="CnRandom" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnRC4.pas" FORMNAME="" UNITNAME="CnRC4" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnRSA.pas" FORMNAME="" UNITNAME="CnRSA" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
@@ -462,6 +465,7 @@
       <FILE FILENAME="..\..\Source\Graphic\CnMonthCalendar.pas" FORMNAME="" UNITNAME="CnMonthCalendar" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnOpenGLPaintBox.pas" FORMNAME="" UNITNAME="CnOpenGLPaintBox" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnPanel.pas" FORMNAME="" UNITNAME="CnPanel" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
+      <FILE FILENAME="..\..\Source\Graphic\CnQRImage.pas" FORMNAME="" UNITNAME="CnQRImage" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnShellCtrls.pas" FORMNAME="" UNITNAME="CnShellCtrls" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnSkinMagic.pas" FORMNAME="" UNITNAME="CnSkinMagic" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnSpin.pas" FORMNAME="" UNITNAME="CnSpin" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>

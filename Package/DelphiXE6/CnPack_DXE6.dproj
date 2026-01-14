@@ -201,6 +201,7 @@
         <DCCReference Include="..\..\Source\Crypto\CnPemUtils.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnPolynomial.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnPrime.pas"/>
+        <DCCReference Include="..\..\Source\Crypto\CnQRCode.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnRandom.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnRC4.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnRSA.pas"/>
@@ -276,6 +277,7 @@
         <DCCReference Include="..\..\Source\Graphic\CnMonthCalendar.pas"/>
         <DCCReference Include="..\..\Source\Graphic\CnOpenGLPaintBox.pas"/>
         <DCCReference Include="..\..\Source\Graphic\CnPanel.pas"/>
+        <DCCReference Include="..\..\Source\Graphic\CnQRImage.pas"/>
         <DCCReference Include="..\..\Source\Graphic\CnShellCtrls.pas"/>
         <DCCReference Include="..\..\Source\Graphic\CnSkinMagic.pas"/>
         <DCCReference Include="..\..\Source\Graphic\CnSpin.pas"/>

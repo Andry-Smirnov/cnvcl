@@ -91,6 +91,7 @@
       ..\..\Source\Crypto\CnPemUtils.obj 
       ..\..\Source\Crypto\CnPolynomial.obj 
       ..\..\Source\Crypto\CnPrime.obj 
+      ..\..\Source\Crypto\CnQRCode.obj 
       ..\..\Source\Crypto\CnRandom.obj 
       ..\..\Source\Crypto\CnRC4.obj 
       ..\..\Source\Crypto\CnRSA.obj 
@@ -135,6 +136,7 @@
       ..\..\Source\Graphic\CnMonthCalendar.obj 
       ..\..\Source\Graphic\CnOpenGLPaintBox.obj 
       ..\..\Source\Graphic\CnPanel.obj 
+      ..\..\Source\Graphic\CnQRImage.obj 
       ..\..\Source\Graphic\CnShellCtrls.obj 
       ..\..\Source\Graphic\CnSkinMagic.obj 
       ..\..\Source\Graphic\CnSpin.obj 

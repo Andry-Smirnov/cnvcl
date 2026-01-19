@@ -24,7 +24,9 @@ unit CnPing;
 * 软件名称：网络通讯组件包
 * 单元名称：Ping 通讯单元
 * 单元作者：胡昌洪Sesame (sesamehch@163.com)
-* 备    注：定义了 TCnPing
+* 备    注：实现了 ping 功能的 TCnPing 组件，注意在 Delphi 的 MacOS 平台上，即使
+*           sudo 使用 root 权限跑，仍有可能出 65 错误（EHOSTUNREACH），而 MAC 上
+*           的 FPC 3.2.2 可以 ping，暂时无法修复。AI 建议不走 RAW 而走 DIAGRAM。
 * 开发平台：PWin2000Pro + Delphi 5.01
 * 兼容测试：PWin9X/2000/XP + Delphi 5/6/7 + C++Builder 5/6
 * 本 地 化：该单元中的字符串均符合本地化处理方式
@@ -38,10 +40,9 @@ interface
 {$I CnPack.inc}
 
 uses
-  {$IFDEF MSWINDOWS} Windows, WinSock, {$ELSE}
-  Posix.ArpaInet, Posix.NetinetIn, Posix.SysSocket, Posix.SysTime, {$ENDIF}
-  SysUtils, Classes, Controls, StdCtrls,
-  CnClasses, CnConsts, CnNetConsts, CnNetwork, CnSocket;
+  {$IFDEF MSWINDOWS} Windows, WinSock, {$ELSE} {$IFDEF FPC} Sockets, BaseUnix, NetDB, {$ELSE}
+  Posix.ArpaInet, Posix.NetinetIn, Posix.SysSocket, Posix.SysTime, {$ENDIF} {$ENDIF}
+  SysUtils, Classes, CnClasses, CnConsts, CnNetConsts, CnNetwork, CnSocket;
 
 type
   PCnIPOptionInformation = ^TCnIPOptionInformation;
@@ -50,6 +51,9 @@ type
     TOS: Byte;              // Type Of Service (usually 0)
     Flags: Byte;            // IP header flags (usually 0)
     OptionsSize: Byte;      // Size of options data (usually 0, max 40)
+{$IFDEF CPU64BITS}
+    Padding: Cardinal;      // 64 位下系统要求对齐 8 字节
+{$ENDIF}
     OptionsData: PAnsiChar; // Options data buffer
   end;
 
@@ -82,11 +86,13 @@ type
 
   { TCnPing }
 
+{$IFNDEF FPC}
 {$IFDEF SUPPORT_32_AND_64}
   [ComponentPlatformsAttribute(pidWin32 or pidWin64)]
 {$ENDIF}
+{$ENDIF}
   TCnPing = class(TCnComponent)
-  {* 通过调用 ICMP.DLL 库中的函数来实现 Ping 功能。}
+  {* Ping 功能实现类，Windows 下通过调用 ICMP.DLL 库中的函数来实现，其他平台使用 RawSocket。}
   private
     FRemoteHost: string;
     FRemoteIP: string;
@@ -174,6 +180,48 @@ const
   SCN_ICMP_ERROR_GENERAL    = -3;     // 一般错误
   SCN_ICMP_ERROR_SOCKET     = -4;     // Socket 错误
   SCN_ICMP_ERROR_UNKNOWN    = -100;
+
+{$IFDEF FPC_MACOS}
+
+function inet_addr(p: PAnsiChar): LongWord;
+var
+  S, Buf: string;
+  Parts: array[0..3] of Integer;
+  PartIndex, I: Integer;
+  Ch: Char;
+begin
+  Result := High(LongWord); // INADDR_NONE by default
+  S := string(p);
+  for I := 0 to 3 do
+    Parts[I] := 0;
+  PartIndex := 0;
+  Buf := '';
+  for I := 1 to Length(S) do
+  begin
+    Ch := S[I];
+    if Ch = '.' then
+    begin
+      if (Buf = '') or (PartIndex > 3) then
+        Exit;
+      Parts[PartIndex] := StrToIntDef(Buf, -1);
+      if (Parts[PartIndex] < 0) or (Parts[PartIndex] > 255) then
+        Exit;
+      Buf := '';
+      Inc(PartIndex);
+    end
+    else
+      Buf := Buf + Ch;
+  end;
+  if (PartIndex <> 3) or (Buf = '') then
+    Exit;
+  Parts[3] := StrToIntDef(Buf, -1);
+  if (Parts[3] < 0) or (Parts[3] > 255) then
+    Exit;
+  Result := (Cardinal(Parts[3]) shl 24) or (Cardinal(Parts[2]) shl 16) or
+            (Cardinal(Parts[1]) shl 8) or Cardinal(Parts[0]);
+end;
+
+{$ENDIF}
 
 {$IFDEF MSWINDOWS}
   ICMPDLL = 'icmp.dll';
@@ -387,7 +435,9 @@ var
   tv: timeval;
   Buf: array[0..1023] of Byte;
   R, FromLen: Integer;
-  ID: Word;
+  ID, ReceivedID: Word;
+  TimeStart: UInt64;
+  IcmpReply: TCnIcmpEchoReply;
 {$ENDIF}
 begin
   Result := SCN_ICMP_ERROR_UNKNOWN;
@@ -495,9 +545,18 @@ begin
     CnFillICMPHeaderCheckSum(HIcmp, Count);
 
     FillChar(DestAddr, SizeOf(DestAddr), 0);
+{$IFNDEF FPC}
+    DestAddr.sin_len := SizeOf(DestAddr);
+{$ENDIF}
+
     DestAddr.sin_family := AF_INET;
     DestAddr.sin_addr.s_addr := inet_addr(PAnsiChar(aIP.IP));
 
+{$IFDEF FPC}
+    TimeStart := GetTickCount64;
+{$ELSE}
+    TimeStart := TThread.GetTickCount64;
+{$ENDIF}
     R := CnSendTo(Sock, HIcmp^, SizeOf(TCnICMPHeader) + Count, 0, DestAddr,
       SizeOf(DestAddr));
     if R = SOCKET_ERROR then
@@ -512,15 +571,45 @@ begin
     // recvfrom
     FromLen := SizeOf(DestAddr);
     R := CnRecvFrom(Sock, Buf[0], SizeOf(Buf), 0, DestAddr, FromLen);
-    if R > SizeOf(TCnIPHeader) + SizeOf(TCnICMPHeader) then
+
+    HIcmp := nil;
+    HIp := nil;
+    if R >= SizeOf(TCnIPHeader) + SizeOf(TCnICMPHeader) then
     begin
       HIp := PCnIPHeader(@Buf[0]);
-      P := PAnsiChar(HIp);
-      Inc(P, CnGetIPHeaderLength(HIp) * 4);
-      HIcmp := PCnICMPHeader(P);
+      if (HIp^.VerionHeaderLength shr 4) = 4 then
+      begin
+        if HIp^.Protocol = CN_IP_PROTOCOL_ICMP then
+        begin
+          P := PAnsiChar(HIp);
+          Inc(P, CnGetIPHeaderLength(HIp) * 4);
+          if (NativeUInt(P) - NativeUInt(@Buf[0])) + SizeOf(TCnICMPHeader) <= Cardinal(R) then
+            HIcmp := PCnICMPHeader(P);
+        end;
+      end;
+    end;
 
-      if (HIcmp^.MessageType = CN_ICMP_TYPE_ECHO_REPLY) and (ID = HIcmp^.Identifier) then
-        Result := SCN_ICMP_ERROR_OK
+    if HIcmp <> nil then
+    begin
+      ReceivedID := CnGetICMPIdentifier(HIcmp);
+      // Writeln('DEBUG: R=', R, ' Type=', HIcmp^.MessageType, ' SentID=', ID, ' RecvID=', ReceivedID);
+      if (HIcmp^.MessageType = CN_ICMP_TYPE_ECHO_REPLY) and (ID = ReceivedID) then
+      begin
+        Result := SCN_ICMP_ERROR_OK;
+        FillChar(IcmpReply, SizeOf(IcmpReply), 0);
+{$IFDEF FPC}
+        IcmpReply.RTT := Cardinal(GetTickCount64 - TimeStart);
+{$ELSE}
+        IcmpReply.RTT := Cardinal(TThread.GetTickCount64 - TimeStart);
+{$ENDIF}
+        if HIp <> nil then
+          IcmpReply.Options.TTL := HIp^.TTL
+        else
+          IcmpReply.Options.TTL := 0; // Unknown TTL
+        IcmpReply.DataSize := R - (NativeUInt(HIcmp) - NativeUInt(@Buf[0])) - SizeOf(TCnICMPHeader);
+
+        aReply := GetReplyString(Result, aIP, @IcmpReply);
+      end
       else
       begin
         Result := SCN_ICMP_ERROR_GENERAL;

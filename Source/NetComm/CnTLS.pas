@@ -52,6 +52,12 @@ type
 
   TCnTLSogEvent = procedure (Sender: TObject; const LogMsg: string) of object;
 
+  TCnTLSCertificateChain = array of TBytes;
+
+  TCnTLSVerifyServerCertificateEvent = procedure(Sender: TObject;
+    const Host: AnsiString; const CertChain: TCnTLSCertificateChain;
+    var Accepted: Boolean; var ErrorMsg: string) of object;
+
   TCnTLSHandshakeState = (
     hsInit,
     hsClientHelloSent,
@@ -90,6 +96,8 @@ type
     FVerifyCertificate: Boolean;
     FEnableExtendedMasterSecret: Boolean;
     FOnTLSLog: TCnTLSogEvent;
+    FOnVerifyServerCertificate: TCnTLSVerifyServerCertificateEvent;
+    FServerCertificateChain: TCnTLSCertificateChain;
     FRecvPlainBuf: TBytes;
     FRecvPlainPos: Integer;
     FMaxFragmentLen: Word;
@@ -115,12 +123,15 @@ type
     function Recv(var Buf; Len: Integer; Flags: Integer = 0): Integer; override;
 
     property HandshakeState: TCnTLSHandshakeState read FHandshakeState;
+    property ServerCertificateChain: TCnTLSCertificateChain read FServerCertificateChain;
   published
     property VerifyCertificate: Boolean read FVerifyCertificate write FVerifyCertificate default True;
     property EnableExtendedMasterSecret: Boolean read FEnableExtendedMasterSecret
       write FEnableExtendedMasterSecret default True;
     property MaxFragmentLen: Word read FMaxFragmentLen write FMaxFragmentLen default 16384;
     property OnTLSLog: TCnTLSogEvent read FOnTLSLog write FOnTLSLog;
+    property OnVerifyServerCertificate: TCnTLSVerifyServerCertificateEvent
+      read FOnVerifyServerCertificate write FOnVerifyServerCertificate;
   end;
 
 type
@@ -131,6 +142,10 @@ type
     FVersion: Word;
     FCipherSuite: Word;
     FHandshakeDone: Boolean;
+    FHandshakeAbortedByClient: Boolean;
+    FHandshakeAbortAlertLevel: Byte;
+    FHandshakeAbortAlertDesc: Byte;
+    FHandshakeAbortStage: string;
     FServerWriteKey: TBytes;
     FClientWriteKey: TBytes;
     FServerFixedIV: TBytes;
@@ -150,6 +165,10 @@ type
     property Version: Word read FVersion write FVersion;
     property CipherSuite: Word read FCipherSuite write FCipherSuite;
     property HandshakeDone: Boolean read FHandshakeDone write FHandshakeDone;
+    property HandshakeAbortedByClient: Boolean read FHandshakeAbortedByClient write FHandshakeAbortedByClient;
+    property HandshakeAbortAlertLevel: Byte read FHandshakeAbortAlertLevel write FHandshakeAbortAlertLevel;
+    property HandshakeAbortAlertDesc: Byte read FHandshakeAbortAlertDesc write FHandshakeAbortAlertDesc;
+    property HandshakeAbortStage: string read FHandshakeAbortStage write FHandshakeAbortStage;
     property ServerWriteKey: TBytes read FServerWriteKey write FServerWriteKey;
     property ClientWriteKey: TBytes read FClientWriteKey write FClientWriteKey;
     property ServerFixedIV: TBytes read FServerFixedIV write FServerFixedIV;
@@ -308,6 +327,18 @@ var
       Self.FOnTLSLog(Self, S);
   end;
 
+  function AlertName(Desc: Byte): string; forward;
+
+  procedure MarkClientAbort(AlertLevel, AlertDesc: Byte; const Stage: string);
+  begin
+    ClientSocket.HandshakeAbortedByClient := True;
+    ClientSocket.HandshakeAbortAlertLevel := AlertLevel;
+    ClientSocket.HandshakeAbortAlertDesc := AlertDesc;
+    ClientSocket.HandshakeAbortStage := Stage;
+    DoTLSLog('Client alert during handshake stage=' + Stage + ' level=' +
+      IntToStr(AlertLevel) + ' desc=' + IntToStr(AlertDesc) + ' (' + AlertName(AlertDesc) + ')');
+  end;
+
   function SendExact(const Buf; L: Integer): Boolean;
   var
     Sent, Cnt: Integer;
@@ -450,6 +481,7 @@ begin
       DoTLSLog('Alert received with invalid length BodyLen=' + IntToStr(BodyLen));
       Exit;
     end;
+    MarkClientAbort(Buf[0], Buf[1], 'initial');
     Exit;
   end
   else if H.ContentType <> CN_TLS_CONTENT_TYPE_HANDSHAKE then
@@ -573,6 +605,26 @@ begin
       AnsiString(FServerKeyPassword)) then
       KeyIsECC := True;
   except
+    on E: Exception do
+      DoTLSLog('Failed to load server key ' + KeyFile + ': ' + E.Message);
+  end;
+
+  if not (KeyIsRSA or KeyIsECC) then
+  begin
+    DoTLSLog('Failed to load server key (unknown format or wrong password): ' + KeyFile);
+    H.ContentType := CN_TLS_CONTENT_TYPE_ALERT;
+    H.MajorVersion := 3;
+    H.MinorVersion := 3;
+    H.BodyLength := htons(2);
+    if not SendExact(H, 5) then
+      Exit;
+    Msg := nil;
+    SetLength(Msg, 2);
+    Msg[0] := CN_TLS_ALERT_LEVEL_FATAL;
+    Msg[1] := CN_TLS_ALERT_DESC_HANDSHAKE_FAILURE;
+    if not SendExact(Msg[0], 2) then
+      Exit;
+    Exit;
   end;
 
   if KeyIsECC then
@@ -740,7 +792,10 @@ begin
     end
     else
     begin
-      DoTLSLog('Failed to load server certificate ' + CertFile);
+      if not FileExists(CertFile) then
+        DoTLSLog('Server certificate file not found: ' + CertFile)
+      else
+        DoTLSLog('Failed to load server certificate ' + CertFile);
       Exit;
     end;
   finally
@@ -883,7 +938,11 @@ begin
   begin
     BodyLen := ntohs(H.BodyLength);
     if not RecvExact(BodyLen, Buf) or (BodyLen < 2) then
+    begin
+      DoTLSLog('Alert received with invalid length during CCS wait');
       Exit;
+    end;
+    MarkClientAbort(Buf[0], Buf[1], 'wait_change_cipher_spec');
     Exit;
   end
   else if H.ContentType <> CN_TLS_CONTENT_TYPE_HANDSHAKE then
@@ -945,6 +1004,7 @@ begin
       DoTLSLog('Alert received during CCS stage');
       Exit;
     end;
+    MarkClientAbort(Buf[0], Buf[1], 'expect_change_cipher_spec');
     Exit;
   end
   else if H.ContentType <> CN_TLS_CONTENT_TYPE_CHANGE_CIPHER_SPEC then
@@ -967,7 +1027,11 @@ begin
   begin
     BodyLen := ntohs(H.BodyLength);
     if not RecvExact(BodyLen, Buf) or (BodyLen < 2) then
+    begin
+      DoTLSLog('Alert received with invalid length before Finished');
       Exit;
+    end;
+    MarkClientAbort(Buf[0], Buf[1], 'before_client_finished');
     Exit;
   end
   else if H.ContentType <> CN_TLS_CONTENT_TYPE_HANDSHAKE then
@@ -1156,6 +1220,10 @@ begin
   FVersion := 0;
   FCipherSuite := 0;
   FHandshakeDone := False;
+  FHandshakeAbortedByClient := False;
+  FHandshakeAbortAlertLevel := 0;
+  FHandshakeAbortAlertDesc := 0;
+  FHandshakeAbortStage := '';
   FServerSeq := 0;
   FClientSeq := 0;
   FRecvPlainBuf := nil;
@@ -1182,8 +1250,11 @@ begin
     FOwnerServer := TCnTLSServer(Skt.Server);
   if not FOwnerServer.DoHandShake(Skt) then
   begin
-    if Assigned(FOwnerServer) and Assigned(FOwnerServer.FOnTLSError) then
-      FOwnerServer.FOnTLSError(FOwnerServer, Skt, -1, 'Handshake failed');
+    if not Skt.HandshakeAbortedByClient then
+    begin
+      if Assigned(FOwnerServer) and Assigned(FOwnerServer.FOnTLSError) then
+        FOwnerServer.FOnTLSError(FOwnerServer, Skt, -1, 'Handshake failed');
+    end;
     Skt.Shutdown;
     Exit;
   end;
@@ -1705,6 +1776,7 @@ begin
   FHandshakeState := hsInit;
   FClientSeq := 0;
   FServerSeq := 0;
+  FServerCertificateChain := nil;
   FRecvPlainBuf := nil;
   FRecvPlainPos := 0;
   FMaxFragmentLen := 16384;
@@ -1915,63 +1987,143 @@ end;
 
 function TCnTLSClient.ReadAndDecryptAppData(var Buf; Len: Integer; Flags: Integer): Integer;
 var
-  Buffer: PByteArray;
-  BytesReceived, TotalConsumed, RecBodyLen: Integer;
-  H: PCnTLSRecordLayer;
-  AAD, Nonce, Body: TBytes;
+  UseChaCha: Boolean;
+  H: TCnTLSRecordLayer;
+  BodyLen, Cnt, Rcv: Integer;
+  AAD: TBytes;
+  Nonce: TBytes;
+  Raw: TBytes;
+  En: TBytes;
+  Plain: TBytes;
   Tag: TCnGCM128Tag;
-  Explicit, Plain: TBytes;
-begin
-  Result := SOCKET_ERROR;
-  BytesReceived := inherited Recv(Buf, Len, Flags);
 
-  DoTLSLog('ReadAndDecryptAppData BytesReceived: ' + IntToStr(BytesReceived));
-  if BytesReceived <= SizeOf(TCnTLSRecordLayer) then Exit;
-  TotalConsumed := 0;
-  Buffer := PByteArray(@Buf);
-  while TotalConsumed < BytesReceived do
+  function ReadExact(var OutBuf; Need: Integer): Boolean;
+  var
+    P: PByte;
+    Got, R: Integer;
   begin
-    H := PCnTLSRecordLayer(@(Buffer^[TotalConsumed]));
-    RecBodyLen := CnGetTLSRecordLayerBodyLength(H);
-    DoTLSLog('ReadAndDecryptAppData ContentType: ' + IntToStr(H^.ContentType) + ' RecBodyLen: ' + IntToStr(RecBodyLen));
-    if H^.ContentType = CN_TLS_CONTENT_TYPE_APPLICATION_DATA then
+    Result := False;
+    if Need <= 0 then
     begin
-      DoTLSLog('ServerSeq used for AAD: ' + IntToStr(FServerSeq));
-      if FCipherIsChaCha20Poly1305 then
-      begin
-        SetLength(Body, RecBodyLen);
-        Move(H^.Body[0], Body[0], RecBodyLen);
-        AAD := BuildAppDataAAD(FServerSeq, RecBodyLen - SizeOf(TCnGCM128Tag));
-        Nonce := TLSChaChaNonce(FServerFixedIV, FServerSeq);
-        Move(Body[RecBodyLen - SizeOf(TCnGCM128Tag)], Tag, SizeOf(Tag));
-        Plain := DecryptAppDataBody(Body, AAD, Nonce, Tag);
-      end
-      else
-      begin
-        Explicit := NewBytesFromMemory(@H^.Body[0], 8);
-        SetLength(Body, RecBodyLen - 8 - SizeOf(TCnGCM128Tag));
-        Move((PAnsiChar(@H^.Body[0]) + 8)^, Body[0], Length(Body));
-        Move((PAnsiChar(@H^.Body[0]) + 8 + Length(Body))^, Tag, SizeOf(Tag));
-        AAD := BuildAppDataAAD(FServerSeq, Length(Body));
-        Nonce := ConcatBytes(FServerFixedIV, Explicit);
-        DoTLSLog('Server AppData ExplicitNonce: ' + BytesToHex(Explicit));
-        DoTLSLog('Server AppData AAD: ' + BytesToHex(AAD));
-        DoTLSLog('Server AppData EnCipher Len: ' + IntToStr(Length(Body)));
-        DoTLSLog('Server AppData Tag: ' + BytesToHex(NewBytesFromMemory(@Tag, SizeOf(Tag))));
-        Plain := DecryptAppDataBody(Body, AAD, Nonce, Tag);
-      end;
-
-      DoTLSLog('ReadAndDecryptAppData Plain Len: ' + IntToStr(Length(Plain)));
-      Result := Length(Plain);
-      if Result > 0 then
-      begin
-        Move(Plain[0], Buf, Result);
-        Inc(FServerSeq);
-      end;
-
+      Result := True;
       Exit;
     end;
-    Inc(TotalConsumed, 5 + RecBodyLen);
+
+    P := @OutBuf;
+    Got := 0;
+    while Got < Need do
+    begin
+      R := inherited Recv(PByteArray(P)^[Got], Need - Got, Flags);
+      if R <= 0 then
+      begin
+        Rcv := R;
+        Exit;
+      end;
+      Inc(Got, R);
+    end;
+    Result := True;
+  end;
+
+begin
+  Result := SOCKET_ERROR;
+  if (FRecvPlainBuf <> nil) and (FRecvPlainPos < Length(FRecvPlainBuf)) then
+  begin
+    Cnt := Length(FRecvPlainBuf) - FRecvPlainPos;
+    if Cnt > Len then
+      Cnt := Len;
+    Move(FRecvPlainBuf[FRecvPlainPos], Buf, Cnt);
+    Inc(FRecvPlainPos, Cnt);
+    if FRecvPlainPos >= Length(FRecvPlainBuf) then
+    begin
+      FRecvPlainBuf := nil;
+      FRecvPlainPos := 0;
+    end;
+    Result := Cnt;
+    Exit;
+  end;
+
+  while True do
+  begin
+    FillChar(H, SizeOf(H), 0);
+    Rcv := 0;
+    if not ReadExact(H, 5) then
+    begin
+      Result := Rcv;
+      Exit;
+    end;
+
+    BodyLen := ntohs(H.BodyLength);
+    if BodyLen <= 0 then
+    begin
+      Result := 0;
+      Exit;
+    end;
+
+    SetLength(Raw, BodyLen);
+    Rcv := 0;
+    if not ReadExact(Raw[0], BodyLen) then
+    begin
+      Result := Rcv;
+      Exit;
+    end;
+
+    if H.ContentType = CN_TLS_CONTENT_TYPE_CHANGE_CIPHER_SPEC then
+      Continue;
+
+    UseChaCha := FCipherIsChaCha20Poly1305;
+    if UseChaCha then
+    begin
+      if BodyLen < SizeOf(TCnGCM128Tag) then
+      begin Result := SOCKET_ERROR; Exit; end;
+      SetLength(En, BodyLen - SizeOf(TCnGCM128Tag));
+      if Length(En) > 0 then
+        Move(Raw[0], En[0], Length(En));
+      Move(Raw[BodyLen - SizeOf(TCnGCM128Tag)], Tag[0], SizeOf(TCnGCM128Tag));
+      AAD := BuildAAD(H.ContentType, $0303, Length(En), FServerSeq);
+      Plain := TLSChaCha20Poly1305Decrypt(FServerWriteKey, FServerFixedIV, En, AAD, FServerSeq, Tag);
+    end
+    else
+    begin
+      if BodyLen < 8 + SizeOf(TCnGCM128Tag) then
+      begin Result := SOCKET_ERROR; Exit; end;
+      Nonce := ConcatBytes(FServerFixedIV, Copy(Raw, 0, 8));
+      SetLength(En, BodyLen - 8 - SizeOf(TCnGCM128Tag));
+      if Length(En) > 0 then
+        Move(Raw[8], En[0], Length(En));
+      Move(Raw[BodyLen - SizeOf(TCnGCM128Tag)], Tag[0], SizeOf(TCnGCM128Tag));
+      AAD := BuildAAD(H.ContentType, $0303, Length(En), FServerSeq);
+      Plain := AES128GCMDecryptBytes(FServerWriteKey, Nonce, En, AAD, Tag);
+    end;
+
+    if Plain = nil then
+    begin
+      Result := SOCKET_ERROR;
+      Exit;
+    end;
+
+    Inc(FServerSeq);
+
+    if H.ContentType = CN_TLS_CONTENT_TYPE_ALERT then
+    begin
+      Result := 0;
+      Exit;
+    end;
+    if H.ContentType <> CN_TLS_CONTENT_TYPE_APPLICATION_DATA then
+      Continue;
+
+    if Length(Plain) <= Len then
+    begin
+      if Length(Plain) > 0 then
+        Move(Plain[0], Buf, Length(Plain));
+      Result := Length(Plain);
+      Exit;
+    end;
+
+    Move(Plain[0], Buf, Len);
+    FRecvPlainBuf := Plain;
+    FRecvPlainPos := Len;
+    Result := Len;
+    Exit;
   end;
 end;
 
@@ -1992,7 +2144,6 @@ begin
   if Result > 0 then
   begin
     Result := Len;
-    Inc(FClientSeq);
   end;
 end;
 
@@ -2087,9 +2238,6 @@ var
   ExtConsumed: Integer;
   ExtTotalLen: Integer;
   PBody: PByte;
-{$IFNDEF MSWINDOWS}
-  HE: THostEntry;
-{$ENDIF}
   AADFix: array[0..12] of Byte;
   AADFix2: array[0..12] of Byte;
   SeqBytes: array[0..7] of Byte;
@@ -2103,6 +2251,8 @@ var
   IVNonce: TBytes;
   TmpStr: AnsiString;
   GotSH, GotCert, GotSKE, GotSHD: Boolean;
+  CertAccepted: Boolean;
+  CertError: string;
   function SendAll(const Buf; Len: Integer): Boolean;
   var Sent, Cnt: Integer; P: PAnsiChar;
   begin
@@ -2161,9 +2311,56 @@ var
     if BL > 0 then
       Move(Body[0], Result[5], BL);
   end;
+
+  function ExtractServerCertificateChain(const HSHeader: PCnTLSHandShakeHeader; ContentLen: Integer): TCnTLSCertificateChain;
+  var
+    CertMsg: PCnTLSHandShakeCertificate;
+    ListLen, Consumed, ItemLen: Cardinal;
+    Item: PCnTLSHandShakeCertificateItem;
+    CertBytes: TBytes;
+  begin
+    Result := nil;
+    if ContentLen < 3 then
+      Exit;
+    CertMsg := PCnTLSHandShakeCertificate(@HSHeader^.Content[0]);
+    ListLen := CnGetTLSHandShakeCertificateListLength(CertMsg);
+    if ListLen > Cardinal(ContentLen - 3) then
+      Exit;
+    Consumed := 0;
+    Item := nil;
+    while Consumed < ListLen do
+    begin
+      if Consumed + 3 > ListLen then
+        Break;
+      Item := CnGetTLSHandShakeCertificateItem(CertMsg, Item);
+      ItemLen := CnGetTLSHandShakeCertificateItemCertificateLength(Item);
+      if Consumed + 3 + ItemLen > ListLen then
+        Break;
+      CertBytes := CnGetTLSHandShakeCertificateItemCertificate(Item);
+      SetLength(Result, Length(Result) + 1);
+      Result[High(Result)] := CertBytes;
+      Inc(Consumed, 3 + ItemLen);
+    end;
+  end;
+
+  function SendFatalAlert(Desc: Byte): Boolean;
+  var
+    A: array[0..6] of Byte;
+  begin
+    A[0] := CN_TLS_CONTENT_TYPE_ALERT;
+    A[1] := 3;
+    A[2] := 3;
+    A[3] := 0;
+    A[4] := 2;
+    A[5] := CN_TLS_ALERT_LEVEL_FATAL;
+    A[6] := Desc;
+    Result := SendAll(A[0], SizeOf(A));
+  end;
 begin
   Result := False;
   EmsNegotiated := False;
+
+  FServerCertificateChain := nil;
 
   ClientSeq := 0;
   ServerSeq := 0;
@@ -2235,23 +2432,20 @@ begin
   SetLength(Ciphers, 0);
 
   // 构造 ALPN: ProtocolNameList = 2-byte length + entries
-  // entries: 'h2' and 'http/1.1'
+  // entries: 'http/1.1'
   // 总 entries length = (1+2) + (1+8) = 12
-  SetLength(CompressionMethod, 2 + (1 + 2) + (1 + 8));
+  SetLength(CompressionMethod, 2 + (1 + 8));
   CompressionMethod[0] := 0;
-  CompressionMethod[1] := 12;
-  CompressionMethod[2] := 2;
+  CompressionMethod[1] := 9;
+  CompressionMethod[2] := 8;
   CompressionMethod[3] := Ord('h');
-  CompressionMethod[4] := Ord('2');
-  CompressionMethod[5] := 8;
-  CompressionMethod[6] := Ord('h');
-  CompressionMethod[7] := Ord('t');
-  CompressionMethod[8] := Ord('t');
-  CompressionMethod[9] := Ord('p');
-  CompressionMethod[10] := Ord('/');
-  CompressionMethod[11] := Ord('1');
-  CompressionMethod[12] := Ord('.');
-  CompressionMethod[13] := Ord('1');
+  CompressionMethod[4] := Ord('t');
+  CompressionMethod[5] := Ord('t');
+  CompressionMethod[6] := Ord('p');
+  CompressionMethod[7] := Ord('/');
+  CompressionMethod[8] := Ord('1');
+  CompressionMethod[9] := Ord('.');
+  CompressionMethod[10] := Ord('1');
   CnSetTLSHandShakeExtensionsExtensionData(EI, CompressionMethod);
   CnSetTLSHandShakeExtensionsExtensionLengthByItemCount(E, 6);
   CnSetTLSHandShakeHeaderContentLength(B,
@@ -2342,7 +2536,25 @@ begin
         else if B^.HandShakeType = CN_TLS_HANDSHAKE_TYPE_SERVER_HELLO_DONE_RESERVED then
           GotSHD := True
         else if B^.HandShakeType = CN_TLS_HANDSHAKE_TYPE_CERTIFICATE then
-          GotCert := True
+        begin
+          GotCert := True;
+          FServerCertificateChain := ExtractServerCertificateChain(B, L3);
+          if FVerifyCertificate and Assigned(FOnVerifyServerCertificate) then
+          begin
+            CertAccepted := True;
+            CertError := '';
+            FOnVerifyServerCertificate(Self, Host, FServerCertificateChain, CertAccepted, CertError);
+            if not CertAccepted then
+            begin
+              if CertError <> '' then
+                DoTLSLog('Server certificate rejected: ' + CertError)
+              else
+                DoTLSLog('Server certificate rejected');
+              SendFatalAlert(CN_TLS_ALERT_DESC_BAD_CERTIFICATE);
+              Exit;
+            end;
+          end;
+        end
         else if B^.HandShakeType = CN_TLS_HANDSHAKE_TYPE_CERTIFICATE_STATUS_RESERVED then
           DoTLSLog('CertificateStatus received')
         else if B^.HandShakeType = CN_TLS_HANDSHAKE_TYPE_CERTIFICATE_REQUEST then
@@ -2376,6 +2588,26 @@ begin
         begin
           GotSHD := True;
           DoTLSLog('ServerHelloDone');
+        end
+        else if B^.HandShakeType = CN_TLS_HANDSHAKE_TYPE_CERTIFICATE then
+        begin
+          GotCert := True;
+          FServerCertificateChain := ExtractServerCertificateChain(B, L3);
+          if FVerifyCertificate and Assigned(FOnVerifyServerCertificate) then
+          begin
+            CertAccepted := True;
+            CertError := '';
+            FOnVerifyServerCertificate(Self, Host, FServerCertificateChain, CertAccepted, CertError);
+            if not CertAccepted then
+            begin
+              if CertError <> '' then
+                DoTLSLog('Server certificate rejected: ' + CertError)
+              else
+                DoTLSLog('Server certificate rejected');
+              SendFatalAlert(CN_TLS_ALERT_DESC_BAD_CERTIFICATE);
+              Exit;
+            end;
+          end;
         end
         else if B^.HandShakeType = CN_TLS_HANDSHAKE_TYPE_CERTIFICATE_STATUS_RESERVED then
           DoTLSLog('CertificateStatus received')
@@ -2619,36 +2851,48 @@ begin
     FillChar(Buffer, SizeOf(Buffer), 0);
 
     // 收包②：等待并读取服务器的 CCS 与加密的 Finished（序列0）
-    CnFDZero(Rs);
-    CnFDSet(Socket, Rs);
     DoTLSLog('Waiting server Finished...');
-    if CnSelect(Socket + 1, @Rs, nil, nil, nil) > 0 then
-    begin
-      DoTLSLog('Readable after Finished');
-      BytesReceived := inherited Recv(Buffer[0], Length(Buffer), 0);
-      DoTLSLog('Recv len after Finished: ' + IntToStr(BytesReceived));
-    end
-    else
-    begin
-      DoTLSLog('Select timeout after Finished');
-      BytesReceived := 0;
-    end;
-    if BytesReceived <= SizeOf(TCnTLSRecordLayer) then
-    begin
-      DoTLSLog('Receive after Finished failed or no data, len=' + IntToStr(BytesReceived)
-        + ', errno=' + IntToStr(CnGetNetErrorNo));
-      Exit;
-    end;
-    DoTLSLog(Format('SSL/TLS Get Response %d', [BytesReceived]));
-    TotalConsumed := 0;
     ServerSeq := 0;
-    while TotalConsumed < BytesReceived do
+    while True do
     begin
-      H := PCnTLSRecordLayer(@Buffer[TotalConsumed]);
+      TotalConsumed := 0;
+      while TotalConsumed < 5 do
+      begin
+        BytesReceived := inherited Recv(Buffer[TotalConsumed], 5 - TotalConsumed, 0);
+        if BytesReceived <= 0 then
+        begin
+          DoTLSLog('Receive after Finished failed, len=' + IntToStr(BytesReceived)
+            + ', errno=' + IntToStr(CnGetNetErrorNo));
+          Exit;
+        end;
+        Inc(TotalConsumed, BytesReceived);
+      end;
+
+      H := PCnTLSRecordLayer(@Buffer[0]);
       RecBodyLen := CnGetTLSRecordLayerBodyLength(H);
+      if (RecBodyLen <= 0) or (RecBodyLen > (SizeOf(Buffer) - 5)) then
+      begin
+        DoTLSLog('Invalid record length after Finished: ' + IntToStr(RecBodyLen));
+        Exit;
+      end;
+
+      TotalConsumed := 0;
+      while TotalConsumed < RecBodyLen do
+      begin
+        BytesReceived := inherited Recv(Buffer[5 + TotalConsumed], RecBodyLen - TotalConsumed, 0);
+        if BytesReceived <= 0 then
+        begin
+          DoTLSLog('Receive record body failed, len=' + IntToStr(BytesReceived)
+            + ', errno=' + IntToStr(CnGetNetErrorNo));
+          Exit;
+        end;
+        Inc(TotalConsumed, BytesReceived);
+      end;
+
       if H^.ContentType = CN_TLS_CONTENT_TYPE_CHANGE_CIPHER_SPEC then
       begin
         DoTLSLog('Recv ChangeCipherSpec');
+        Continue;
       end
       else if H^.ContentType = CN_TLS_CONTENT_TYPE_HANDSHAKE then
       begin
@@ -2762,10 +3006,12 @@ begin
           Desc := Ord((PAnsiChar(@H^.Body[0]) + 1)^);
           DoTLSLog(Format('Alert level=%d, desc=%d', [Lvl, Desc]));
         end;
-      end;
-      Inc(TotalConsumed, 5 + RecBodyLen);
-      if H^.ContentType <> CN_TLS_CONTENT_TYPE_CHANGE_CIPHER_SPEC then
         Inc(ServerSeq);
+      end
+      else
+      begin
+        Inc(ServerSeq);
+      end;
     end;
   finally
     PreMasterKey.Free;

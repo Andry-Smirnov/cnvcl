@@ -65,6 +65,12 @@ type
 
 const
   SD_BOTH = 2;
+{$IFDEF FPC}
+{$IFDEF MSWINDOWS}
+  SO_DONTLINGER  = $FF7F;
+{$ENDIF}
+{$ENDIF}
+
 {$IFNDEF MSWINDOWS}
   SOCKET_ERROR   = -1;
   INVALID_SOCKET = -1;
@@ -381,10 +387,14 @@ end;
 
 procedure CnFDZero(var FD: TCnFDSet);
 begin
+{$IFDEF MSWINDOWS}
+  FD_ZERO(FD);
+{$ELSE}
 {$IFDEF FPC}
   fpFD_ZERO(FD);
 {$ELSE}
   FD_ZERO(FD);
+{$ENDIF}
 {$ENDIF}
 end;
 
@@ -403,19 +413,27 @@ end;
 
 procedure CnFDClear(F: Integer; var FD: TCnFDSet);
 begin
+{$IFDEF MSWINDOWS}
+  FD_CLR(F, FD);
+{$ELSE}
 {$IFDEF FPC}
   fpFD_CLR(F, FD);
 {$ELSE}
   FD_CLR(F, FD);
 {$ENDIF}
+{$ENDIF}
 end;
 
 function CnFDIsSet(F: Integer; var FD: TCnFDSet): Boolean;
 begin
+{$IFDEF MSWINDOWS}
+  Result := FD_ISSET(F, FD);
+{$ELSE}
 {$IFDEF FPC}
   Result := fpFD_ISSET(F, FD) <> 0;
 {$ELSE}
   Result := FD_ISSET(F, FD);
+{$ENDIF}
 {$ENDIF}
 end;
 

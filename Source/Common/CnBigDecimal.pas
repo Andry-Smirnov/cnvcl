@@ -253,7 +253,13 @@ type
        返回值：string                     - 返回转换的字符串
     }
 
+    property Value: TCnBigNumber read FValue;
+    {* 有效数字，放出来供特殊需要}
+    property Scale: Integer read FScale write FScale;
+    {* 指数，放出来供特殊需要}
     property DecString: string read GetDecString;
+    {* 十进制字符串}
+
     property DebugDump: string read GetDebugDump;
   end;
 
@@ -468,7 +474,13 @@ type
        返回值：string                     - 返回转换的字符串
     }
 
+    property Value: TCnBigNumber read FValue;
+    {* 有效数字，放出来供特殊需要}
+    property Scale: Integer read FScale write FScale;
+    {* 指数，放出来供特殊需要}
     property DecString: string read GetDecString;
+    {* 十进制字符串}
+
     property DebugDump: string read GetDebugDump;
   end;
 
@@ -601,6 +613,16 @@ function BigDecimalToExtended(Num: TCnBigDecimal): Extended;
      Num: TCnBigDecimal                   - 待转换的大十进制浮点数
 
    返回值：Extended                       - 返回扩展精度浮点值
+}
+
+function BigDecimalEqual(Num1: TCnBigDecimal; Num2: TCnBigDecimal): Boolean;
+{* 比较两个大十进制浮点数对象是否相等。
+
+   参数：
+     Num1: TCnBigDecimal                  - 待比较的大十进制浮点数一
+     Num2: TCnBigDecimal                  - 待比较的大十进制浮点数二
+
+   返回值：Boolean                        - 返回是否相等
 }
 
 function BigDecimalCompare(Num1: TCnBigDecimal; Num2: TCnBigDecimal): Integer; overload;
@@ -938,6 +960,16 @@ function BigBinaryToExtended(Num: TCnBigBinary): Extended;
    返回值：Extended                       - 返回扩展精度浮点值
 }
 
+function BigBinaryEqual(Num1: TCnBigBinary; Num2: TCnBigBinary): Boolean;
+{* 比较两个大二进制浮点数对象是否相等。
+
+   参数：
+     Num1: TCnBigBinary                   - 待比较的大二进制浮点数一
+     Num2: TCnBigBinary                   - 待比较的大二进制浮点数二
+
+   返回值：Boolean                        - 返回是否相等
+}
+
 function BigBinaryCompare(Num1: TCnBigBinary; Num2: TCnBigBinary): Integer; overload;
 {* 比较两个大二进制浮点数对象，分别根据比较的结果是大于、等于还是小于来返回 1、0、-1。
 
@@ -1129,6 +1161,7 @@ function BigBinaryDebugDump(Num: TCnBigBinary): string;
 var
   CnBigDecimalOne: TCnBigDecimal = nil;     // 表示 1 的常量
   CnBigDecimalZero: TCnBigDecimal = nil;    // 表示 0 的常量
+  CnBigDecimalNegOne: TCnBigDecimal = nil;  // 表示 -1 的常量
 
 implementation
 
@@ -1645,6 +1678,12 @@ var
   E: Integer;
   M: Cardinal;
 begin
+  if Num.Value.IsZero then
+  begin
+    Result := 0.0;
+    Exit;
+  end;
+
   T := FLocalBigDecimalPool.Obtain;
   try
     BigDecimalCopy(T, Num);
@@ -1666,6 +1705,12 @@ var
   E: Integer;
   M: TUInt64;
 begin
+  if Num.Value.IsZero then
+  begin
+    Result := 0.0;
+    Exit;
+  end;
+
   T := FLocalBigDecimalPool.Obtain;
   try
     BigDecimalCopy(T, Num);
@@ -1687,6 +1732,12 @@ var
   E: Integer;
   M: TUInt64;
 begin
+  if Num.Value.IsZero then
+  begin
+    Result := 0.0;
+    Exit;
+  end;
+
   T := FLocalBigDecimalPool.Obtain;
   try
     BigDecimalCopy(T, Num);
@@ -1700,6 +1751,11 @@ begin
   finally
     FLocalBigDecimalPool.Recycle(T);
   end;
+end;
+
+function BigDecimalEqual(Num1: TCnBigDecimal; Num2: TCnBigDecimal): Boolean;
+begin
+  Result := BigDecimalCompare(Num1, Num2) = 0;
 end;
 
 function BigDecimalCompare(Num1, Num2: TCnBigDecimal): Integer;
@@ -1910,14 +1966,16 @@ var
 begin
   if Num1.FValue.IsZero then
   begin
-    BigNumberCopy(Num2.FValue, Res.FValue);
+    BigNumberCopy(Res.FValue, Num2.FValue);
+    Res.FScale := Num2.FScale;
     Res.FValue.Negate;
     Result := True;
     Exit;
   end
   else if Num2.FValue.IsZero then
   begin
-    BigNumberCopy(Num1.FValue, Res.FValue);
+    BigNumberCopy(Res.FValue, Num1.FValue);
+    Res.FScale := Num1.FScale;
     Result := True;
     Exit;
   end
@@ -2037,7 +2095,7 @@ procedure BigDecimalSqrt2(Res: TCnBigDecimal; Num: TCnBigDecimal;
   RoundCount: Integer);
 var
   I: Integer;
-  X0, R, T, D, G: TCnBigRational;
+  X0, R, D: TCnBigRational;
 begin
   if Num.IsNegative then
     raise ERangeError.Create('');
@@ -2054,9 +2112,7 @@ begin
     RoundCount := CN_SQRT_DEFAULT_ROUND_COUNT;
 
   X0 := nil;
-  T := nil;
   D := nil;
-  G := nil;
 
   try
     X0 := TCnBigRational.Create;
@@ -2081,9 +2137,7 @@ begin
     BigRationalToBigDecimal(Res, R);
   finally
     X0.Free;
-    T.Free;
     D.Free;
-    G.Free;
   end;
 end;
 
@@ -2865,6 +2919,11 @@ begin
   end;
 end;
 
+function BigBinaryEqual(Num1: TCnBigBinary; Num2: TCnBigBinary): Boolean;
+begin
+  Result := BigBinaryCompare(Num1, Num2) = 0;
+end;
+
 function BigBinaryCompare(Num1, Num2: TCnBigBinary): Integer; overload;
 var
   T: TCnBigNumber;
@@ -3611,11 +3670,15 @@ initialization
   CnBigDecimalOne.SetOne;
   CnBigDecimalZero := TCnBigDecimal.Create;
   CnBigDecimalZero.SetZero;
+  CnBigDecimalNegOne := TCnBigDecimal.Create;
+  CnBigDecimalNegOne.SetOne;
+  CnBigDecimalNegOne.Negate;
 
 finalization
 //  CnBigDecimalZero.DecString; // 手工调用这两句防止被编译器忽略
 //  CnBigDecimalZero.DebugDump;
 
+  CnBigDecimalNegOne.Free;
   CnBigDecimalZero.Free;
   CnBigDecimalOne.Free;
 

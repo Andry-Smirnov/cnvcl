@@ -51,7 +51,7 @@ uses
   CnPoly1305, CnTEA, CnZUC, CnFEC, CnPrime, Cn25519, CnPaillier, CnSecretSharing,
   CnPolynomial, CnBits, CnLattice, CnOTS, CnPemUtils, CnInt128, CnRC4, CnPDFCrypt,
   CnDSA, CnBLAKE, CnBLAKE2, CnXXH, CnWideStrings, CnContainers, CnMLKEM, CnMLDSA,
-  CnCalendar;
+  CnCalendar, CnBigDecimal, CnComplex, CnDFT, CnMath;
 
 procedure TestCrypto;
 {* 密码库总测试入口}
@@ -98,6 +98,36 @@ function TestCalendarTaiSui: Boolean;
 function TestCalendarJulianDate: Boolean;
 function TestCalendarSolarLunarConvert: Boolean;
 
+// ============================== Complex ======================================
+
+function TestComplexNumberBasic: Boolean;
+function TestComplexNumberArithmetic: Boolean;
+function TestComplexNumberProperties: Boolean;
+function TestComplexNumberSqrt: Boolean;
+function TestBigComplexNumberBasic: Boolean;
+function TestBigComplexNumberArithmetic: Boolean;
+function TestBigComplexNumberProperties: Boolean;
+function TestBigComplexDecimalBasic: Boolean;
+function TestBigComplexDecimalArithmetic: Boolean;
+function TestBigComplexDecimalProperties: Boolean;
+function TestBigComplexDecimalRealMul: Boolean;
+function TestBigComplexDecimalPower: Boolean;
+
+// ============================== DFT ==========================================
+
+function TestButterflyChangeComplex: Boolean;
+function TestButterflyChangeInt64: Boolean;
+function TestFFTBasic: Boolean;
+function TestIFFTBasic: Boolean;
+function TestFFTIFFTRoundTrip: Boolean;
+function TestFFTParsevalTheorem: Boolean;
+function TestNTTBasic: Boolean;
+function TestINTTBasic: Boolean;
+function TestNTTINTTRoundTrip: Boolean;
+function TestDCTBasic: Boolean;
+function TestIDCTBasic: Boolean;
+function TestDCTIDCTRoundTrip: Boolean;
+
 // ============================== BigNumber ====================================
 
 function TestBigNumberHex: Boolean;
@@ -142,6 +172,47 @@ function TestUInt128Add: Boolean;
 function TestUInt128Sub: Boolean;
 function TestUInt128Mul: Boolean;
 function TestUInt128DivMod: Boolean;
+
+// ===============================  Math =======================================
+
+function TestCnAbs: Boolean;
+function TestCnIntAbs: Boolean;
+function TestCnInt64Abs: Boolean;
+function TestCnFloor: Boolean;
+function TestCnCeil: Boolean;
+function TestInt64Sqrt: Boolean;
+function TestFloatSqrt: Boolean;
+function TestInt64LogN: Boolean;
+function TestFloatLogN: Boolean;
+function TestInt64Log10: Boolean;
+function TestFloatLog10: Boolean;
+function TestInt64Log2: Boolean;
+function TestFloatLog2: Boolean;
+function TestFastSqrt: Boolean;
+function TestFastSqrt64: Boolean;
+function TestFastInverseSqrt: Boolean;
+function TestFloatAlmostZero: Boolean;
+function TestFloatEqual: Boolean;
+function TestNormalizeAngle: Boolean;
+function TestFloatToHex: Boolean;
+function TestHexToFloat: Boolean;
+function TestInt64ContinuedFraction: Boolean;
+function TestBigDecimalEulerExp: Boolean;
+function TestBigDecimalLn: Boolean;
+function TestBigDecimalSin: Boolean;
+function TestBigDecimalCos: Boolean;
+function TestBigDecimalArcSin: Boolean;
+function TestBigDecimalArcCos: Boolean;
+function TestBigDecimalArcTan: Boolean;
+function TestBigDecimalHyperbolicSin: Boolean;
+function TestBigDecimalHyperbolicCos: Boolean;
+function TestBigComplexDecimalEulerExp: Boolean;
+function TestBigComplexDecimalLn: Boolean;
+function TestBigComplexDecimalSin: Boolean;
+function TestBigComplexDecimalCos: Boolean;
+function TestFloatGaussLegendrePi: Boolean;
+function TestGaussLegendrePi: Boolean;
+function TestXavierGourdonEuler: Boolean;
 
 // ============================= Polynomial ====================================
 
@@ -548,6 +619,36 @@ begin
   MyAssert(TestCalendarJulianDate, 'TestCalendarJulianDate');
   MyAssert(TestCalendarSolarLunarConvert, 'TestCalendarSolarLunarConvert');
 
+// ================================ Complex ======================================
+
+  MyAssert(TestComplexNumberBasic, 'TestComplexNumberBasic');
+  MyAssert(TestComplexNumberArithmetic, 'TestComplexNumberArithmetic');
+  MyAssert(TestComplexNumberProperties, 'TestComplexNumberProperties');
+  MyAssert(TestComplexNumberSqrt, 'TestComplexNumberSqrt');
+  MyAssert(TestBigComplexNumberBasic, 'TestBigComplexNumberBasic');
+  MyAssert(TestBigComplexNumberArithmetic, 'TestBigComplexNumberArithmetic');
+  MyAssert(TestBigComplexNumberProperties, 'TestBigComplexNumberProperties');
+  MyAssert(TestBigComplexDecimalBasic, 'TestBigComplexDecimalBasic');
+  MyAssert(TestBigComplexDecimalArithmetic, 'TestBigComplexDecimalArithmetic');
+  MyAssert(TestBigComplexDecimalProperties, 'TestBigComplexDecimalProperties');
+  MyAssert(TestBigComplexDecimalRealMul, 'TestBigComplexDecimalRealMul');
+  MyAssert(TestBigComplexDecimalPower, 'TestBigComplexDecimalPower');
+
+// ================================ DFT ========================================
+
+  MyAssert(TestButterflyChangeComplex, 'TestButterflyChangeComplex');
+  MyAssert(TestButterflyChangeInt64, 'TestButterflyChangeInt64');
+  MyAssert(TestFFTBasic, 'TestFFTBasic');
+  MyAssert(TestIFFTBasic, 'TestIFFTBasic');
+  MyAssert(TestFFTIFFTRoundTrip, 'TestFFTIFFTRoundTrip');
+  MyAssert(TestFFTParsevalTheorem, 'TestFFTParsevalTheorem');
+  MyAssert(TestNTTBasic, 'TestNTTBasic');
+  MyAssert(TestINTTBasic, 'TestINTTBasic');
+  MyAssert(TestNTTINTTRoundTrip, 'TestNTTINTTRoundTrip');
+  MyAssert(TestDCTBasic, 'TestDCTBasic');
+  MyAssert(TestIDCTBasic, 'TestIDCTBasic');
+  MyAssert(TestDCTIDCTRoundTrip, 'TestDCTIDCTRoundTrip');
+
 // ============================== BigNumber ====================================
 
   MyAssert(TestBigNumberHex, 'TestBigNumberHex');
@@ -592,6 +693,47 @@ begin
   MyAssert(TestUInt128Sub, 'TestUInt128Sub');
   MyAssert(TestUInt128Mul, 'TestUInt128Mul');
   MyAssert(TestUInt128DivMod, 'TestUInt128DivMod');
+
+// ===============================  Math =======================================
+
+  MyAssert(TestCnAbs, 'TestCnAbs');
+  MyAssert(TestCnIntAbs, 'TestCnIntAbs');
+  MyAssert(TestCnInt64Abs, 'TestCnInt64Abs');
+  MyAssert(TestCnFloor, 'TestCnFloor');
+  MyAssert(TestCnCeil, 'TestCnCeil');
+  MyAssert(TestInt64Sqrt, 'TestInt64Sqrt');
+  MyAssert(TestFloatSqrt, 'TestFloatSqrt');
+  MyAssert(TestInt64LogN, 'TestInt64LogN');
+  MyAssert(TestFloatLogN, 'TestFloatLogN');
+  MyAssert(TestInt64Log10, 'TestInt64Log10');
+  MyAssert(TestFloatLog10, 'TestFloatLog10');
+  MyAssert(TestInt64Log2, 'TestInt64Log2');
+  MyAssert(TestFloatLog2, 'TestFloatLog2');
+  MyAssert(TestFastSqrt, 'TestFastSqrt');
+  MyAssert(TestFastSqrt64, 'TestFastSqrt64');
+  MyAssert(TestFastInverseSqrt, 'TestFastInverseSqrt');
+  MyAssert(TestFloatAlmostZero, 'TestFloatAlmostZero');
+  MyAssert(TestFloatEqual, 'TestFloatEqual');
+  MyAssert(TestNormalizeAngle, 'TestNormalizeAngle');
+  MyAssert(TestFloatToHex, 'TestFloatToHex');
+  MyAssert(TestHexToFloat, 'TestHexToFloat');
+  MyAssert(TestInt64ContinuedFraction, 'TestInt64ContinuedFraction');
+  MyAssert(TestBigDecimalEulerExp, 'TestBigDecimalEulerExp');
+  MyAssert(TestBigDecimalLn, 'TestBigDecimalLn');
+  MyAssert(TestBigDecimalSin, 'TestBigDecimalSin');
+  MyAssert(TestBigDecimalCos, 'TestBigDecimalCos');
+  MyAssert(TestBigDecimalArcSin, 'TestBigDecimalArcSin');
+  MyAssert(TestBigDecimalArcCos, 'TestBigDecimalArcCos');
+  MyAssert(TestBigDecimalArcTan, 'TestBigDecimalArcTan');
+  MyAssert(TestBigDecimalHyperbolicSin, 'TestBigDecimalHyperbolicSin');
+  MyAssert(TestBigDecimalHyperbolicCos, 'TestBigDecimalHyperbolicCos');
+  MyAssert(TestBigComplexDecimalEulerExp, 'TestBigComplexDecimalEulerExp');
+  MyAssert(TestBigComplexDecimalLn, 'TestBigComplexDecimalLn');
+  MyAssert(TestBigComplexDecimalSin, 'TestBigComplexDecimalSin');
+  MyAssert(TestBigComplexDecimalCos, 'TestBigComplexDecimalCos');
+  MyAssert(TestFloatGaussLegendrePi, 'TestFloatGaussLegendrePi');
+  MyAssert(TestGaussLegendrePi, 'TestGaussLegendrePi');
+  MyAssert(TestXavierGourdonEuler, 'TestXavierGourdonEuler');
 
 // ============================= Polynomial ====================================
 
@@ -1413,6 +1555,748 @@ begin
   Result := GetLunarFromDay(2025, 1, 28, LunarYear, LunarMonth, LunarDay, IsLeapMonth) and
     GetDayFromLunar(LunarYear, LunarMonth, LunarDay, IsLeapMonth, Year, Month, Day) and
     (Year = 2025) and (Month = 1) and (Day = 28);
+end;
+
+// ============================== Complex ======================================
+
+function TestComplexNumberBasic: Boolean;
+var
+  C1, C2, C3: TCnComplexNumber;
+begin
+  // 测试零复数初始化
+  ComplexNumberSetZero(C1);
+  Result := ComplexNumberIsZero(C1);
+  if not Result then Exit;
+
+  // 测试单位复数初始化
+  ComplexNumberSetOne(C2);
+  Result := FloatEqual(C2.R, 1) and FloatEqual(C2.I, 0);
+  if not Result then Exit;
+
+  // 测试虚数单位初始化
+  ComplexNumberSetI(C3);
+  Result := FloatEqual(C3.R, 0) and FloatEqual(C3.I, 1);
+  if not Result then Exit;
+
+  // 测试复数相等性判断
+  ComplexNumberSetValue(C1, 3, 4);
+  ComplexNumberSetValue(C2, 3, 4);
+  Result := ComplexNumberEqual(C1, C2);
+  if not Result then Exit;
+
+  // 测试复数字符串转换
+  ComplexNumberSetValue(C1, 5, 0);
+  Result := Pos('5', ComplexNumberToString(C1)) > 0;
+end;
+
+function TestComplexNumberArithmetic: Boolean;
+var
+  C1, C2, Res: TCnComplexNumber;
+begin
+  // 测试复数加法: (3+4i) + (1+2i) = 4+6i
+  ComplexNumberSetValue(C1, 3, 4);
+  ComplexNumberSetValue(C2, 1, 2);
+  ComplexNumberAdd(Res, C1, C2);
+  Result := FloatEqual(Res.R, 4) and FloatEqual(Res.I, 6);
+  if not Result then Exit;
+
+  // 测试复数减法: (3+4i) - (1+2i) = 2+2i
+  ComplexNumberSub(Res, C1, C2);
+  Result := FloatEqual(Res.R, 2) and FloatEqual(Res.I, 2);
+  if not Result then Exit;
+
+  // 测试复数乘法: (3+4i) * (1+2i) = -5+10i
+  ComplexNumberMul(Res, C1, C2);
+  Result := FloatEqual(Res.R, -5) and FloatEqual(Res.I, 10);
+  if not Result then Exit;
+
+  // 测试复数除法: (3+4i) / (1+2i) = 2.2-0.4i
+  ComplexNumberDiv(Res, C1, C2);
+  Result := FloatEqual(Res.R, 2.2) and FloatEqual(Res.I, -0.4);
+  if not Result then Exit;
+
+  // 测试复数与实数相加: (3+4i) + 5 = 8+4i
+  ComplexNumberAdd(Res, C1, 5);
+  Result := FloatEqual(Res.R, 8) and FloatEqual(Res.I, 4);
+  if not Result then Exit;
+
+  // 测试复数与实数相乘: (3+4i) * 2 = 6+8i
+  ComplexNumberMul(Res, C1, 2);
+  Result := FloatEqual(Res.R, 6) and FloatEqual(Res.I, 8);
+end;
+
+function TestComplexNumberProperties: Boolean;
+var
+  C1, Res: TCnComplexNumber;
+  AbsVal, ArgVal: Extended;
+begin
+  // 测试复数的模: |3+4i| = 5
+  ComplexNumberSetValue(C1, 3, 4);
+  AbsVal := ComplexNumberAbsoluteValue(C1);
+  Result := FloatEqual(AbsVal, 5);
+  if not Result then Exit;
+
+  // 测试复数的辐角: arg(1+1i) = π/4
+  ComplexNumberSetValue(C1, 1, 1);
+  ArgVal := ComplexNumberArgument(C1);
+  Result := FloatEqual(ArgVal, Pi / 4);
+  if not Result then Exit;
+
+  // 测试复数的共轭: conj(3+4i) = 3-4i
+  ComplexNumberSetValue(C1, 3, 4);
+  ComplexConjugate(Res, C1);
+  Result := FloatEqual(Res.R, 3) and FloatEqual(Res.I, -4);
+  if not Result then Exit;
+
+  // 测试复数的取反: -(3+4i) = -3-4i
+  ComplexNegate(Res, C1);
+  Result := FloatEqual(Res.R, -3) and FloatEqual(Res.I, -4);
+  if not Result then Exit;
+
+  // 测试纯实数判断
+  ComplexNumberSetValue(C1, 5, 0);
+  Result := ComplexIsPureReal(C1);
+  if not Result then Exit;
+
+  // 测试纯虚数判断
+  ComplexNumberSetValue(C1, 0, 5);
+  Result := ComplexIsPureImaginary(C1);
+end;
+
+function TestComplexNumberSqrt: Boolean;
+var
+  C1, Res, Temp: TCnComplexNumber;
+begin
+  // 测试复数平方根: sqrt(3+4i) 的平方应等于 3+4i
+  ComplexNumberSetValue(C1, 3, 4);
+  ComplexNumberSqrt(Res, C1);
+  ComplexNumberMul(Temp, Res, Res);
+  Result := FloatEqual(Temp.R, C1.R) and FloatEqual(Temp.I, C1.I);
+  if not Result then Exit;
+
+  // 测试单位复数的平方根: sqrt(1+0i) = 1+0i
+  ComplexNumberSetValue(C1, 1, 0);
+  ComplexNumberSqrt(Res, C1);
+  Result := FloatEqual(Res.R, 1) and FloatEqual(Res.I, 0);
+  if not Result then Exit;
+
+  // 测试虚数单位的平方根: sqrt(0+1i) 的平方应等于 0+1i
+  ComplexNumberSetValue(C1, 0, 1);
+  ComplexNumberSqrt(Res, C1);
+  ComplexNumberMul(Temp, Res, Res);
+  Result := FloatEqual(Temp.R, C1.R) and FloatEqual(Temp.I, C1.I);
+end;
+
+function TestBigComplexNumberBasic: Boolean;
+var
+  C1, C2: TCnBigComplexNumber;
+begin
+  C1 := TCnBigComplexNumber.Create;
+  C2 := TCnBigComplexNumber.Create;
+  try
+    // 测试大精度复数初始化
+    BigComplexNumberSetZero(C1);
+    Result := BigComplexNumberIsZero(C1);
+    if not Result then Exit;
+
+    // 测试大精度复数设置值
+    BigComplexNumberSetValue(C1, 3, 4);
+    BigComplexNumberSetValue(C2, 3, 4);
+    Result := BigComplexNumberEqual(C1, C2);
+    if not Result then Exit;
+
+    // 测试大精度复数字符串转换
+    Result := Length(BigComplexNumberToString(C1)) > 0;
+  finally
+    C1.Free;
+    C2.Free;
+  end;
+end;
+
+function TestBigComplexNumberArithmetic: Boolean;
+var
+  C1, C2, Res: TCnBigComplexNumber;
+begin
+  C1 := TCnBigComplexNumber.Create;
+  C2 := TCnBigComplexNumber.Create;
+  Res := TCnBigComplexNumber.Create;
+  try
+    // 测试大精度复数加法
+    BigComplexNumberSetValue(C1, 3, 4);
+    BigComplexNumberSetValue(C2, 1, 2);
+    BigComplexNumberAdd(Res, C1, C2);
+    Result := (Res.R.ToHex = '04') and (Res.I.ToHex = '06');
+    if not Result then Exit;
+
+    // 测试大精度复数减法
+    BigComplexNumberSub(Res, C1, C2);
+    Result := (Res.R.ToHex = '02') and (Res.I.ToHex = '02');
+    if not Result then Exit;
+
+    // 测试大精度复数乘法
+    BigComplexNumberMul(Res, C1, C2);
+    Result := (Res.R.ToHex = '-05') and (Res.I.ToHex = '0A');
+  finally
+    C1.Free;
+    C2.Free;
+    Res.Free;
+  end;
+end;
+
+function TestBigComplexNumberProperties: Boolean;
+var
+  C1, Res: TCnBigComplexNumber;
+begin
+  C1 := TCnBigComplexNumber.Create;
+  Res := TCnBigComplexNumber.Create;
+  try
+    // 测试大精度复数的模
+    BigComplexNumberSetValue(C1, 3, 4);
+    Result := BigComplexNumberAbsoluteValue(C1) > 0;
+    if not Result then Exit;
+
+    // 测试大精度复数的共轭
+    BigComplexNumberConjugate(Res, C1);
+    Result := (Res.R.ToHex = '03') and (Res.I.ToHex = '-04');
+    if not Result then Exit;
+
+    // 测试大精度复数的取反
+    BigComplexNumberNegate(Res, C1);
+    Result := (Res.R.ToHex = '-03') and (Res.I.ToHex = '-04');
+  finally
+    C1.Free;
+    Res.Free;
+  end;
+end;
+
+function TestBigComplexDecimalBasic: Boolean;
+var
+  C1, C2: TCnBigComplexDecimal;
+begin
+  C1 := TCnBigComplexDecimal.Create;
+  C2 := TCnBigComplexDecimal.Create;
+  try
+    // 测试大精度复数十进制初始化
+    BigComplexDecimalSetZero(C1);
+    Result := BigComplexDecimalIsZero(C1);
+    if not Result then Exit;
+
+    // 测试大精度复数十进制设置值
+    BigComplexDecimalSetValue(C1, 3, 4);
+    BigComplexDecimalSetValue(C2, 3, 4);
+    Result := BigComplexDecimalEqual(C1, C2);
+    if not Result then Exit;
+
+    // 测试大精度复数十进制字符串转换
+    Result := Length(BigComplexDecimalToString(C1)) > 0;
+  finally
+    C1.Free;
+    C2.Free;
+  end;
+end;
+
+function TestBigComplexDecimalArithmetic: Boolean;
+var
+  C1, C2, Res: TCnBigComplexDecimal;
+begin
+  C1 := TCnBigComplexDecimal.Create;
+  C2 := TCnBigComplexDecimal.Create;
+  Res := TCnBigComplexDecimal.Create;
+  try
+    // 测试大精度复数十进制加法
+    BigComplexDecimalSetValue(C1, 3, 4);
+    BigComplexDecimalSetValue(C2, 1, 2);
+    BigComplexDecimalAdd(Res, C1, C2);
+    Result := (Res.R.ToString = '4') and (Res.I.ToString = '6');
+    if not Result then Exit;
+
+    // 测试大精度复数十进制减法
+    BigComplexDecimalSub(Res, C1, C2);
+    Result := (Res.R.ToString = '2') and (Res.I.ToString = '2');
+    if not Result then Exit;
+
+    // 测试大精度复数十进制乘法
+    BigComplexDecimalMul(Res, C1, C2);
+    Result := (Res.R.ToString = '-5') and (Res.I.ToString = '10');
+  finally
+    C1.Free;
+    C2.Free;
+    Res.Free;
+  end;
+end;
+
+function TestBigComplexDecimalProperties: Boolean;
+var
+  C1, Res: TCnBigComplexDecimal;
+begin
+  C1 := TCnBigComplexDecimal.Create;
+  Res := TCnBigComplexDecimal.Create;
+  try
+    // 测试大精度复数十进制的模
+    BigComplexDecimalSetValue(C1, 3, 4);
+    Result := BigComplexDecimalAbsoluteValue(C1) > 0;
+    if not Result then Exit;
+
+    // 测试大精度复数十进制的共轭
+    BigComplexDecimalConjugate(Res, C1);
+    Result := (Res.R.ToString = '3') and (Res.I.ToString = '-4');
+    if not Result then Exit;
+
+    // 测试大精度复数十进制的取反
+    BigComplexDecimalNegate(Res, C1);
+    Result := (Res.R.ToString = '-3') and (Res.I.ToString = '-4');
+  finally
+    C1.Free;
+    Res.Free;
+  end;
+end;
+
+function TestBigComplexDecimalRealMul: Boolean;
+var
+  C1, Res: TCnBigComplexDecimal;
+  RealValue: TCnBigDecimal;
+begin
+  C1 := TCnBigComplexDecimal.Create;
+  Res := TCnBigComplexDecimal.Create;
+  RealValue := TCnBigDecimal.Create;
+  try
+    // 测试大复数小数乘以实数：(3 + 4i) * 2 = 6 + 8i
+    BigComplexDecimalSetValue(C1, 3, 4);
+    RealValue.SetInt64(2);
+    BigComplexDecimalRealMul(Res, C1, RealValue);
+    Result := (Res.R.ToString = '6') and (Res.I.ToString = '8');
+    if not Result then Exit;
+
+    // 测试乘以负数：(3 + 4i) * (-1) = -3 - 4i
+    RealValue.SetInt64(-1);
+    BigComplexDecimalRealMul(Res, C1, RealValue);
+    Result := (Res.R.ToString = '-3') and (Res.I.ToString = '-4');
+    if not Result then Exit;
+
+    // 测试乘以零：(3 + 4i) * 0 = 0
+    RealValue.SetInt64(0);
+    BigComplexDecimalRealMul(Res, C1, RealValue);
+    Result := Res.IsZero;
+    if not Result then Exit;
+
+    // 测试乘以小数：(2 + 3i) * 0.5 = 1 + 1.5i
+    BigComplexDecimalSetValue(C1, 2, 3);
+    RealValue.SetDec('0.5');
+    BigComplexDecimalRealMul(Res, C1, RealValue);
+    Result := FloatEqual(BigDecimalToExtended(Res.R), 1.0)
+      and FloatEqual(BigDecimalToExtended(Res.I), 1.5);
+  finally
+    C1.Free;
+    Res.Free;
+    RealValue.Free;
+  end;
+end;
+
+function TestBigComplexDecimalPower: Boolean;
+var
+  C1, Res: TCnBigComplexDecimal;
+begin
+  C1 := TCnBigComplexDecimal.Create;
+  Res := TCnBigComplexDecimal.Create;
+  try
+    // 测试零次幂：任何数的 0 次幂 = 1
+    BigComplexDecimalSetValue(C1, 3, 4);
+    Result := BigComplexDecimalPower(Res, C1, 0);
+    if not Result then Exit;
+    Result := (Res.R.ToString = '1') and (Res.I.ToString = '0');
+    if not Result then Exit;
+
+    // 测试一次幂：(3 + 4i)^1 = 3 + 4i
+    Result := BigComplexDecimalPower(Res, C1, 1);
+    if not Result then Exit;
+    Result := (Res.R.ToString = '3') and (Res.I.ToString = '4');
+    if not Result then Exit;
+
+    // 测试二次幂：(1 + i)^2 = 1 + 2i - 1 = 2i
+    BigComplexDecimalSetValue(C1, 1, 1);
+    Result := BigComplexDecimalPower(Res, C1, 2);
+    if not Result then Exit;
+    Result := (Res.R.ToString = '0') and (Res.I.ToString = '2');
+    if not Result then Exit;
+
+    // 测试三次幂：(1 + i)^3 = (1 + i) * (2i) = 2i - 2 = -2 + 2i
+    Result := BigComplexDecimalPower(Res, C1, 3);
+    if not Result then Exit;
+    Result := (Res.R.ToString = '-2') and (Res.I.ToString = '2');
+    if not Result then Exit;
+
+    // 测试负数次幂：(2 + 0i)^(-1) = 0.5 + 0i
+    BigComplexDecimalSetValue(C1, 2, 0);
+    Result := BigComplexDecimalPower(Res, C1, -1);
+    if not Result then Exit;
+    Result := FloatEqual(BigDecimalToExtended(Res.R), 0.5) and
+      FloatEqual(BigDecimalToExtended(Res.I), 0.0);
+  finally
+    C1.Free;
+    Res.Free;
+  end;
+end;
+
+// ============================== DFT ==========================================
+
+function TestButterflyChangeComplex: Boolean;
+var
+  CA: array of TCnComplexNumber;
+  I: Integer;
+begin
+  // 创建长度为 8 的复数数组：[1+0i, 2+0i, 3+0i, 4+0i, 5+0i, 6+0i, 7+0i, 8+0i]
+  SetLength(CA, 8);
+  for I := 0 to 7 do
+  begin
+    CA[I].R := I + 1;
+    CA[I].I := 0;
+  end;
+
+  // 调用蝶形变换
+  ButterflyChangeComplex(@CA[0], 8);
+
+  // 验证变换后的顺序符合二进制反序规则
+  // 预期结果：[1+0i, 5+0i, 3+0i, 7+0i, 2+0i, 6+0i, 4+0i, 8+0i]
+  Result := (CA[0].R = 1) and (CA[0].I = 0) and
+            (CA[1].R = 5) and (CA[1].I = 0) and
+            (CA[2].R = 3) and (CA[2].I = 0) and
+            (CA[3].R = 7) and (CA[3].I = 0) and
+            (CA[4].R = 2) and (CA[4].I = 0) and
+            (CA[5].R = 6) and (CA[5].I = 0) and
+            (CA[6].R = 4) and (CA[6].I = 0) and
+            (CA[7].R = 8) and (CA[7].I = 0);
+end;
+
+function TestButterflyChangeInt64: Boolean;
+var
+  IA: array of Int64;
+  I: Integer;
+begin
+  // 创建长度为 8 的整数数组：[1, 2, 3, 4, 5, 6, 7, 8]
+  SetLength(IA, 8);
+  for I := 0 to 7 do
+    IA[I] := I + 1;
+
+  // 调用蝶形变换
+  ButterflyChangeInt64(@IA[0], 8);
+
+  // 验证变换后的顺序符合二进制反序规则
+  // 预期结果：[1, 5, 3, 7, 2, 6, 4, 8]
+  Result := (IA[0] = 1) and (IA[1] = 5) and (IA[2] = 3) and (IA[3] = 7) and
+            (IA[4] = 2) and (IA[5] = 6) and (IA[6] = 4) and (IA[7] = 8);
+end;
+
+function TestFFTBasic: Boolean;
+var
+  CA: array of TCnComplexNumber;
+  I: Integer;
+  HasNonZero: Boolean;
+begin
+  // 创建长度为 4 的复数数组：[1+0i, 0+0i, 0+0i, 0+0i]（单频信号）
+  SetLength(CA, 4);
+  CA[0].R := 1;
+  CA[0].I := 0;
+  for I := 1 to 3 do
+  begin
+    CA[I].R := 0;
+    CA[I].I := 0;
+  end;
+
+  // 调用 FFT 进行快速傅里叶变换
+  Result := CnFFT(@CA[0], 4);
+  if not Result then Exit;
+
+  // 验证变换后的数据不全为 0
+  HasNonZero := False;
+  for I := 0 to 3 do
+  begin
+    if (CA[I].R <> 0) or (CA[I].I <> 0) then
+    begin
+      HasNonZero := True;
+      Break;
+    end;
+  end;
+  Result := HasNonZero;
+end;
+
+function TestIFFTBasic: Boolean;
+var
+  CA: array of TCnComplexNumber;
+  I: Integer;
+  HasNonZero: Boolean;
+begin
+  // 创建长度为4的复数数组作为频域数据：[4+0i, 0+0i, 0+0i, 0+0i]
+  SetLength(CA, 4);
+  CA[0].R := 4;
+  CA[0].I := 0;
+  for I := 1 to 3 do
+  begin
+    CA[I].R := 0;
+    CA[I].I := 0;
+  end;
+
+  // 调用 IFFT 进行逆快速傅里叶变换
+  Result := CnIFFT(@CA[0], 4);
+  if not Result then Exit;
+
+  // 验证变换后的数据不全为0（应该得到常数信号）
+  HasNonZero := False;
+  for I := 0 to 3 do
+  begin
+    if (CA[I].R <> 0) or (CA[I].I <> 0) then
+    begin
+      HasNonZero := True;
+      Break;
+    end;
+  end;
+  Result := HasNonZero;
+end;
+
+function TestFFTIFFTRoundTrip: Boolean;
+var
+  Original, CA: array of TCnComplexNumber;
+  I: Integer;
+begin
+  // 创建原始信号：[1+0i, 2+0i, 3+0i, 4+0i]
+  SetLength(Original, 4);
+  SetLength(CA, 4);
+  Original[0].R := 1; Original[0].I := 0;
+  Original[1].R := 2; Original[1].I := 0;
+  Original[2].R := 3; Original[2].I := 0;
+  Original[3].R := 4; Original[3].I := 0;
+
+  // 复制原始信号
+  for I := 0 to 3 do
+    CA[I] := Original[I];
+
+  // 调用 FFT 进行变换
+  Result := CnFFT(@CA[0], 4);
+  if not Result then Exit;
+
+  // 调用 IFFT 进行逆变换
+  Result := CnIFFT(@CA[0], 4);
+  if not Result then Exit;
+
+  // 比较恢复后的信号与原始信号
+  for I := 0 to 3 do
+  begin
+    if not FloatEqual(CA[I].R, Original[I].R, 1e-10) or
+       not FloatEqual(CA[I].I, Original[I].I, 1e-10) then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+  Result := True;
+end;
+
+function TestFFTParsevalTheorem: Boolean;
+var
+  CA: array of TCnComplexNumber;
+  I: Integer;
+  TimeDomainEnergy, FreqDomainEnergy: Extended;
+begin
+  // 创建信号：[1+0i, 1+0i, 1+0i, 1+0i]
+  SetLength(CA, 4);
+  for I := 0 to 3 do
+  begin
+    CA[I].R := 1;
+    CA[I].I := 0;
+  end;
+
+  // 计算时域能量：Σ|x[n]|2
+  TimeDomainEnergy := 0;
+  for I := 0 to 3 do
+    TimeDomainEnergy := TimeDomainEnergy + CA[I].R * CA[I].R + CA[I].I * CA[I].I;
+
+  // 调用 FFT 进行变换
+  Result := CnFFT(@CA[0], 4);
+  if not Result then Exit;
+
+  // 计算频域能量：(1/N) * Σ|X[k]|2
+  FreqDomainEnergy := 0;
+  for I := 0 to 3 do
+    FreqDomainEnergy := FreqDomainEnergy + CA[I].R * CA[I].R + CA[I].I * CA[I].I;
+  FreqDomainEnergy := FreqDomainEnergy / 4;
+
+  // 验证两个能量相等（误差 < 1e-10）
+  Result := FloatEqual(TimeDomainEnergy, FreqDomainEnergy, 1e-10);
+end;
+
+function TestNTTBasic: Boolean;
+var
+  IA: array of Int64;
+  I: Integer;
+begin
+  // 创建长度为 4 的整数数组：[1, 2, 3, 4]
+  SetLength(IA, 4);
+  IA[0] := 1;
+  IA[1] := 2;
+  IA[2] := 3;
+  IA[3] := 4;
+
+  // 调用 NTT 进行数论变换
+  Result := CnNTT(@IA[0], 4);
+  if not Result then Exit;
+
+  // 验证所有结果都在[0, CN_P)范围内
+  for I := 0 to 3 do
+  begin
+    if (IA[I] < 0) or (IA[I] >= 998244353) then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+  Result := True;
+end;
+
+function TestINTTBasic: Boolean;
+var
+  IA: array of Int64;
+  I: Integer;
+  HasNonZero: Boolean;
+begin
+  // 创建长度为4的整数数组作为变换后的数据
+  // 使用一个简单的变换结果（例如 NTT 变换后的数据）
+  SetLength(IA, 4);
+  IA[0] := 100;
+  IA[1] := 200;
+  IA[2] := 300;
+  IA[3] := 400;
+
+  // 调用 INTT 进行逆变换
+  Result := CnINTT(@IA[0], 4);
+  if not Result then Exit;
+
+  // 验证变换后的数据不全为0
+  HasNonZero := False;
+  for I := 0 to 3 do
+  begin
+    if IA[I] <> 0 then
+    begin
+      HasNonZero := True;
+      Break;
+    end;
+  end;
+  Result := HasNonZero;
+end;
+
+function TestNTTINTTRoundTrip: Boolean;
+var
+  Original, IA: array of Int64;
+  I: Integer;
+begin
+  // 创建原始序列：[1, 2, 3, 4]
+  SetLength(Original, 4);
+  SetLength(IA, 4);
+  Original[0] := 1;
+  Original[1] := 2;
+  Original[2] := 3;
+  Original[3] := 4;
+
+  // 复制原始序列
+  for I := 0 to 3 do
+    IA[I] := Original[I];
+
+  // 调用 NTT 进行变换
+  Result := CnNTT(@IA[0], 4);
+  if not Result then Exit;
+
+  // 调用 INTT 进行逆变换
+  Result := CnINTT(@IA[0], 4);
+  if not Result then Exit;
+
+  // 比较恢复后的序列与原始序列
+  for I := 0 to 3 do
+  begin
+    if IA[I] <> Original[I] then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+  Result := True;
+end;
+
+function TestDCTBasic: Boolean;
+var
+  Data, Res: array of Extended;
+  I: Integer;
+  HasNonZero: Boolean;
+begin
+  // 创建长度为 4 的实数数组：[1.0, 2.0, 3.0, 4.0]
+  SetLength(Data, 4);
+  SetLength(Res, 4);
+  Data[0] := 1.0;
+  Data[1] := 2.0;
+  Data[2] := 3.0;
+  Data[3] := 4.0;
+
+  // 调用 DCT 进行离散余弦变换
+  Result := CnDCT(@Data[0], @Res[0], 4);
+  if not Result then Exit;
+
+  // 验证结果数组包含有效数据
+  HasNonZero := False;
+  for I := 0 to 3 do
+  begin
+    if Res[I] <> 0 then
+    begin
+      HasNonZero := True;
+      Break;
+    end;
+  end;
+  Result := HasNonZero;
+end;
+
+function TestIDCTBasic: Boolean;
+var
+  Data, Res: array of Extended;
+  I: Integer;
+begin
+  // 创建长度为 4 的实数数组作为 DCT 系数
+  SetLength(Data, 4);
+  SetLength(Res, 4);
+  for I := 0 to 3 do
+    Data[I] := 1.0;
+
+  // 调用 IDCT 进行逆变换
+  Result := CnIDCT(@Data[0], @Res[0], 4);
+end;
+
+function TestDCTIDCTRoundTrip: Boolean;
+var
+  Original, Intermediate, Final: array of Extended;
+  I: Integer;
+begin
+  // 创建原始数据：[1.0, 2.0, 3.0, 4.0]
+  SetLength(Original, 4);
+  SetLength(Intermediate, 4);
+  SetLength(Final, 4);
+  Original[0] := 1.0;
+  Original[1] := 2.0;
+  Original[2] := 3.0;
+  Original[3] := 4.0;
+
+  // 调用 DCT 进行变换
+  Result := CnDCT(@Original[0], @Intermediate[0], 4);
+  if not Result then Exit;
+
+  // 调用 IDCT 进行逆变换
+  Result := CnIDCT(@Intermediate[0], @Final[0], 4);
+  if not Result then Exit;
+
+  // 比较恢复后的数据与原始数据
+  for I := 0 to 3 do
+  begin
+    if not FloatEqual(Final[I], Original[I], 1e-10) then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+  Result := True;
 end;
 
 // ============================== BigNumber ====================================
@@ -2284,6 +3168,1153 @@ begin
   UInt128DivMod(A, B, R, M);
 
   Result := (UInt128ToStr(R) = '737095443184467440737095516') and (UInt128ToStr(M) = '1500');
+end;
+
+// ===============================  Math =======================================
+
+function TestCnAbs: Boolean;
+var
+  R: Extended;
+begin
+  R := CnAbs(3.14);
+  Result := FloatEqual(R, 3.14);
+  if not Result then Exit;
+
+  R := CnAbs(-3.14);
+  Result := FloatEqual(R, 3.14);
+  if not Result then Exit;
+
+  R := CnAbs(0);
+  Result := FloatEqual(R, 0);
+  if not Result then Exit;
+
+  R := CnAbs(0.0001);
+  Result := FloatEqual(R, 0.0001);
+end;
+
+function TestCnIntAbs: Boolean;
+var
+  R: Integer;
+begin
+  R := CnIntAbs(100);
+  Result := R = 100;
+  if not Result then Exit;
+
+  R := CnIntAbs(-100);
+  Result := R = 100;
+  if not Result then Exit;
+
+  R := CnIntAbs(0);
+  Result := R = 0;
+end;
+
+function TestCnInt64Abs: Boolean;
+var
+  R: Int64;
+begin
+  R := CnInt64Abs(9223372036854775800);
+  Result := R = 9223372036854775800;
+  if not Result then Exit;
+
+  R := CnInt64Abs(-9223372036854775800);
+  Result := R = 9223372036854775800;
+  if not Result then Exit;
+
+  R := CnInt64Abs(0);
+  Result := R = 0;
+end;
+
+function TestCnFloor: Boolean;
+var
+  R: Integer;
+begin
+  R := CnFloor(3.7);
+  Result := R = 3;
+  if not Result then Exit;
+
+  R := CnFloor(-3.7);
+  Result := R = -4;
+  if not Result then Exit;
+
+  R := CnFloor(5.0);
+  Result := R = 5;
+end;
+
+function TestCnCeil: Boolean;
+var
+  R: Integer;
+begin
+  R := CnCeil(3.2);
+  Result := R = 4;
+  if not Result then Exit;
+
+  R := CnCeil(-3.2);
+  Result := R = -3;
+  if not Result then Exit;
+
+  R := CnCeil(5.0);
+  Result := R = 5;
+end;
+
+function TestInt64Sqrt: Boolean;
+var
+  R: Extended;
+begin
+  R := Int64Sqrt(100);
+  Result := FloatEqual(R, 10);
+  if not Result then Exit;
+
+  R := Int64Sqrt(10000);
+  Result := FloatEqual(R, 100);
+  if not Result then Exit;
+
+  R := Int64Sqrt(2);
+  Result := FloatAlmostZero(R - 1.414213562);
+  if not Result then Exit;
+
+  R := Int64Sqrt(1);
+  Result := FloatEqual(R, 1);
+  if not Result then Exit;
+
+  R := Int64Sqrt(0);
+  Result := FloatEqual(R, 0);
+end;
+
+function TestFloatSqrt: Boolean;
+var
+  R: Extended;
+begin
+  R := FloatSqrt(4.0);
+  Result := FloatEqual(R, 2.0);
+  if not Result then Exit;
+
+  R := FloatSqrt(2.0);
+  Result := FloatAlmostZero(R - 1.414213562);
+  if not Result then Exit;
+
+  R := FloatSqrt(0.25);
+  Result := FloatEqual(R, 0.5);
+end;
+
+function TestInt64LogN: Boolean;
+var
+  R: Extended;
+begin
+  R := Int64LogN(1);
+  Result := FloatAlmostZero(R);
+  if not Result then Exit;
+
+  R := Int64LogN(3);
+  Result := FloatAlmostZero(R - 1.0986123);
+  if not Result then Exit;
+
+  R := Int64LogN(10);
+  Result := FloatAlmostZero(R - 2.302585);
+end;
+
+function TestFloatLogN: Boolean;
+var
+  R: Extended;
+begin
+  R := FloatLogN(1.0);
+  Result := FloatAlmostZero(R);
+  if not Result then Exit;
+
+  R := FloatLogN(10.0);
+  Result := FloatAlmostZero(R - 2.302585);
+end;
+
+function TestInt64Log10: Boolean;
+var
+  R: Extended;
+begin
+  R := Int64Log10(1);
+  Result := FloatAlmostZero(R);
+  if not Result then Exit;
+
+  R := Int64Log10(10);
+  Result := FloatAlmostZero(R - 1.0);
+  if not Result then Exit;
+
+  R := Int64Log10(100);
+  Result := FloatAlmostZero(R - 2.0);
+end;
+
+function TestFloatLog10: Boolean;
+var
+  R: Extended;
+begin
+  R := FloatLog10(1.0);
+  Result := FloatAlmostZero(R);
+  if not Result then Exit;
+
+  R := FloatLog10(10.0);
+  Result := FloatAlmostZero(R - 1.0);
+end;
+
+function TestInt64Log2: Boolean;
+var
+  R: Extended;
+begin
+  R := Int64Log2(1);
+  Result := FloatAlmostZero(R);
+  if not Result then Exit;
+
+  R := Int64Log2(2);
+  Result := FloatAlmostZero(R - 1.0);
+  if not Result then Exit;
+
+  R := Int64Log2(4);
+  Result := FloatAlmostZero(R - 2.0);
+  if not Result then Exit;
+
+  R := Int64Log2(8);
+  Result := FloatAlmostZero(R - 3.0);
+end;
+
+function TestFloatLog2: Boolean;
+var
+  R: Extended;
+begin
+  R := FloatLog2(1.0);
+  Result := FloatAlmostZero(R);
+  if not Result then Exit;
+
+  R := FloatLog2(2.0);
+  Result := FloatAlmostZero(R - 1.0);
+end;
+
+function TestFastSqrt: Boolean;
+var
+  R: Cardinal;
+begin
+  R := FastSqrt(100);
+  Result := R = 10;
+  if not Result then Exit;
+
+  R := FastSqrt(10000);
+  Result := R = 100;
+  if not Result then Exit;
+
+  R := FastSqrt(0);
+  Result := R = 0;
+  if not Result then Exit;
+
+  R := FastSqrt(1);
+  Result := R = 1;
+end;
+
+function TestFastSqrt64: Boolean;
+var
+  R: Int64;
+begin
+  R := FastSqrt64(100);
+  Result := R = 10;
+  if not Result then Exit;
+
+  R := FastSqrt64(10000);
+  Result := R = 100;
+  if not Result then Exit;
+
+  R := FastSqrt64(0);
+  Result := R = 0;
+end;
+
+function TestFastInverseSqrt: Boolean;
+var
+  R: Single;
+begin
+  R := FastInverseSqrt(1.0);
+  Result := FloatAlmostZero(R - 1.0, 1e-5);
+  if not Result then Exit;
+
+  R := FastInverseSqrt(4.0);
+  Result := FloatAlmostZero(R - 0.5, 1e-5);
+end;
+
+function TestFloatAlmostZero: Boolean;
+begin
+  Result := FloatAlmostZero(0);
+  if not Result then Exit;
+
+  Result := FloatAlmostZero(0.0000001);
+  if not Result then Exit;
+
+  Result := not FloatAlmostZero(1.0);
+end;
+
+function TestFloatEqual: Boolean;
+begin
+  Result := FloatEqual(3.14, 3.14);
+  if not Result then Exit;
+
+  Result := not FloatEqual(3.14, 3.15);
+  if not Result then Exit;
+
+  Result := FloatEqual(3.14, 3.140001);
+end;
+
+function TestNormalizeAngle: Boolean;
+var
+  R: Extended;
+begin
+  R := NormalizeAngle(0);
+  Result := FloatEqual(R, 0);
+  if not Result then Exit;
+
+  R := NormalizeAngle(2 * CN_PI);
+  Result := FloatAlmostZero(R);
+  if not Result then Exit;
+
+  R := NormalizeAngle(-CN_PI);
+  Result := FloatAlmostZero(R - CN_PI);
+end;
+
+function TestFloatToHex: Boolean;
+var
+  S: string;
+begin
+  S := FloatToHex(255);
+  Result := S = 'FF';
+  if not Result then Exit;
+
+  S := FloatToHex(15.5);
+  Result := Pos('F', S) > 0;
+end;
+
+function TestHexToFloat: Boolean;
+var
+  R: Extended;
+begin
+  R := HexToFloat('FF');
+  Result := FloatEqual(R, 255);
+  if not Result then Exit;
+
+  R := HexToFloat('F');
+  Result := FloatEqual(R, 15);
+end;
+
+function TestInt64ContinuedFraction: Boolean;
+var
+  A, B: TInt64s;
+  R: Extended;
+begin
+  SetLength(A, 3);
+  SetLength(B, 3);
+  A[0] := 0;
+  A[1] := 1;
+  A[2] := 1;
+  B[0] := 3;
+  B[1] := 1;
+  B[2] := 2;
+
+  R := Int64ContinuedFraction(A, B);
+  Result := FloatAlmostZero(R - 3.66666667);
+end;
+
+function TestBigDecimalEulerExp: Boolean;
+var
+  Res, Num: TCnBigDecimal;
+  R: Extended;
+begin
+  Res := TCnBigDecimal.Create;
+  Num := TCnBigDecimal.Create;
+  try
+    // 测试 e^0 = 1
+    Num.SetZero;
+    if not BigDecimalEulerExp(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatEqual(R, 1.0);
+    if not Result then Exit;
+
+    // 测试 e^1 ≈ 2.71828...
+    Num.SetOne;
+    if not BigDecimalEulerExp(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 2.7182818285);
+    if not Result then Exit;
+
+    // 测试 e^2 ≈ 7.38906...
+    Num.SetInt64(2);
+    if not BigDecimalEulerExp(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 7.3890561);
+    if not Result then Exit;
+
+    // 测试 e^(-1) ≈ 0.36788...
+    Num.SetInt64(-1);
+    if not BigDecimalEulerExp(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 0.36787944);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestBigDecimalSin: Boolean;
+var
+  Res, Num: TCnBigDecimal;
+  R: Extended;
+begin
+  Res := TCnBigDecimal.Create;
+  Num := TCnBigDecimal.Create;
+  try
+    // 测试 sin(0) = 0
+    Num.SetZero;
+    if not BigDecimalSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R);
+    if not Result then Exit;
+
+    // 测试 sin(π/6) ≈ 0.5
+    Num.SetExtended(CN_PI / 6);
+    if not BigDecimalSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 0.5);
+    if not Result then Exit;
+
+    // 测试 sin(π/2) ≈ 1
+    Num.SetExtended(CN_PI / 2);
+    if not BigDecimalSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 1.0);
+    if not Result then Exit;
+
+    // 测试 sin(π) ≈ 0
+    Num.SetExtended(CN_PI);
+    if not BigDecimalSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestBigDecimalCos: Boolean;
+var
+  Res, Num: TCnBigDecimal;
+  R: Extended;
+begin
+  Res := TCnBigDecimal.Create;
+  Num := TCnBigDecimal.Create;
+  try
+    // 测试 cos(0) = 1
+    Num.SetZero;
+    if not BigDecimalCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatEqual(R, 1.0);
+    if not Result then Exit;
+
+    // 测试 cos(π/3) ≈ 0.5
+    Num.SetExtended(CN_PI / 3);
+    if not BigDecimalCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 0.5);
+    if not Result then Exit;
+
+    // 测试 cos(π/2) ≈ 0
+    Num.SetExtended(CN_PI / 2);
+    if not BigDecimalCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R);
+    if not Result then Exit;
+
+    // 测试 cos(π) ≈ -1
+    Num.SetExtended(CN_PI);
+    if not BigDecimalCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R + 1.0);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestBigDecimalLn: Boolean;
+var
+  Res, Num: TCnBigDecimal;
+  R: Extended;
+begin
+  Res := TCnBigDecimal.Create;
+  Num := TCnBigDecimal.Create;
+  try
+    // 测试 ln(1) = 0
+    Num.SetOne;
+    if not BigDecimalLn(Res, Num, 50) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R);
+    if not Result then Exit;
+
+    // 测试 ln(e) ≈ 1
+    Num.SetExtended(2.7182818285);
+    if not BigDecimalLn(Res, Num, 50) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 1.0);
+    if not Result then Exit;
+
+    // 测试 ln(2) ≈ 0.693147...
+    Num.SetInt64(2);
+    if not BigDecimalLn(Res, Num, 50) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 0.693147);
+    if not Result then Exit;
+
+    // 测试 ln(10) ≈ 2.302585...
+    Num.SetInt64(10);
+    if not BigDecimalLn(Res, Num, 50) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 2.302585);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestBigDecimalArcSin: Boolean;
+var
+  Res, Num: TCnBigDecimal;
+  R: Extended;
+begin
+  Res := TCnBigDecimal.Create;
+  Num := TCnBigDecimal.Create;
+  try
+    // 测试 arcsin(0) = 0
+    Num.SetZero;
+    if not BigDecimalArcSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R);
+    if not Result then Exit;
+
+    // 测试 arcsin(1) = π/2 ≈ 1.5708
+    Num.SetOne;
+    if not BigDecimalArcSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 1.5707963268);
+    if not Result then Exit;
+
+    // 测试 arcsin(-1) = -π/2 ≈ -1.5708
+    Num.SetInt64(-1);
+    if not BigDecimalArcSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R + 1.5707963268);
+    if not Result then Exit;
+
+    // 测试 arcsin(0.5) = π/6 ≈ 0.523599
+    Num.SetExtended(0.5);
+    if not BigDecimalArcSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 0.523598776);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestBigDecimalArcCos: Boolean;
+var
+  Res, Num: TCnBigDecimal;
+  R: Extended;
+begin
+  Res := TCnBigDecimal.Create;
+  Num := TCnBigDecimal.Create;
+  try
+    // 测试 arccos(1) = 0
+    Num.SetOne;
+    if not BigDecimalArcCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R);
+    if not Result then Exit;
+
+    // 测试 arccos(0) = π/2 ≈ 1.5708
+    Num.SetZero;
+    if not BigDecimalArcCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 1.5707963268);
+    if not Result then Exit;
+
+    // 测试 arccos(-1) = π ≈ 3.14159
+    Num.SetInt64(-1);
+    if not BigDecimalArcCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 3.1415926536);
+    if not Result then Exit;
+
+    // 测试 arccos(0.5) = π/3 ≈ 1.047197
+    Num.SetExtended(0.5);
+    if not BigDecimalArcCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 1.047197551);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestBigDecimalArcTan: Boolean;
+var
+  Res, Num: TCnBigDecimal;
+  R: Extended;
+begin
+  Res := TCnBigDecimal.Create;
+  Num := TCnBigDecimal.Create;
+  try
+    // 测试 arctan(0) = 0
+    Num.SetZero;
+    if not BigDecimalArcTan(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R);
+    if not Result then Exit;
+
+    // 测试 arctan(1) = π/4 ≈ 0.785398
+    Num.SetOne;
+    if not BigDecimalArcTan(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 0.785398163);
+    if not Result then Exit;
+
+    // 测试 arctan(-1) = -π/4 ≈ -0.785398
+    Num.SetInt64(-1);
+    if not BigDecimalArcTan(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R + 0.785398163);
+    if not Result then Exit;
+
+    // 测试 arctan(√3) = π/3 ≈ 1.047197
+    Num.SetExtended(1.732050808);
+    if not BigDecimalArcTan(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 1.047197551);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestBigDecimalHyperbolicSin: Boolean;
+var
+  Res, Num: TCnBigDecimal;
+  R: Extended;
+begin
+  Res := TCnBigDecimal.Create;
+  Num := TCnBigDecimal.Create;
+  try
+    // 测试 sinh(0) = 0
+    Num.SetZero;
+    if not BigDecimalHyperbolicSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R);
+    if not Result then Exit;
+
+    // 测试 sinh(1) ≈ 1.17520...
+    Num.SetOne;
+    if not BigDecimalHyperbolicSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 1.1752011936);
+    if not Result then Exit;
+
+    // 测试 sinh(2) ≈ 3.62686...
+    Num.SetInt64(2);
+    if not BigDecimalHyperbolicSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 3.6268604078);
+    if not Result then Exit;
+
+    // 测试 sinh(-1) ≈ -1.17520...（奇函数性质）
+    Num.SetInt64(-1);
+    if not BigDecimalHyperbolicSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R + 1.1752011936);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestBigDecimalHyperbolicCos: Boolean;
+var
+  Res, Num: TCnBigDecimal;
+  R: Extended;
+begin
+  Res := TCnBigDecimal.Create;
+  Num := TCnBigDecimal.Create;
+  try
+    // 测试 cosh(0) = 1
+    Num.SetZero;
+    if not BigDecimalHyperbolicCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatEqual(R, 1.0);
+    if not Result then Exit;
+
+    // 测试 cosh(1) ≈ 1.54308...
+    Num.SetOne;
+    if not BigDecimalHyperbolicCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 1.5430806348);
+    if not Result then Exit;
+
+    // 测试 cosh(2) ≈ 3.76219...
+    Num.SetInt64(2);
+    if not BigDecimalHyperbolicCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 3.76219569108);
+    if not Result then Exit;
+
+    // 测试 cosh(-1) ≈ 1.54308...（偶函数性质）
+    Num.SetInt64(-1);
+    if not BigDecimalHyperbolicCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    R := BigDecimalToExtended(Res);
+    Result := FloatAlmostZero(R - 1.5430806348);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestBigComplexDecimalEulerExp: Boolean;
+var
+  Res, Num: TCnBigComplexDecimal;
+  RealPart, ImagPart: Extended;
+begin
+  Res := TCnBigComplexDecimal.Create;
+  Num := TCnBigComplexDecimal.Create;
+  try
+    // e^0 = 1
+    Num.SetZero;
+    if not BigComplexDecimalEulerExp(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    Result := FloatEqual(RealPart, 1.0) and FloatAlmostZero(ImagPart);
+    if not Result then Exit;
+
+    // e^(i*π) ≈ -1
+    Num.SetZero;
+    Num.I.SetExtended(CN_PI);
+    if not BigComplexDecimalEulerExp(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    Result := FloatAlmostZero(RealPart + 1.0) and FloatAlmostZero(ImagPart);
+    if not Result then Exit;
+
+    // e^(i*π/2) ≈ i
+    Num.SetZero;
+    Num.I.SetExtended(CN_PI / 2);
+    if not BigComplexDecimalEulerExp(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    Result := FloatAlmostZero(RealPart) and FloatAlmostZero(ImagPart - 1.0);
+    if not Result then Exit;
+
+    // 测试 e^(1+i) ≈ e*(cos(1)+i*sin(1))
+    Num.SetOne;
+    Num.I.SetOne;
+    if not BigComplexDecimalEulerExp(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    // e ≈ 2.71828, cos(1) ≈ 0.54030, sin(1) ≈ 0.84147
+    // e^(1+i) ≈ 2.71828 * (0.54030 + 0.84147i) ≈ 1.46869 + 2.28735i
+    Result := FloatAlmostZero(RealPart - 1.46869394) and FloatAlmostZero(ImagPart - 2.287355287);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestBigComplexDecimalLn: Boolean;
+var
+  Res, Num: TCnBigComplexDecimal;
+  RealPart, ImagPart: Extended;
+begin
+  Res := TCnBigComplexDecimal.Create;
+  Num := TCnBigComplexDecimal.Create;
+  try
+    // ln(1) = 0
+    Num.SetOne;
+    if not BigComplexDecimalLn(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    Result := FloatAlmostZero(RealPart) and FloatAlmostZero(ImagPart);
+    if not Result then Exit;
+
+    // ln(e) = 1
+    Num.R.SetExtended(2.7182818285);
+    Num.I.SetZero;
+    if not BigComplexDecimalLn(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    Result := FloatAlmostZero(RealPart - 1.0) and FloatAlmostZero(ImagPart);
+    if not Result then Exit;
+
+    // ln(2) ≈ 0.693147
+    Num.R.SetInt64(2);
+    Num.I.SetZero;
+    if not BigComplexDecimalLn(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    Result := FloatAlmostZero(RealPart - 0.693147) and FloatAlmostZero(ImagPart);
+    if not Result then Exit;
+
+    // ln(i) = i*π/2
+    Num.SetZero;
+    Num.I.SetOne;
+    if not BigComplexDecimalLn(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    // ln(i) 的实部应该是 0，虚部应该是 π/2 ≈ 1.5708
+    Result := FloatAlmostZero(RealPart) and FloatAlmostZero(ImagPart - 1.5707963268);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestBigComplexDecimalSin: Boolean;
+var
+  Res, Num: TCnBigComplexDecimal;
+  RealPart, ImagPart: Extended;
+begin
+  Res := TCnBigComplexDecimal.Create;
+  Num := TCnBigComplexDecimal.Create;
+  try
+    // sin(0) = 0
+    Num.SetZero;
+    if not BigComplexDecimalSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    Result := FloatAlmostZero(RealPart) and FloatAlmostZero(ImagPart);
+    if not Result then Exit;
+
+    // sin(π/2) ≈ 1
+    Num.R.SetExtended(CN_PI / 2);
+    Num.I.SetZero;
+    if not BigComplexDecimalSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    Result := FloatAlmostZero(RealPart - 1.0) and FloatAlmostZero(ImagPart);
+    if not Result then Exit;
+
+    // sin(π) ≈ 0
+    Num.R.SetExtended(CN_PI);
+    Num.I.SetZero;
+    if not BigComplexDecimalSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    Result := FloatAlmostZero(RealPart) and FloatAlmostZero(ImagPart);
+    if not Result then Exit;
+
+    // 测试 sin(i) ≈ i*sinh(1)
+    Num.SetZero;
+    Num.I.SetOne;
+    if not BigComplexDecimalSin(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    // sinh(1) ≈ 1.17520, sin(i) ≈ i*1.17520
+    Result := FloatAlmostZero(RealPart) and FloatAlmostZero(ImagPart - 1.1752011936);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestBigComplexDecimalCos: Boolean;
+var
+  Res, Num: TCnBigComplexDecimal;
+  RealPart, ImagPart: Extended;
+begin
+  Res := TCnBigComplexDecimal.Create;
+  Num := TCnBigComplexDecimal.Create;
+  try
+    // cos(0) = 1
+    Num.SetZero;
+    if not BigComplexDecimalCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    Result := FloatEqual(RealPart, 1.0) and FloatAlmostZero(ImagPart);
+    if not Result then Exit;
+
+    // cos(π/2) ≈ 0
+    Num.R.SetExtended(CN_PI / 2);
+    Num.I.SetZero;
+    if not BigComplexDecimalCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    Result := FloatAlmostZero(RealPart) and FloatAlmostZero(ImagPart);
+    if not Result then Exit;
+
+    // cos(π) ≈ -1
+    Num.R.SetExtended(CN_PI);
+    Num.I.SetZero;
+    if not BigComplexDecimalCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    Result := FloatAlmostZero(RealPart + 1.0) and FloatAlmostZero(ImagPart);
+    if not Result then Exit;
+
+    // 测试 cos(i) ≈ cosh(1)
+    Num.SetZero;
+    Num.I.SetOne;
+    if not BigComplexDecimalCos(Res, Num) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    RealPart := BigDecimalToExtended(Res.R);
+    ImagPart := BigDecimalToExtended(Res.I);
+    // cosh(1) ≈ 1.54308, cos(i) ≈ 1.54308
+    Result := FloatAlmostZero(RealPart - 1.5430806348) and FloatAlmostZero(ImagPart);
+  finally
+    Res.Free;
+    Num.Free;
+  end;
+end;
+
+function TestFloatGaussLegendrePi: Boolean;
+var
+  S: string;
+begin
+  S := FloatGaussLegendrePi(3);
+  Result := Pos('3.14159265358979', S) = 1;
+end;
+
+function TestGaussLegendrePi: Boolean;
+const
+  PI_STR =
+    '3.141592653589793238462643383279502884197169399375105820974944592307816406' +
+    '28620899862803482534211706798214808651328230664709384460955058223172535940' +
+    '81284811174502841027019385211055596446229489549303819644288109756659334461' +
+    '28475648233786783165271201909145647';
+var
+  S: string;
+begin
+  S := GaussLegendrePi(8);
+  Result := Pos(PI_STR, S) = 1;
+end;
+
+function TestXavierGourdonEuler: Boolean;
+const
+  E_STR =
+    '2.7182818284590452353602874713526624977572470936999595749669676277240766303' +
+    '535475945713821785251664274274663919320030599218174135966290435729003342952' +
+    '605956307381323286279434907632338298807531952510190115738341879307021540891' +
+    '499348841675092447614606680822648001684774118537423454424371075390777449920' +
+    '695517027618386062613313845830007520449338265602976067371132007093287091274' +
+    '437470472306969772093101416928368190255151086574637721112523897844250569536' +
+    '967707854499699679468644549059879316368892300987931277361782154249992295763' +
+    '514822082698951936680331825288693984964651058209392398294887933203625094431' +
+    '173012381970684161403970198376793206832823764648042953118023287825098194558' +
+    '153017567173613320698112509961818815930416903515988885193458072738667385894' +
+    '228792284998920868058257492796104841984443634632449684875602336248270419786' +
+    '232090021609902353043699418491463140934317381436405462531520961836908887';
+var
+  S: string;
+begin
+  S := XavierGourdonEuler(1000);
+  Result := Pos(E_STR, S) = 1;
 end;
 
 // ============================= Polynomial ====================================

@@ -209,13 +209,13 @@ type
     procedure UpdateCRT;
     {* 使用 CRT 加速时供外部的调用以在私钥数据更新时同步更新内部 CRT 数据}
 
-    property PrimeKey1: TCnBigNumber read FPrimeKey1 write FPrimeKey1;
+    property PrimeKey1: TCnBigNumber read FPrimeKey1;
     {* 大素数 1，p，要求比 q 大}
-    property PrimeKey2: TCnBigNumber read FPrimeKey2 write FPrimeKey2;
+    property PrimeKey2: TCnBigNumber read FPrimeKey2;
     {* 大素数 2，q，要求比 p 小}
-    property PrivKeyProduct: TCnBigNumber read FPrivKeyProduct write FPrivKeyProduct;
+    property PrivKeyProduct: TCnBigNumber read FPrivKeyProduct;
     {* 俩素数乘积 n，也叫 Modulus，生成时其位数需严格等于所需安全位数}
-    property PrivKeyExponent: TCnBigNumber read FPrivKeyExponent write FPrivKeyProduct;
+    property PrivKeyExponent: TCnBigNumber read FPrivKeyExponent;
     {* 私钥指数 d}
     property BitsCount: Integer read GetBitsCount;
     {* 密钥的位数，也即素数乘积 n 的有效位数}
@@ -250,9 +250,9 @@ type
     procedure Clear;
     {* 清空值}
 
-    property PubKeyProduct: TCnBigNumber read FPubKeyProduct write FPubKeyProduct;
+    property PubKeyProduct: TCnBigNumber read FPubKeyProduct;
     {* 俩素数乘积 n，也叫 Modulus}
-    property PubKeyExponent: TCnBigNumber read FPubKeyExponent write FPubKeyExponent;
+    property PubKeyExponent: TCnBigNumber read FPubKeyExponent;
     {* 公钥指数 e，65537}
     property BitsCount: Integer read GetBitsCount;
     {* 密钥的位数，也即素数乘积 n 的有效位数}
@@ -1568,7 +1568,7 @@ begin
   MinDB := ModulusBits div 2 - 100;
   if MinDB < ModulusBits div 3 then
     MinDB := ModulusBits div 3;
-  MinW := ModulusBits shr 2;
+  MinW := ModulusBits * 3 div 10;
 
   Rem := nil;
   Y := nil;
@@ -1641,7 +1641,7 @@ begin
       if BigNumberIsNegative(PrivateKey.PrivKeyExponent) then
          BigNumberAdd(PrivateKey.PrivKeyExponent, PrivateKey.PrivKeyExponent, R);
 
-      // d 不能太小，必须大于 2 的 n/2 次方
+      // d 不能太小，使用 n^0.3 作为最小值
       MinD.SetOne;
       MinD.ShiftLeft(MinW);
       if BigNumberCompare(PrivateKey.PrivKeyExponent, MinD) <= 0 then

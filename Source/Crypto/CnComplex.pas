@@ -31,7 +31,9 @@ unit CnComplex;
 * 开发平台：Win 7 + Delphi 5.0
 * 兼容测试：暂未进行
 * 本 地 化：该单元无需本地化处理
-* 修改记录：2023.06.26 V1.1
+* 修改记录：2026.01.20 V1.2
+*               增加无限精度浮点数复数
+*           2023.06.26 V1.1
 *               增加辐角与绝对值等函数
 *           2020.11.20 V1.0
 *               创建单元，实现功能
@@ -43,7 +45,8 @@ interface
 {$I CnPack.inc}
 
 uses
-  Classes, SysUtils, SysConst, Math, CnMath, CnBigNumber;
+  Classes, SysUtils, SysConst, Math, CnBigNumber, CnBigDecimal,
+  CnContainers;
 
 type
   ECnComplexNumberException = class(Exception);
@@ -76,10 +79,273 @@ type
     destructor Destroy; override;
     {* 析构函数}
 
+    function ToString: string; {$IFDEF OBJECT_HAS_TOSTRING} override; {$ENDIF}
+    {* 将大整数复数转换成字符串。
+
+       参数：
+         （无）
+
+       返回值：string                     - 返回大数字符串
+    }
+
+    procedure SetZero;
+    {* 将大整数复数设置为 0，返回是否设置成功。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 返回是否设置成功
+    }
+
+    procedure SetOne;
+    {* 将大整数复数设置为 0，返回是否设置成功。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 返回是否设置成功
+    }
+
+    procedure SetI;
+    {* 将大整数复数设置为 i，返回是否设置成功。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 返回是否设置成功
+    }
+
+    function IsZero: Boolean;
+    {* 返回大整数复数是否为 0。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 返回是否为 0
+    }
+
+    function IsPureReal: Boolean;
+    {* 返回大整数复数是否为纯实数。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 返回是否为 0
+    }
+
+    function IsPureImaginary: Boolean;
+    {* 返回大整数复数是否为纯虚数。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 返回是否为 0
+    }
+
+    procedure SetValue(AR: Int64; AI: Int64); overload;
+    {* 大整数复数赋值。
+
+       参数：
+         AR: Int64                            - 大整数复数的实部
+         AI: Int64                            - 大整数复数的虚部
+
+       返回值：（无）
+    }
+
+    procedure SetValue(const AR: string; const AI: string); overload;
+    {* 大整数复数赋值。
+
+       参数：
+         const AR: string                     - 实部的十进制整数字符串形式
+         const AI: string                     - 虚部的十进制整数字符串形式
+
+       返回值：（无）
+    }
+
+    function AbsoluteValue(Res: TCnBigNumber): Boolean; overload;
+    {* 返回大整数复数的绝对值，也即距复平面原点的距离，以大整数表示。
+
+       参数：
+         Res: TCnBigComplexNumber             - 用来容纳结果的大整数对象
+
+       返回值：Boolean                        - 返回是否求值成功
+    }
+
+    function AbsoluteValue: Extended; overload;
+    {* 返回大整数复数的绝对值，也即距复平面原点的距离，以浮点数表示。
+
+       参数：
+         （无）
+
+       返回值：Boolean                        - 返回是否求值成功
+    }
+
+    function Argument: Extended;
+    {* 返回大整数复数的辐角主值，也即与复平面正 X 轴的夹角，范围在 0 到 2π。
+
+       参数：
+         （无）
+
+       返回值：Extended                       - 返回大整数复数的辐角主值，单位为弧度
+    }
+
+    procedure Negate;
+    {* 大整数复数求相反数，也即实部与虚部正负号均反号}
+    procedure Conjugate;
+    {* 大整数复数求共轭复数，也即虚部正负号反号}
+
     property R: TCnBigNumber read FR;
     {* 实部}
     property I: TCnBigNumber read FI;
     {* 虚部}
+  end;
+
+  TCnBigComplexDecimal = class(TObject)
+  {* 实部虚部均为无限精度浮点数的大浮点复数类}
+  private
+    FR: TCnBigDecimal;
+    FI: TCnBigDecimal;
+  public
+    constructor Create; virtual;
+    {* 构造函数}
+    destructor Destroy; override;
+    {* 析构函数}
+
+    function ToString: string; {$IFDEF OBJECT_HAS_TOSTRING} override; {$ENDIF}
+    {* 将大浮点复数转换为字符串。
+
+       参数：
+         无
+
+       返回值：string                     - 返回复数字符串
+    }
+
+    procedure SetZero;
+    {* 将大浮点复数设置为 0}
+
+    procedure SetOne;
+    {* 将大浮点复数设置为 1}
+
+    procedure SetI;
+    {* 将大浮点复数设置为 i}
+
+    function IsZero: Boolean;
+    {* 返回复数是否为0
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 大浮点复数是否为 0
+    }
+
+    function IsPureReal: Boolean;
+    {* 返回大浮点复数是否为纯实数。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 大浮点复数是否为纯实数
+    }
+
+    function IsPureImaginary: Boolean;
+    {* 返回大浮点复数是否为纯虚数。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 大浮点复数是否为纯虚数
+    }
+
+    procedure SetValue(AR: Int64; AI: Int64); overload;
+    {* 设置大浮点复数值。
+
+       参数：
+         AR: Int64                        - 大浮点复数的实部
+         AI: Int64                        - 大浮点复数的虚部
+
+       返回值：（无）
+    }
+
+    procedure SetValue(const AR: string; const AI: string); overload;
+    {* 设置大浮点复数值。
+
+       参数：
+         const AR: string                 - 大浮点复数实部的十进制数字符串形式
+         const AI: string                 - 大浮点复数虚部的十进制数字符串形式
+
+       返回值：（无）
+    }
+
+    procedure RoundTo(Precision: Integer; RoundMode: TCnBigRoundMode = dr465RoundEven);
+    {* 实部与虚部均舍入至指定小数位数，如原来小数位数少于 Precision 则不动。
+
+       参数：
+         Precision: Integer               - 指定小数位数
+         RoundMode: TCnBigRoundMode       - 舍入的规则
+
+       返回值：（无）
+    }
+
+    function AbsoluteValue(Res: TCnBigDecimal; Precision: Integer = 0): Boolean; overload;
+    {* 返回大浮点复数的绝对值，也即复平面上原点的距离，以大数表示。
+
+       参数：
+         Res: TCnBigDecimal               - 用于存放结果的大浮点数
+         Precision: Integer               - 保留小数点后几位，0 表示按默认设置来
+
+       返回值：Boolean                    - 返回运算是否成功
+    }
+
+    function AbsoluteValue: Extended; overload;
+    {* 返回大浮点复数的绝对值，也即复平面上原点的距离，以浮点数表示。
+
+       参数：
+         （无）
+
+       返回值：Extended                   - 返回运算是否成功
+    }
+
+    function Argument: Extended;
+    {* 返回大浮点复数的辐角值，也即复平面上与 X 轴的夹角，范围从 0 到 2π。
+
+       参数：
+         （无）
+
+       返回值：Extended                   - 返回大浮点复数的辐角值，单位为弧度
+    }
+
+    procedure Negate;
+    {* 求大浮点复数的相反数，也即实部和虚部都取相反数}
+    procedure Conjugate;
+    {* 求大浮点复数的共轭，也即虚部取相反数}
+
+    property R: TCnBigDecimal read FR;
+    {* 实部}
+    property I: TCnBigDecimal read FI;
+    {* 虚部}
+  end;
+
+  TCnBigComplexDecimalPool = class(TCnMathObjectPool)
+  {* 大浮点复数池实现类，允许使用到大浮点复数的地方自行创建大浮点复数池}
+  protected
+    function CreateObject: TObject; override;
+  public
+    function Obtain: TCnBigComplexDecimal;
+    {* 从对象池获取一个对象，不用时需调用 Recycle 归还。
+
+       参数：
+         Num: TCnBigComplexDecimal        - 待归还至池中的对象
+
+       返回值：（无）
+    }
+    procedure Recycle(Num: TCnBigComplexDecimal);
+    {* 将一个对象归还至对象池。
+
+       参数：
+         Num: TCnBigComplexDecimal        - 待归还至池中的对象
+
+       返回值：（无）
+    }
   end;
 
 // ======================== 浮点精度的复数运算 =================================
@@ -95,6 +361,24 @@ function ComplexNumberIsZero(var Complex: TCnComplexNumber): Boolean;
 
 procedure ComplexNumberSetZero(var Complex: TCnComplexNumber);
 {* 复数置 0。
+
+   参数：
+     var Complex: TCnComplexNumber        - 待设置的复数
+
+   返回值：（无）
+}
+
+procedure ComplexNumberSetOne(var Complex: TCnComplexNumber);
+{* 复数置 1。
+
+   参数：
+     var Complex: TCnComplexNumber        - 待设置的复数
+
+   返回值：（无）
+}
+
+procedure ComplexNumberSetI(var Complex: TCnComplexNumber);
+{* 复数置 i。
 
    参数：
      var Complex: TCnComplexNumber        - 待设置的复数
@@ -271,6 +555,16 @@ procedure ComplexNumberSqrt(var Res: TCnComplexNumber; var Complex: TCnComplexNu
    返回值：（无）
 }
 
+procedure ComplexNegate(var Res: TCnComplexNumber; var Complex: TCnComplexNumber);
+{* 获得负的复数，Res 可以是 Complex。
+
+   参数：
+     var Res: TCnComplexNumber            - 复数的求负结果
+     var Complex: TCnComplexNumber        - 待求负的复数
+
+   返回值：（无）
+}
+
 procedure ComplexConjugate(var Res: TCnComplexNumber; var Complex: TCnComplexNumber);
 {* 获得共轭复数，Res 可以是 Complex。
 
@@ -299,7 +593,7 @@ function ComplexIsPureImaginary(var Complex: TCnComplexNumber): Boolean;
    返回值：Boolean                        - 返回是否纯虚数
 }
 
-function ComplexNumberAbsolute(var Complex: TCnComplexNumber): Extended;
+function ComplexNumberAbsoluteValue(var Complex: TCnComplexNumber): Extended;
 {* 返回复数的绝对值，也即距复平面原点的距离。
 
    参数：
@@ -342,6 +636,24 @@ function BigComplexNumberIsZero(Complex: TCnBigComplexNumber): Boolean;
 
 procedure BigComplexNumberSetZero(Complex: TCnBigComplexNumber);
 {* 大整数复数置 0。
+
+   参数：
+     Complex: TCnBigComplexNumber         - 待设置的大整数复数
+
+   返回值：（无）
+}
+
+procedure BigComplexNumberSetOne(Complex: TCnBigComplexNumber);
+{* 大整数复数置 1。
+
+   参数：
+     Complex: TCnBigComplexNumber         - 待设置的大整数复数
+
+   返回值：（无）
+}
+
+procedure BigComplexNumberSetI(Complex: TCnBigComplexNumber);
+{* 大整数复数置 i。
 
    参数：
      Complex: TCnBigComplexNumber         - 待设置的大整数复数
@@ -474,7 +786,7 @@ procedure BigComplexNumberSub(Res: TCnBigComplexNumber;
 
 procedure BigComplexNumberMul(Res: TCnBigComplexNumber;
   Complex: TCnBigComplexNumber; Value: Int64); overload;
-{* 大整数复数与整数数的乘法，Complex 和 Res 可以是同一个对象。
+{* 大整数复数与整数的乘法，Complex 和 Res 可以是同一个对象。
 
    参数：
      Res: TCnBigComplexNumber             - 大整数复数积
@@ -484,7 +796,17 @@ procedure BigComplexNumberMul(Res: TCnBigComplexNumber;
    返回值：（无）
 }
 
-procedure BigComplexConjugate(Res: TCnBigComplexNumber; Complex: TCnBigComplexNumber);
+procedure BigComplexNumberNegate(Res: TCnBigComplexNumber; Complex: TCnBigComplexNumber);
+{* 获得大整数复数的负值，Res 可以是 Complex。
+
+   参数：
+     Res: TCnBigComplexNumber            - 大整数复数的求负结果
+     Complex: TCnBigComplexNumber        - 待求负的大整数复数
+
+   返回值：（无）
+}
+
+procedure BigComplexNumberConjugate(Res: TCnBigComplexNumber; Complex: TCnBigComplexNumber);
 {* 获得共轭大整数复数，Res 可以是 Complex。
 
    参数：
@@ -494,7 +816,7 @@ procedure BigComplexConjugate(Res: TCnBigComplexNumber; Complex: TCnBigComplexNu
    返回值：（无）
 }
 
-function BigComplexIsPureReal(Complex: TCnBigComplexNumber): Boolean;
+function BigComplexNumberIsPureReal(Complex: TCnBigComplexNumber): Boolean;
 {* 大整数复数是否纯实数，也就是判断虚部是否为 0。
 
    参数：
@@ -503,7 +825,7 @@ function BigComplexIsPureReal(Complex: TCnBigComplexNumber): Boolean;
    返回值：Boolean                        - 返回是否纯实数
 }
 
-function BigComplexIsPureImaginary(Complex: TCnBigComplexNumber): Boolean;
+function BigComplexNumberIsPureImaginary(Complex: TCnBigComplexNumber): Boolean;
 {* 大整数复数是否纯虚数，也就是判断实部是否为 0 且虚部不为 0。
 
    参数：
@@ -512,7 +834,7 @@ function BigComplexIsPureImaginary(Complex: TCnBigComplexNumber): Boolean;
    返回值：Boolean                        - 返回是否纯虚数
 }
 
-function BigComplexNumberAbsolute(Complex: TCnBigComplexNumber): Extended; overload;
+function BigComplexNumberAbsoluteValue(Complex: TCnBigComplexNumber): Extended; overload;
 {* 返回大整数复数的绝对值，也即距复平面原点的距离，以浮点数表示。
 
    参数：
@@ -521,7 +843,7 @@ function BigComplexNumberAbsolute(Complex: TCnBigComplexNumber): Extended; overl
    返回值：Extended                       - 返回大整数复数的绝对值
 }
 
-function BigComplexNumberAbsolute(Res: TCnBigNumber; Complex: TCnBigComplexNumber): Boolean; overload;
+function BigComplexNumberAbsoluteValue(Res: TCnBigNumber; Complex: TCnBigComplexNumber): Boolean; overload;
 {* 返回大整数复数的绝对值，也即距复平面原点的距离，以大整数表示。
 
    参数：
@@ -539,6 +861,285 @@ function BigComplexNumberArgument(Complex: TCnBigComplexNumber): Extended;
 
    返回值：Extended                       - 返回大整数复数的辐角主值，单位为弧度
 }
+
+// ============================ 大浮点复数运算 =================================
+
+function BigComplexDecimalIsZero(Complex: TCnBigComplexDecimal): Boolean;
+{* 返回大浮点复数是否为 0。
+
+   参数：
+     Complex: TCnBigComplexDecimal        - 待判断的大浮点复数
+
+   返回值：Boolean                        - 大浮点复数是否为零
+}
+
+procedure BigComplexDecimalSetZero(Complex: TCnBigComplexDecimal);
+{* 将大浮点复数设置为 0。
+
+   参数：
+     Complex: TCnBigComplexDecimal        - 待设置的大浮点复数
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalSetOne(Complex: TCnBigComplexDecimal);
+{* 将大浮点复数设置为 1
+
+   参数：
+     Complex: TCnBigComplexDecimal        - 待设置的大浮点复数
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalSetI(Complex: TCnBigComplexDecimal);
+{* 将大浮点复数设置为 i。
+
+   参数：
+     Complex: TCnBigComplexDecimal        - 待设置的大浮点复数
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalSetValue(Complex: TCnBigComplexDecimal;
+  AR: Int64; AI: Int64); overload;
+{* 设置大浮点复数值。
+
+   参数：
+     Complex: TCnBigComplexDecimal        - 待赋值的大浮点复数
+     AR: Int64                            - 大浮点复数的实部
+     AI: Int64                            - 大浮点复数的虚部
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalSetValue(Complex: TCnBigComplexDecimal;
+  const AR: string; const AI: string); overload;
+{* 设置大浮点复数值。
+
+   参数：
+     Complex: TCnBigComplexDecimal        - 待赋值的大浮点复数
+     const AR: string                     - 实部的十进制数字符串形式
+     const AI: string                     - 虚部的十进制数字符串形式
+
+   返回值：（无）
+}
+
+function BigComplexDecimalToString(Complex: TCnBigComplexDecimal): string;
+{* 将大浮点复数转换为形如 a + bi 的字符串，实部或虚部为 0 时相应省略。
+
+   参数：
+     Complex: TCnBigComplexDecimal        - 待转换的大浮点复数
+
+   返回值：string                         - 返回大浮点复数的字符串形式
+}
+
+function BigComplexDecimalEqual(Complex1: TCnBigComplexDecimal; Complex2: TCnBigComplexDecimal): Boolean;
+{* 判断两个大浮点复数是否相等。
+
+   参数：
+     Complex1: TCnBigComplexDecimal       - 待比较的大浮点复数一
+     Complex2: TCnBigComplexDecimal       - 待比较的大浮点复数二
+
+   返回值：Boolean                        - 两个复数是否相等
+}
+
+procedure BigComplexDecimalSwap(Complex1: TCnBigComplexDecimal; Complex2: TCnBigComplexDecimal);
+{* 交换两个大浮点复数的值。
+
+   参数：
+     Complex1: TCnBigComplexDecimal       - 待交换的大浮点复数一
+     Complex2: TCnBigComplexDecimal       - 待交换的大浮点复数二
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalCopy(Dst: TCnBigComplexDecimal; Src: TCnBigComplexDecimal);
+{* 复制大浮点复数的值。
+
+   参数：
+     Dst: TCnBigComplexDecimal            - 目标大浮点复数
+     Src: TCnBigComplexDecimal            - 源大浮点复数
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalAdd(Res: TCnBigComplexDecimal;
+  Complex1: TCnBigComplexDecimal; Complex2: TCnBigComplexDecimal); overload;
+{* 大浮点复数加法。Complex1 和 Complex2 相加，结果存入大浮点复数 Res 中，Res 可以是 Complex1 或 Complex2。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 结果大浮点复数
+     Complex1: TCnBigComplexDecimal       - 大浮点复数加数一
+     Complex2: TCnBigComplexDecimal       - 大浮点复数加数二
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalSub(Res: TCnBigComplexDecimal;
+  Complex1: TCnBigComplexDecimal; Complex2: TCnBigComplexDecimal); overload;
+{* 大浮点复数减法。Complex1 和 Complex2 相减，结果存入大浮点复数 Res 中，Res 可以是 Complex1 或 Complex2。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 结果大浮点复数
+     Complex1: TCnBigComplexDecimal       - 大浮点复数被减数
+     Complex2: TCnBigComplexDecimal       - 大浮点复数减数
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalMul(Res: TCnBigComplexDecimal;
+  Complex1: TCnBigComplexDecimal; Complex2: TCnBigComplexDecimal); overload;
+{* 大浮点复数乘法。Complex1 和 Complex2 相乘，结果存入大浮点复数 Res 中，Res 可以是 Complex1 或 Complex2。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 结果大浮点复数
+     Complex1: TCnBigComplexDecimal       - 大浮点复数乘数一
+     Complex2: TCnBigComplexDecimal       - 大浮点复数乘数二
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalDiv(Res: TCnBigComplexDecimal;
+  Complex1: TCnBigComplexDecimal; Complex2: TCnBigComplexDecimal; DivPrecision: Integer = 0);
+{* 大浮点复数除法。Complex1 和 Complex2 相除，结果存入大浮点复数 Res 中，Res 可以是 Complex1 或 Complex2。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 结果大浮点复数
+     Complex1: TCnBigComplexDecimal       - 大浮点复数被除数
+     Complex2: TCnBigComplexDecimal       - 大浮点复数除数
+     DivPrecision: Integer                - 保留小数点后几位，0 表示按默认设置来
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalAdd(Res: TCnBigComplexDecimal;
+  Complex: TCnBigComplexDecimal; Value: Int64); overload;
+{* 大浮点复数与整数加法。Complex 和 Value 相加，结果存入 Res 中，Res 可以是 Complex。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 结果大浮点复数
+     Complex: TCnBigComplexDecimal        - 大浮点复数加数
+     Value: Int64                         - 大浮点整数加数
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalSub(Res: TCnBigComplexDecimal;
+  Complex: TCnBigComplexDecimal; Value: Int64); overload;
+{* 大浮点复数与整数减法。Complex 和 Value 相减，结果存入 Res 中，Res 可以是 Complex。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 结果大浮点复数
+     Complex: TCnBigComplexDecimal        - 大浮点复数被减数
+     Value: Int64                         - 大浮点整数减数
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalMul(Res: TCnBigComplexDecimal;
+  Complex: TCnBigComplexDecimal; Value: Int64); overload;
+{* 大浮点复数与整数乘法。Complex 和 Value 相乘，结果存入 Res 中，Res 可以是 Complex。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 结果大浮点复数
+     Complex: TCnBigComplexDecimal        - 大浮点复数乘数
+     Value: Int64                         - 整数乘数
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalRealMul(Res, Num: TCnBigComplexDecimal;
+  RealValue: TCnBigDecimal);
+{* 大浮点复数与大浮点实数的乘法，Res 和 Num 可以是同一个对象。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 结果大浮点复数
+     Num: TCnBigComplexDecimal            - 大浮点复数乘数
+     RealValue: TCnBigDecimal             - 大浮点数乘数
+
+   返回值：（无）
+}
+
+function BigComplexDecimalPower(Res, Num: TCnBigComplexDecimal;
+  N: Integer): Boolean;
+{* 大浮点复数的整数次幂，Res 和 Num 可以是同一个对象。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 结果大浮点复数
+     Num: TCnBigComplexDecimal            - 大浮点复数底
+     N: Integer                           - 指数
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalNegate(Res: TCnBigComplexDecimal; Complex: TCnBigComplexDecimal);
+{* 求大浮点复数的相反数。结果存入 Res 中，Res 可以是 Complex。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 结果复数取负值
+     Complex: TCnBigComplexDecimal        - 待取负的复数
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalConjugate(Res: TCnBigComplexDecimal; Complex: TCnBigComplexDecimal);
+{* 求大浮点复数的共轭。结果存入 Res 中，Res 可以是 Complex。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 结果复数共轭
+     Complex: TCnBigComplexDecimal        - 待共轭的复数
+
+   返回值：（无）
+}
+
+function BigComplexDecimalIsPureReal(Complex: TCnBigComplexDecimal): Boolean;
+{* 判断大浮点复数是否为纯实数，也即判断虚部是否为 0。
+
+   参数：
+     Complex: TCnBigComplexDecimal        - 待判断的复数
+
+   返回值：Boolean                        - 复数是否为纯实数
+}
+
+function BigComplexDecimalIsPureImaginary(Complex: TCnBigComplexDecimal): Boolean;
+{* 判断大浮点复数是否为纯虚数，也即判断实部是否为 0 虚部不为 0。
+
+   参数：
+     Complex: TCnBigComplexDecimal        - 待判断的复数
+
+   返回值：Boolean                        - 复数是否为纯虚数
+}
+
+function BigComplexDecimalAbsoluteValue(Complex: TCnBigComplexDecimal): Extended; overload;
+{* 返回大浮点复数的绝对值，也即复平面上原点的距离，以浮点数表示。
+
+   参数：
+     Complex: TCnBigComplexDecimal        - 待求绝对值的大浮点复数
+
+   返回值：Extended                       - 返回复大浮点数的绝对值
+}
+
+function BigComplexDecimalAbsoluteValue(Res: TCnBigDecimal; Complex: TCnBigComplexDecimal;
+  Precision: Integer = 0): Boolean; overload;
+{* 返回大浮点复数的绝对值，也即复平面上原点的距离，以大数表示。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 用于存放结果的大浮点复数
+     Complex: TCnBigComplexDecimal        - 待求绝对值的大浮点复数
+     Precision: Integer                   - 保留小数点后几位，0 表示按默认设置来
+
+   返回值：Boolean                        - 运算是否赋值成功
+}
+
+function BigComplexDecimalArgument(Complex: TCnBigComplexDecimal): Extended;
+{* 返回大浮点复数的辐角值，也即复平面上与 X 轴的夹角，范围从 0 到 2π。
+
+   参数：
+     Complex: TCnBigComplexDecimal        - 待求辐角的大浮点复数
+
+   返回值：Extended                       - 返回大浮点复数的辐角值，单位为弧度
+}
+
 
 var
   CnComplexZero: TCnComplexNumber;
@@ -565,7 +1166,27 @@ var
   CnBigComplexNumberNegOneI: TCnBigComplexNumber;
   {* 复数 -i}
 
+  CnBigComplexDecimalZero: TCnBigComplexDecimal;
+  {* 全局复数 0}
+
+  CnBigComplexDecimalOne: TCnBigComplexDecimal;
+  {* 全局复数 1}
+
+  CnBigComplexDecimalOneI: TCnBigComplexDecimal;
+  {* 全局复数 i}
+
+  CnBigComplexDecimalNegOneI: TCnBigComplexDecimal;
+  {* 全局复数 -i}
+
 implementation
+
+uses
+  CnMath;
+
+var
+  FBigComplexDecimalPool: TCnBigComplexDecimalPool = nil;
+  FBigDecimalPool: TCnBigDecimalPool = nil;
+  FBigNumberPool: TCnBigNumberPool = nil;
 
 function ComplexNumberIsZero(var Complex: TCnComplexNumber): Boolean;
 begin
@@ -576,6 +1197,18 @@ procedure ComplexNumberSetZero(var Complex: TCnComplexNumber);
 begin
   Complex.R := 0.0;
   Complex.I := 0.0;
+end;
+
+procedure ComplexNumberSetOne(var Complex: TCnComplexNumber);
+begin
+  Complex.R := 1.0;
+  Complex.I := 0.0;
+end;
+
+procedure ComplexNumberSetI(var Complex: TCnComplexNumber);
+begin
+  Complex.R := 0.0;
+  Complex.I := 1.0;
 end;
 
 procedure ComplexNumberSetValue(var Complex: TCnComplexNumber; AR, AI: Extended);
@@ -690,24 +1323,30 @@ procedure ComplexNumberMul(var Res: TCnComplexNumber;
   var Complex: TCnComplexNumber; Value: Extended); overload;
 begin
   Res.R := Complex.R * Value;
-  Res.I := Complex.I;
+  Res.I := Complex.I * Value;
 end;
 
 procedure ComplexNumberDiv(var Res: TCnComplexNumber;
   var Complex: TCnComplexNumber; Value: Extended); overload;
 begin
   Res.R := Complex.R / Value;
-  Res.I := Complex.I;
+  Res.I := Complex.I / Value;
 end;
 
 procedure ComplexNumberSqrt(var Res: TCnComplexNumber; var Complex: TCnComplexNumber);
 var
   R, A: Extended;
 begin
-  R := FloatSqrt(ComplexNumberAbsolute(Complex));
+  R := FloatSqrt(ComplexNumberAbsoluteValue(Complex));
   A := ComplexNumberArgument(Complex) / 2;
 
   ComplexNumberSetAbsoluteArgument(Res, R, A);
+end;
+
+procedure ComplexNegate(var Res: TCnComplexNumber; var Complex: TCnComplexNumber);
+begin
+  Res.R := -Complex.R;
+  Res.I := -Complex.I;
 end;
 
 procedure ComplexConjugate(var Res, Complex: TCnComplexNumber);
@@ -726,7 +1365,7 @@ begin
   Result := FloatEqual(Complex.R, 0.0) and not FloatEqual(Complex.I, 0.0);
 end;
 
-function ComplexNumberAbsolute(var Complex: TCnComplexNumber): Extended;
+function ComplexNumberAbsoluteValue(var Complex: TCnComplexNumber): Extended;
 begin
   Result := Sqrt(Complex.R * Complex.R + Complex.I * Complex.I);
 end;
@@ -762,22 +1401,6 @@ begin
   Complex.I := AnAbsolute * Sin(AnArgument);
 end;
 
-{ TCnBigComplexNumber }
-
-constructor TCnBigComplexNumber.Create;
-begin
-  inherited;
-  FR := TCnBigNumber.Create;
-  FI := TCnBigNumber.Create;
-end;
-
-destructor TCnBigComplexNumber.Destroy;
-begin
-  FI.Free;
-  FR.Free;
-  inherited;
-end;
-
 function BigComplexNumberIsZero(Complex: TCnBigComplexNumber): Boolean;
 begin
   Result := Complex.FR.IsZero and Complex.FI.IsZero;
@@ -787,6 +1410,18 @@ procedure BigComplexNumberSetZero(Complex: TCnBigComplexNumber);
 begin
   Complex.FR.SetZero;
   Complex.FI.SetZero;
+end;
+
+procedure BigComplexNumberSetOne(Complex: TCnBigComplexNumber);
+begin
+  Complex.FR.SetOne;
+  Complex.FI.SetZero;
+end;
+
+procedure BigComplexNumberSetI(Complex: TCnBigComplexNumber);
+begin
+  Complex.FR.SetZero;
+  Complex.FI.SetOne;
 end;
 
 procedure BigComplexNumberSetValue(Complex: TCnBigComplexNumber;
@@ -805,9 +1440,9 @@ end;
 
 function BigComplexNumberToString(Complex: TCnBigComplexNumber): string;
 begin
-  if BigComplexIsPureReal(Complex) then
+  if BigComplexNumberIsPureReal(Complex) then
     Result := Complex.FR.ToDec
-  else if BigComplexIsPureImaginary(Complex) then
+  else if BigComplexNumberIsPureImaginary(Complex) then
     Result := Complex.FI.ToDec + 'i'
   else if Complex.FI.IsNegative then
     Result := Complex.FR.ToDec + Complex.FI.ToDec
@@ -848,9 +1483,28 @@ end;
 
 procedure BigComplexNumberMul(Res: TCnBigComplexNumber;
   Complex1: TCnBigComplexNumber; Complex2: TCnBigComplexNumber);
+var
+  T1, T2, T3, T4: TCnBigNumber;
 begin
-  BigNumberMul(Res.FR, Complex1.FR, Complex2.FR);
-  BigNumberMul(Res.FI, Complex1.FI, Complex2.FI);
+  // (a+bi) * (c+di) = (ac-bd) + (ad+bc)i
+  T1 := FBigNumberPool.Obtain;
+  T2 := FBigNumberPool.Obtain;
+  T3 := FBigNumberPool.Obtain;
+  T4 := FBigNumberPool.Obtain;
+  try
+    BigNumberMul(T1, Complex1.FR, Complex2.FR);  // ac
+    BigNumberMul(T2, Complex1.FI, Complex2.FI);  // bd
+    BigNumberMul(T3, Complex1.FR, Complex2.FI);  // ad
+    BigNumberMul(T4, Complex1.FI, Complex2.FR);  // bc
+
+    BigNumberSub(Res.FR, T1, T2);  // ac - bd
+    BigNumberAdd(Res.FI, T3, T4);  // ad + bc
+  finally
+    FBigNumberPool.Recycle(T4);
+    FBigNumberPool.Recycle(T3);
+    FBigNumberPool.Recycle(T2);
+    FBigNumberPool.Recycle(T1);
+  end;
 end;
 
 procedure BigComplexNumberAdd(Res: TCnBigComplexNumber;
@@ -899,24 +1553,32 @@ begin
   end;
 end;
 
-procedure BigComplexConjugate(Res: TCnBigComplexNumber; Complex: TCnBigComplexNumber);
+procedure BigComplexNumberNegate(Res: TCnBigComplexNumber; Complex: TCnBigComplexNumber);
+begin
+  BigNumberCopy(Res.FR, Complex.FR);
+  BigNumberCopy(Res.FI, Complex.FI);
+  Res.FR.Negate;
+  Res.FI.Negate;
+end;
+
+procedure BigComplexNumberConjugate(Res: TCnBigComplexNumber; Complex: TCnBigComplexNumber);
 begin
   BigNumberCopy(Res.FR, Complex.FR);
   BigNumberCopy(Res.FI, Complex.FI);
   Res.FI.Negate;
 end;
 
-function BigComplexIsPureReal(Complex: TCnBigComplexNumber): Boolean;
+function BigComplexNumberIsPureReal(Complex: TCnBigComplexNumber): Boolean;
 begin
   Result := Complex.FI.IsZero;
 end;
 
-function BigComplexIsPureImaginary(Complex: TCnBigComplexNumber): Boolean;
+function BigComplexNumberIsPureImaginary(Complex: TCnBigComplexNumber): Boolean;
 begin
   Result := Complex.FR.IsZero and not Complex.FI.IsZero;
 end;
 
-function BigComplexNumberAbsolute(Complex: TCnBigComplexNumber): Extended;
+function BigComplexNumberAbsoluteValue(Complex: TCnBigComplexNumber): Extended;
 var
   X, Y: Extended;
 begin
@@ -925,7 +1587,7 @@ begin
   Result := Sqrt(X * X + Y * Y);
 end;
 
-function BigComplexNumberAbsolute(Res: TCnBigNumber; Complex: TCnBigComplexNumber): Boolean;
+function BigComplexNumberAbsoluteValue(Res: TCnBigNumber; Complex: TCnBigComplexNumber): Boolean;
 var
   X, Y: TCnBigNumber;
 begin
@@ -966,6 +1628,550 @@ begin
   end;
 end;
 
+{ TCnBigComplexNumber }
+
+function TCnBigComplexNumber.AbsoluteValue(Res: TCnBigNumber): Boolean;
+begin
+  Result := BigComplexNumberAbsoluteValue(Res, Self);
+end;
+
+function TCnBigComplexNumber.AbsoluteValue: Extended;
+begin
+  Result := BigComplexNumberAbsoluteValue(Self);
+end;
+
+function TCnBigComplexNumber.Argument: Extended;
+begin
+  Result := BigComplexNumberArgument(Self);
+end;
+
+procedure TCnBigComplexNumber.Conjugate;
+begin
+  BigComplexNumberConjugate(Self, Self);
+end;
+
+constructor TCnBigComplexNumber.Create;
+begin
+  inherited;
+  FR := TCnBigNumber.Create;
+  FI := TCnBigNumber.Create;
+end;
+
+destructor TCnBigComplexNumber.Destroy;
+begin
+  FI.Free;
+  FR.Free;
+  inherited;
+end;
+
+function TCnBigComplexNumber.IsPureImaginary: Boolean;
+begin
+  Result := BigComplexNumberIsPureImaginary(Self);
+end;
+
+function TCnBigComplexNumber.IsPureReal: Boolean;
+begin
+  Result := BigComplexNumberIsPureReal(Self);
+end;
+
+function TCnBigComplexNumber.IsZero: Boolean;
+begin
+  Result := BigComplexNumberIsZero(Self);
+end;
+
+procedure TCnBigComplexNumber.Negate;
+begin
+  BigComplexNumberNegate(Self, Self);
+end;
+
+procedure TCnBigComplexNumber.SetI;
+begin
+  BigComplexNumberSetI(Self);
+end;
+
+procedure TCnBigComplexNumber.SetOne;
+begin
+  BigComplexNumberSetOne(Self);
+end;
+
+procedure TCnBigComplexNumber.SetValue(const AR, AI: string);
+begin
+  BigComplexNumberSetValue(Self, AR, AI);
+end;
+
+procedure TCnBigComplexNumber.SetValue(AR, AI: Int64);
+begin
+  BigComplexNumberSetValue(Self, AR, AI);
+end;
+
+procedure TCnBigComplexNumber.SetZero;
+begin
+  BigComplexNumberSetZero(Self);
+end;
+
+function TCnBigComplexNumber.ToString: string;
+begin
+  Result := BigComplexNumberToString(Self);
+end;
+
+function BigComplexDecimalIsZero(Complex: TCnBigComplexDecimal): Boolean;
+begin
+  Result := Complex.FR.IsZero and Complex.FI.IsZero;
+end;
+
+procedure BigComplexDecimalSetZero(Complex: TCnBigComplexDecimal);
+begin
+  Complex.FR.SetZero;
+  Complex.FI.SetZero;
+end;
+
+procedure BigComplexDecimalSetOne(Complex: TCnBigComplexDecimal);
+begin
+  Complex.FR.SetOne;
+  Complex.FI.SetZero;
+end;
+
+procedure BigComplexDecimalSetI(Complex: TCnBigComplexDecimal);
+begin
+  Complex.FR.SetZero;
+  Complex.FI.SetOne;
+end;
+
+procedure BigComplexDecimalSetValue(Complex: TCnBigComplexDecimal;
+  AR: Int64; AI: Int64);
+begin
+  Complex.FR.SetInt64(AR);
+  Complex.FI.SetInt64(AI);
+end;
+
+procedure BigComplexDecimalSetValue(Complex: TCnBigComplexDecimal;
+  const AR: string; const AI: string);
+begin
+  Complex.FR.SetDec(AR);
+  Complex.FI.SetDec(AI);
+end;
+
+function BigComplexDecimalToString(Complex: TCnBigComplexDecimal): string;
+begin
+  if BigComplexDecimalIsPureReal(Complex) then
+    Result := Complex.FR.ToString
+  else if BigComplexDecimalIsPureImaginary(Complex) then
+    Result := Complex.FI.ToString + 'i'
+  else if Complex.FI.IsNegative then
+    Result := Complex.FR.ToString + Complex.FI.ToString + 'i'
+  else
+    Result := Complex.FR.ToString + '+' + Complex.FI.ToString + 'i';
+end;
+
+function BigComplexDecimalEqual(Complex1: TCnBigComplexDecimal; Complex2: TCnBigComplexDecimal): Boolean;
+begin
+  Result := BigDecimalEqual(Complex1.FR, Complex2.FR) and BigDecimalEqual(Complex1.FI, Complex2.FI);
+end;
+
+procedure BigComplexDecimalSwap(Complex1: TCnBigComplexDecimal; Complex2: TCnBigComplexDecimal);
+var
+  T: TCnBigDecimal;
+begin
+  T := FBigDecimalPool.Obtain;
+  try
+    BigDecimalCopy(T, Complex1.FR);
+    BigDecimalCopy(Complex1.FR, Complex2.FR);
+    BigDecimalCopy(Complex2.FR, T);
+
+    BigDecimalCopy(T, Complex1.FI);
+    BigDecimalCopy(Complex1.FI, Complex2.FI);
+    BigDecimalCopy(Complex2.FI, T);
+  finally
+    FBigDecimalPool.Recycle(T);
+  end;
+end;
+
+procedure BigComplexDecimalCopy(Dst: TCnBigComplexDecimal; Src: TCnBigComplexDecimal);
+begin
+  BigDecimalCopy(Dst.FR, Src.FR);
+  BigDecimalCopy(Dst.FI, Src.FI);
+end;
+
+procedure BigComplexDecimalAdd(Res: TCnBigComplexDecimal;
+  Complex1: TCnBigComplexDecimal; Complex2: TCnBigComplexDecimal);
+begin
+  BigDecimalAdd(Res.FR, Complex1.FR, Complex2.FR);
+  BigDecimalAdd(Res.FI, Complex1.FI, Complex2.FI);
+end;
+
+procedure BigComplexDecimalSub(Res: TCnBigComplexDecimal;
+  Complex1: TCnBigComplexDecimal; Complex2: TCnBigComplexDecimal);
+begin
+  BigDecimalSub(Res.FR, Complex1.FR, Complex2.FR);
+  BigDecimalSub(Res.FI, Complex1.FI, Complex2.FI);
+end;
+
+procedure BigComplexDecimalMul(Res: TCnBigComplexDecimal;
+  Complex1: TCnBigComplexDecimal; Complex2: TCnBigComplexDecimal);
+var
+  T1, T2, T3, T4: TCnBigDecimal;
+begin
+  T1 := FBigDecimalPool.Obtain;
+  T2 := FBigDecimalPool.Obtain;
+  T3 := FBigDecimalPool.Obtain;
+  T4 := FBigDecimalPool.Obtain;
+  try
+    BigDecimalMul(T1, Complex1.FR, Complex2.FR);
+    BigDecimalMul(T2, Complex1.FI, Complex2.FI);
+    BigDecimalMul(T3, Complex1.FR, Complex2.FI);
+    BigDecimalMul(T4, Complex1.FI, Complex2.FR);
+
+    BigDecimalSub(Res.FR, T1, T2);
+    BigDecimalAdd(Res.FI, T3, T4);
+  finally
+    FBigDecimalPool.Recycle(T4);
+    FBigDecimalPool.Recycle(T3);
+    FBigDecimalPool.Recycle(T2);
+    FBigDecimalPool.Recycle(T1);
+  end;
+end;
+
+procedure BigComplexDecimalDiv(Res: TCnBigComplexDecimal;
+  Complex1: TCnBigComplexDecimal; Complex2: TCnBigComplexDecimal; DivPrecision: Integer);
+var
+  T1, T2, D: TCnBigDecimal;
+begin
+  T1 := FBigDecimalPool.Obtain;;
+  T2 := FBigDecimalPool.Obtain;;
+  D := FBigDecimalPool.Obtain;;
+  try
+    BigDecimalMul(T1, Complex2.FR, Complex2.FR);
+    BigDecimalMul(T2, Complex2.FI, Complex2.FI);
+    BigDecimalAdd(D, T1, T2);
+
+    if D.IsZero then
+      raise EZeroDivide.Create(SZeroDivide);
+
+    BigDecimalMul(T1, Complex1.FR, Complex2.FR);
+    BigDecimalMul(T2, Complex1.FI, Complex2.FI);
+    BigDecimalAdd(T1, T1, T2);
+    BigDecimalDiv(Res.FR, T1, D, DivPrecision);
+
+    BigDecimalMul(T1, Complex1.FI, Complex2.FR);
+    BigDecimalMul(T2, Complex1.FR, Complex2.FI);
+    BigDecimalSub(T1, T1, T2);
+    BigDecimalDiv(Res.FI, T1, D, DivPrecision);
+  finally
+    FBigDecimalPool.Recycle(D);
+    FBigDecimalPool.Recycle(T2);
+    FBigDecimalPool.Recycle(T1);
+  end;
+end;
+
+procedure BigComplexDecimalAdd(Res: TCnBigComplexDecimal;
+  Complex: TCnBigComplexDecimal; Value: Int64);
+var
+  T: TCnBigDecimal;
+begin
+  BigComplexDecimalCopy(Res, Complex);
+
+  T := FBigDecimalPool.Obtain;
+  try
+    T.SetInt64(Value);
+    BigDecimalAdd(Res.FR, Res.FR, T);
+  finally
+    FBigDecimalPool.Recycle(T);
+  end;
+end;
+
+procedure BigComplexDecimalSub(Res: TCnBigComplexDecimal;
+  Complex: TCnBigComplexDecimal; Value: Int64);
+var
+  T: TCnBigDecimal;
+begin
+  BigComplexDecimalCopy(Res, Complex);
+
+  T := FBigDecimalPool.Obtain;
+  try
+    T.SetInt64(Value);
+    BigDecimalSub(Res.FR, Res.FR, T);
+  finally
+    FBigDecimalPool.Recycle(T);
+  end;
+end;
+
+procedure BigComplexDecimalMul(Res: TCnBigComplexDecimal;
+  Complex: TCnBigComplexDecimal; Value: Int64);
+var
+  T: TCnBigDecimal;
+begin
+  BigComplexDecimalCopy(Res, Complex);
+
+  T := FBigDecimalPool.Obtain;
+  try
+    T.SetInt64(Value);
+    BigDecimalMul(Res.FR, Res.FR, T);
+    BigDecimalMul(Res.FI, Res.FI, T);
+  finally
+    FBigDecimalPool.Recycle(T);
+  end;
+end;
+
+procedure BigComplexDecimalRealMul(Res, Num: TCnBigComplexDecimal;
+  RealValue: TCnBigDecimal);
+begin
+  BigDecimalMul(Res.FR, Num.FR, RealValue);
+  BigDecimalMul(Res.FI, Num.FI, RealValue);
+end;
+
+function BigComplexDecimalPower(Res, Num: TCnBigComplexDecimal;
+  N: Integer): Boolean;
+var
+  T: TCnBigComplexDecimal;
+begin
+  Result := True;
+  if N = 0 then
+  begin
+    Res.SetOne;
+    Exit;
+  end
+  else if N = 1 then
+  begin
+    if Res <> Num then
+      BigComplexDecimalCopy(Res, Num);
+    Exit;
+  end;
+
+  if N < 0 then
+  begin
+    T := FBigComplexDecimalPool.Obtain;
+    try
+      T.SetOne;
+      BigComplexDecimalDiv(T, T, Num);
+      Result := BigComplexDecimalPower(Res, T, -N);
+      Exit;
+    finally
+      FBigComplexDecimalPool.Recycle(T);
+    end;
+  end;
+
+  T := FBigComplexDecimalPool.Obtain;
+  try
+    BigComplexDecimalCopy(T, Num);
+    Res.SetOne;
+
+    while N > 0 do
+    begin
+      if (N and 1) = 1 then
+        BigComplexDecimalMul(Res, Res, T);
+
+      N := N shr 1;
+      if N > 0 then
+        BigComplexDecimalMul(T, T, T);
+    end;
+  finally
+    FBigComplexDecimalPool.Recycle(T);
+  end;
+end;
+
+procedure BigComplexDecimalNegate(Res: TCnBigComplexDecimal; Complex: TCnBigComplexDecimal);
+begin
+  BigDecimalCopy(Res.FR, Complex.FR);
+  BigDecimalCopy(Res.FI, Complex.FI);
+  Res.FR.Negate;
+  Res.FI.Negate;
+end;
+
+procedure BigComplexDecimalConjugate(Res: TCnBigComplexDecimal; Complex: TCnBigComplexDecimal);
+begin
+  BigDecimalCopy(Res.FR, Complex.FR);
+  BigDecimalCopy(Res.FI, Complex.FI);
+  Res.FI.Negate;
+end;
+
+function BigComplexDecimalIsPureReal(Complex: TCnBigComplexDecimal): Boolean;
+begin
+  Result := Complex.FI.IsZero;
+end;
+
+function BigComplexDecimalIsPureImaginary(Complex: TCnBigComplexDecimal): Boolean;
+begin
+  Result := Complex.FR.IsZero and not Complex.FI.IsZero;
+end;
+
+function BigComplexDecimalAbsoluteValue(Complex: TCnBigComplexDecimal): Extended;
+var
+  X, Y: TCnBigDecimal;
+begin
+  X := FBigDecimalPool.Obtain;
+  Y := FBigDecimalPool.Obtain;
+  try
+    BigDecimalMul(X, Complex.FR, Complex.FR);
+    BigDecimalMul(Y, Complex.FI, Complex.FI);
+
+    BigDecimalAdd(X, X, Y);
+    BigDecimalSqrt(Y, X);
+    Result := BigDecimalToExtended(Y);
+  finally
+    FBigDecimalPool.Recycle(Y);
+    FBigDecimalPool.Recycle(X);
+  end;
+end;
+
+function BigComplexDecimalAbsoluteValue(Res: TCnBigDecimal;
+  Complex: TCnBigComplexDecimal; Precision: Integer): Boolean;
+var
+  X, Y: TCnBigDecimal;
+begin
+  X := FBigDecimalPool.Obtain;
+  Y := FBigDecimalPool.Obtain;
+  try
+    BigDecimalMul(X, Complex.FR, Complex.FR);
+    BigDecimalMul(Y, Complex.FI, Complex.FI);
+    BigDecimalAdd(Res, X, Y);
+    Result := BigDecimalSqrt(Res, Res, Precision);
+  finally
+    FBigDecimalPool.Recycle(Y);
+    FBigDecimalPool.Recycle(X);
+  end;
+end;
+
+function BigComplexDecimalArgument(Complex: TCnBigComplexDecimal): Extended;
+var
+  X, Y: Extended;
+begin
+  X := BigDecimalToExtended(Complex.FR);
+  Y := BigDecimalToExtended(Complex.FI);
+
+  if Complex.FI.IsZero then
+  begin
+    if not Complex.FR.IsNegative then
+      Result := 0
+    else
+      Result := CN_PI;
+  end
+  else if Complex.FR.IsZero then
+  begin
+    if not Complex.FI.IsNegative then
+      Result := CN_PI / 2
+    else
+      Result := CN_PI + CN_PI / 2;
+  end
+  else
+  begin
+    Result := ArcTan2(Y, X);
+    if Result < 0 then
+      Result := Result + CN_PI * 2;
+  end;
+end;
+
+{ TCnBigComplexDecimal }
+
+constructor TCnBigComplexDecimal.Create;
+begin
+  inherited;
+  FR := TCnBigDecimal.Create;
+  FI := TCnBigDecimal.Create;
+end;
+
+destructor TCnBigComplexDecimal.Destroy;
+begin
+  FI.Free;
+  FR.Free;
+  inherited;
+end;
+
+function TCnBigComplexDecimal.AbsoluteValue(Res: TCnBigDecimal;
+  Precision: Integer): Boolean;
+begin
+  Result := BigComplexDecimalAbsoluteValue(Res, Self, Precision);
+end;
+
+function TCnBigComplexDecimal.AbsoluteValue: Extended;
+begin
+  Result := BigComplexDecimalAbsoluteValue(Self);
+end;
+
+function TCnBigComplexDecimal.Argument: Extended;
+begin
+  Result := BigComplexDecimalArgument(Self);
+end;
+
+procedure TCnBigComplexDecimal.Conjugate;
+begin
+  BigComplexDecimalConjugate(Self, Self);
+end;
+
+function TCnBigComplexDecimal.IsPureImaginary: Boolean;
+begin
+  Result := BigComplexDecimalIsPureImaginary(Self);
+end;
+
+function TCnBigComplexDecimal.IsPureReal: Boolean;
+begin
+  Result := BigComplexDecimalIsPureReal(Self);
+end;
+
+function TCnBigComplexDecimal.IsZero: Boolean;
+begin
+  Result := BigComplexDecimalIsZero(Self);
+end;
+
+procedure TCnBigComplexDecimal.Negate;
+begin
+  BigComplexDecimalNegate(Self, Self);
+end;
+
+procedure TCnBigComplexDecimal.SetI;
+begin
+  BigComplexDecimalSetI(Self);
+end;
+
+procedure TCnBigComplexDecimal.SetOne;
+begin
+  BigComplexDecimalSetOne(Self);
+end;
+
+procedure TCnBigComplexDecimal.SetValue(const AR, AI: string);
+begin
+  BigComplexDecimalSetValue(Self, AR, AI);
+end;
+
+procedure TCnBigComplexDecimal.SetValue(AR, AI: Int64);
+begin
+  BigComplexDecimalSetValue(Self, AR, AI);
+end;
+
+procedure TCnBigComplexDecimal.SetZero;
+begin
+  BigComplexDecimalSetZero(Self);
+end;
+
+function TCnBigComplexDecimal.ToString: string;
+begin
+  Result := BigComplexDecimalToString(Self);
+end;
+
+procedure TCnBigComplexDecimal.RoundTo(Precision: Integer;
+  RoundMode: TCnBigRoundMode);
+begin
+  FR.RoundTo(Precision, RoundMode);
+  FI.RoundTo(Precision, RoundMode);
+end;
+
+{ TCnBigComplexDecimalPool }
+
+function TCnBigComplexDecimalPool.CreateObject: TObject;
+begin
+  Result := TCnBigComplexDecimal.Create;
+end;
+
+function TCnBigComplexDecimalPool.Obtain: TCnBigComplexDecimal;
+begin
+  Result := TCnBigComplexDecimal(inherited Obtain);
+  Result.SetZero;
+end;
+
+procedure TCnBigComplexDecimalPool.Recycle(Num: TCnBigComplexDecimal);
+begin
+  inherited Recycle(Num);
+end;
+
 initialization
   ComplexNumberSetZero(CnComplexZero);
 
@@ -994,7 +2200,36 @@ initialization
   CnBigComplexNumberNegOneI.FR.SetZero;
   CnBigComplexNumberNegOneI.FI.SetInteger(-1);
 
+  CnBigComplexDecimalZero := TCnBigComplexDecimal.Create;
+  CnBigComplexDecimalZero.FR.SetZero;
+  CnBigComplexDecimalZero.FI.SetZero;
+
+  CnBigComplexDecimalOne := TCnBigComplexDecimal.Create;
+  CnBigComplexDecimalOne.FR.SetOne;
+  CnBigComplexDecimalOne.FI.SetZero;
+
+  CnBigComplexDecimalOneI := TCnBigComplexDecimal.Create;
+  CnBigComplexDecimalOneI.FR.SetZero;
+  CnBigComplexDecimalOneI.FI.SetOne;
+
+  CnBigComplexDecimalNegOneI := TCnBigComplexDecimal.Create;
+  CnBigComplexDecimalNegOneI.FR.SetZero;
+  CnBigComplexDecimalNegOneI.FI.SetInt64(-1);
+
+  FBigComplexDecimalPool := TCnBigComplexDecimalPool.Create;
+  FBigDecimalPool := TCnBigDecimalPool.Create;
+  FBigNumberPool := TCnBigNumberPool.Create;
+
 finalization
+  FBigNumberPool.Free;
+  FBigDecimalPool.Free;
+  FBigComplexDecimalPool.Free;
+
+  CnBigComplexDecimalNegOneI.Free;
+  CnBigComplexDecimalOneI.Free;
+  CnBigComplexDecimalOne.Free;
+  CnBigComplexDecimalZero.Free;
+
   CnBigComplexNumberNegOneI.Free;
   CnBigComplexNumberOneI.Free;
   CnBigComplexNumberOne.Free;

@@ -24,7 +24,7 @@ unit CnQRCode;
 * 软件名称：开发包基础库
 * 单元名称：二维码生成单元
 * 单元作者：CnPack 开发组
-* 备    注：本单元实现了二维码编码功能，可配合 CnQRImage 实现绘制。
+* 备    注：本单元实现了二维码编码功能，可配合 CnQRCodeImage 控件实现绘制。
 
 *           二维码编码内部位操作使用 CnBits，但大部分是 MSB First 模式，
 *           也即符合阅读习惯的高位在前，和 CnBits 里大部分底位在前不同。
@@ -43,7 +43,7 @@ interface
 {$I CnPack.inc}
 
 uses
-  SysUtils, Classes, Graphics, Controls, ExtCtrls, CnBits, CnNative;
+  SysUtils, Classes, CnBits, CnNative;
 
 type
   TCnErrorRecoveryLevel = (erlL, erlM, erlQ, erlH);
@@ -55,27 +55,19 @@ type
   TCnQRData = array of array of Byte;
   {* 二维矩阵数据：[列, 行] 也就是 [X(Left), Y(Top)]。左上角为 [0, 0]}
 
-  TCnEncodeMode = (emNumeric, emAlphaNumeric, emByte, emWideChar);
+  TCnQREncodeMode = (emNumeric, emAlphaNumeric, emByte, emWideChar);
   {* 二维码内容模式}
 
   TCnQRGFPoly = record
   {* 二维码中使用的 Reed-Solomon 多项式结构}
     Num: Integer;
+    {* 多项式次数}
     Coeff: array of Byte;
+    {* 多项式系数}
   end;
 
   TCnQRWideCharMode = (cqwUtf8, cqwAnsi);
   {* 宽字符的编码模式，默认 Utf8。后者直接转 Ansi，如是汉字则是 GB18030 编码}
-
-  TCnQRCodeInfo = record
-  {* 二维码基本信息}
-    Mode: TCnEncodeMode;
-    CharCount: Integer;
-    DataBits: TCnBitBuilder;
-    ECCodewords: Integer;
-    DataCodewords: Integer;
-    TotalCodewords: Integer;
-  end;
 
   TCnQREncoder = class
   {* 二维码编码实现类}
@@ -106,47 +98,58 @@ type
     procedure UpdateVersionInfoBits;
     procedure PaintRect(Left, Top, Right, Bottom: Integer; Solid: Boolean = False);
     procedure SetQRWideCharMode(const Value: TCnQRWideCharMode);
-  protected
     procedure ClearData;
+
+    // 绘制位置探测图形
     procedure PaintPositionDetectionPattern;
-    {* 绘制位置探测图形}
+
+    // 绘制对齐图形
     procedure PaintAlignmentPattern;
-    {* 绘制对齐图形}
+
+    // 绘制时序图形
     procedure PaintTimingPattern;
-    {* 绘制时序图形}
+
+    // 绘制格式信息
     procedure PaintFormatInformation;
-    {* 绘制格式信息}
+
+    // 绘制版本信息
     procedure PaintVersionInformation;
-    {* 绘制版本信息}
+
+    // 计算并应用最佳 Mask 掩码
     procedure PaintMaskCoding;
-    {* 计算并应用最佳 Mask 掩码}
 
     // 数据编码相关方法
-    function AnalyzeRawText: TCnEncodeMode;
+    function AnalyzeRawText: TCnQREncodeMode;
     function EncodeNumeric(const AText: AnsiString): TCnBitBuilder;
     function EncodeAlphaNumeric(const AText: AnsiString): TCnBitBuilder;
     function EncodeByte(const AText: AnsiString): TCnBitBuilder;
-    function GetCharCountBits(Mode: TCnEncodeMode; Version: TCnQRCodeVersion): Integer;
+    function GetCharCountBits(Mode: TCnQREncodeMode; Version: TCnQRCodeVersion): Integer;
+    {* 根据编码模式和版本获取字符计数指示符的位长度}
     procedure EncodeText;
 
-    // Reed-Solomon 纠错码生成
-    function GenerateECCodewords(Data: TCnBitBuilder; ECCodewords: Integer):
-      TCnBitBuilder;
     function PolyMult(A, B: TCnQRGFPoly): TCnQRGFPoly;
+    {* 多项式乘法运算}
     function PolyMod(Dividend, Divisor: TCnQRGFPoly): TCnQRGFPoly;
+    {* 多项式除法运算}
     function GetGeneratorPoly(Num: Integer): TCnQRGFPoly;
+    {* 获取指定次数的生成多项式，用于 Reed-Solomon 编码}
 
     // 数据放置和掩码
     procedure PlaceDataBits;
     procedure ApplyMask(MaskType: Integer);
+    {* 应用指定的掩码类型到数据}
     function EvaluateMask(MaskType: Integer): Integer;
+    {* 评估指定掩码类型的优劣}
     function GetMaskPattern(X, Y, MaskType: Integer): Boolean;
+    {* 获取指定位置的掩码值}
 
     // BCH 编码
     function BCHEncode15(Data: Integer): Integer;
     function BCHEncode18(Data: Integer): Integer;
     function GetFormatBits(ErrorLevel: TCnErrorRecoveryLevel; MaskType: Integer): Integer;
+    {* 获取格式信息位}
     function GetVersionBits(Version: TCnQRCodeVersion): Integer;
+    {* 获取版本信息位}
 
     // 版本相关参数查询
     function GetTotalCodewords(Version: TCnQRCodeVersion): Integer;
@@ -159,28 +162,46 @@ type
     function IsFunctionArea(X, Y: Integer): Boolean;
 
     function AddEccAndInterleave(Data: TCnBitBuilder): TCnBitBuilder;
+    {* 添加纠错码并对数据进行交织}
     function ComputeBlockECC(const DataBytes: TBytes; ECCodewords: Integer): TBytes;
+    {* 计算数据块的纠错码}
     function BitBuilderToBytes(B: TCnBitBuilder; ByteCount: Integer): TBytes;
+    {* 将位构建器转换为字节数组}
 
     procedure PaintData;
-    function EvaluateMaskPenalty(MaskType: Integer): Integer;
+    {* 绘制数据到二维码矩阵}
   public
     constructor Create; virtual;
+    {* 构造函数}
     destructor Destroy; override;
+    {* 析构函数}
 
     // 调试相关输出
     function GetDataCodewordsBytes: TBytes;
+    {* 获取数据码字的字节数组}
     function GetAllCodewordsBytes: TBytes;
+    {* 获取所有码字（含纠错码）的字节数组}
     function GetFormatBitsValue: Integer;
+    {* 获取格式信息的位值}
     function GetVersionBitsValue: Integer;
+    {* 获取版本信息的位值}
+
     function DumpMatrix: string;
+    {* 导出二维码矩阵为字符串（应用掩码后）}
     function DumpMatrixUnmasked: string;
+    {* 导出二维码矩阵为字符串（应用掩码前）}
     function DumpFunctionArea: string;
+    {* 导出功能区域为字符串}
     function DumpFormatRowInfo: string;
+    {* 导出格式行信息为字符串}
     function DumpFormatColInfo: string;
+    {* 导出格式列信息为字符串}
     function DumpAlignmentCenters: string;
+    {* 导出对齐图形中心坐标为字符串}
     function DumpFormatRowIndices: string;
+    {* 导出格式行索引为字符串}
     function DumpFormatColIndices: string;
+    {* 导出格式列索引为字符串}
 
     // 对外公开的属性
     property QRVersion: TCnQRCodeVersion read FQRVersion write SetQRVersion;
@@ -196,9 +217,9 @@ type
     {* 生成的二维码的边长格子数}
 
     property QRData: TCnQRData read FQRData;
-    {* 生成的二维码数据}
+    {* 生成的二维码数据，是一个维度为 QRSize 的二维数组，每个元素 1 字节，为 1 代表黑格，否则白格}
     property MaskType: Integer read FMaskType;
-    {* 掩码类型}
+    {* 掩码类型，有八种}
   end;
 
 implementation
@@ -233,7 +254,9 @@ type
 
 const
   CN_QRCODE_FORMATINFO_LENGTH = 15;
+
   CN_QRCODE_VERSIONINFO_LENGTH = 18;
+
   CN_MASK_FORMATINFO: array[0..CN_QRCODE_FORMATINFO_LENGTH - 1] of Byte =
     (1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0);
 
@@ -948,7 +971,7 @@ begin
 end;
 
 // 数据编码方法
-function TCnQREncoder.AnalyzeRawText: TCnEncodeMode;
+function TCnQREncoder.AnalyzeRawText: TCnQREncodeMode;
 var
   I: Integer;
   HasAlphaNumeric, HasByte: Boolean;
@@ -977,7 +1000,7 @@ begin
     Result := emNumeric;
 end;
 
-function TCnQREncoder.GetCharCountBits(Mode: TCnEncodeMode; Version:
+function TCnQREncoder.GetCharCountBits(Mode: TCnQREncodeMode; Version:
   TCnQRCodeVersion): Integer;
 begin
   case Mode of
@@ -1245,7 +1268,7 @@ end;
 
 procedure TCnQREncoder.EncodeText;
 var
-  Mode: TCnEncodeMode;
+  Mode: TCnQREncodeMode;
   DataBits: TCnBitBuilder;
   TotalBits, RemainderBits, I, DataCount: Integer;
   NewVersion: TCnQRCodeVersion;
@@ -1316,54 +1339,6 @@ begin
   // 生成最终数据（包括纠错码）
   FFinalBits.Free;
   FFinalBits := AddEccAndInterleave(FDataBits);
-end;
-
-// Reed-Solomon 纠错码
-function TCnQREncoder.GenerateECCodewords(Data: TCnBitBuilder; ECCodewords:
-  Integer): TCnBitBuilder;
-var
-  I, J: Integer;
-  DataPoly, GeneratorPoly, MessagePoly: TCnQRGFPoly;
-  DataBytes: TBytes;
-begin
-  Result := TCnBitBuilder.Create;
-  SetLength(DataBytes, Data.BitLength div 8);
-
-  // 将位转换为字节
-  for I := 0 to High(DataBytes) do
-  begin
-    DataBytes[I] := 0;
-    for J := 0 to 7 do
-    begin
-      if Data.Bit[I * 8 + J] then
-        DataBytes[I] := DataBytes[I] or (1 shl (7 - J));
-    end;
-  end;
-
-  // 创建消息多项式
-  SetLength(MessagePoly.Coeff, Length(DataBytes) + ECCodewords);
-  MessagePoly.Num := Length(DataBytes) + ECCodewords - 1;
-  for I := 0 to High(DataBytes) do
-    MessagePoly.Coeff[I] := DataBytes[I];
-  for I := Length(DataBytes) to High(MessagePoly.Coeff) do
-    MessagePoly.Coeff[I] := 0;
-
-  // 获取生成器多项式
-  GeneratorPoly := GetGeneratorPoly(ECCodewords);
-
-  // 计算纠错码
-  DataPoly := PolyMod(MessagePoly, GeneratorPoly);
-
-  // 转换为位流
-  Result.BitLength := ECCodewords * 8;
-  for I := 0 to ECCodewords - 1 do
-  begin
-    for J := 0 to 7 do
-    begin
-      Result.Bit[I * 8 + J] :=
-        (DataPoly.Coeff[Length(DataPoly.Coeff) - ECCodewords + I] and (1 shl (7 - J))) <> 0;
-    end;
-  end;
 end;
 
 function TCnQREncoder.GetGeneratorPoly(Num: Integer): TCnQRGFPoly;
@@ -1991,7 +1966,7 @@ function TCnQREncoder.GetOptimalVersion(const AText: AnsiString; ErrorLevel:
   TCnErrorRecoveryLevel): TCnQRCodeVersion;
 var
   Version: TCnQRCodeVersion;
-  Mode: TCnEncodeMode;
+  Mode: TCnQREncodeMode;
   RequiredBits, AvailableBits, ModeBits, DataBits: Integer;
 begin
   Mode := AnalyzeRawText;
@@ -2191,11 +2166,6 @@ end;
 function TCnQREncoder.GetVersionBitsValue: Integer;
 begin
   Result := GetVersionBits(FQRVersion);
-end;
-
-function TCnQREncoder.EvaluateMaskPenalty(MaskType: Integer): Integer;
-begin
-  Result := EvaluateMask(MaskType);
 end;
 
 function TCnQREncoder.DumpMatrix: string;

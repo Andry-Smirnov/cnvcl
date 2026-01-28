@@ -37,7 +37,9 @@ unit CnPolynomial;
 * 开发平台：PWin7 + Delphi 5.0
 * 兼容测试：暂未进行
 * 本 地 化：该单元无需本地化处理
-* 修改记录：2023.09.01 V1.7
+* 修改记录：2026.01.25 V1.8
+*               调整有理数相关函数的参数顺序，注意和旧版不兼容
+*           2023.09.01 V1.7
 *               实现素数幂模下多项式环的整系数多项式求逆
 *           2021.12.01 V1.6
 *               实现 BigNumber 范围内的二元整系数多项式及其运算，包括有限域内
@@ -234,7 +236,7 @@ type
   TCnInt64RationalPolynomial = class(TPersistent)
   {* 一元整系数有理分式，分母分子分别为一元整系数多项式}
   private
-    FNominator: TCnInt64Polynomial;
+    FNumerator: TCnInt64Polynomial;
     FDenominator: TCnInt64Polynomial;
   protected
     procedure AssignTo(Dest: TPersistent); override;
@@ -304,7 +306,7 @@ type
        返回值：（无）
     }
 
-    property Nominator: TCnInt64Polynomial read FNominator;
+    property Numerator: TCnInt64Polynomial read FNumerator;
     {* 分子式}
     property Denominator: TCnInt64Polynomial read FDenominator;
     {* 分母式}
@@ -474,10 +476,34 @@ type
     {* 最高次数，0 开始}
   end;
 
+  TCnBigNumberPolynomialPool = class(TCnMathObjectPool)
+  {* 一元大整系数多项式池实现类，允许使用到一元大整数系数多项式的地方自行创建一元大整数系数多项式池}
+  protected
+    function CreateObject: TObject; override;
+  public
+    function Obtain: TCnBigNumberPolynomial; reintroduce;
+    {* 从对象池获取一个对象，不用时需调用 Recycle 归还。
+
+       参数：
+         （无）
+
+       返回值：TCnBigNumberPolynomial     - 返回的多项式对象
+    }
+
+    procedure Recycle(Poly: TCnBigNumberPolynomial); reintroduce;
+    {* 将一个对象归还至对象池。
+
+       参数：
+         Poly: TCnBigNumberPolynomial     - 待归还的多项式对象
+
+       返回值：（无）
+    }
+  end;
+
   TCnBigNumberRationalPolynomial = class(TPersistent)
   {* 一元大整系数有理分式，分母分子分别为一元大整系数多项式}
   private
-    FNominator: TCnBigNumberPolynomial;
+    FNumerator: TCnBigNumberPolynomial;
     FDenominator: TCnBigNumberPolynomial;
   protected
     procedure AssignTo(Dest: TPersistent); override;
@@ -547,34 +573,10 @@ type
        返回值：（无）
     }
 
-    property Nominator: TCnBigNumberPolynomial read FNominator;
+    property Numerator: TCnBigNumberPolynomial read FNumerator;
     {* 分子多项式}
     property Denominator: TCnBigNumberPolynomial read FDenominator;
     {* 分母多项式}
-  end;
-
-  TCnBigNumberPolynomialPool = class(TCnMathObjectPool)
-  {* 一元大整系数多项式池实现类，允许使用到一元大整数系数多项式的地方自行创建一元大整数系数多项式池}
-  protected
-    function CreateObject: TObject; override;
-  public
-    function Obtain: TCnBigNumberPolynomial; reintroduce;
-    {* 从对象池获取一个对象，不用时需调用 Recycle 归还。
-
-       参数：
-         （无）
-
-       返回值：TCnBigNumberPolynomial     - 返回的多项式对象
-    }
-
-    procedure Recycle(Poly: TCnBigNumberPolynomial); reintroduce;
-    {* 将一个对象归还至对象池。
-
-       参数：
-         Poly: TCnBigNumberPolynomial     - 待归还的多项式对象
-
-       返回值：（无）
-    }
   end;
 
   TCnBigNumberRationalPolynomialPool = class(TCnMathObjectPool)
@@ -600,6 +602,749 @@ type
        返回值：（无）
     }
   end;
+
+  TCnBigComplexPolynomial = class(TCnBigComplexList)
+  {* 一元大整数复数多项式}
+  private
+    procedure EnsureDegree(Degree: Integer);
+    function GetMaxDegree: Integer;
+    procedure SetMaxDegree(const Value: Integer);
+  public
+    constructor Create(LowToHighCoefficients: array of const); overload;
+    {* 构造函数，参数为从低到高的系数，注意系数初始化时大于 MaxInt32/MaxInt64 的会被当成 Integer/Int64 而变负。
+
+       参数：
+         LowToHighCoefficients: array of const            - 从 0 开始的低次到高次的多项式系数
+
+       返回值：                                           - 返回创建的对象实例
+    }
+
+    constructor Create; overload;
+    {* 构造函数}
+    destructor Destroy; override;
+    {* 析构函数}
+
+    procedure SetCoefficents(LowToHighCoefficients: array of const);
+    {* 一次批量设置从低到高的系数。
+
+       参数：
+         LowToHighCoefficients: array of const            - 从 0 开始的低次到高次的多项式系数
+
+       返回值：（无）
+    }
+
+    procedure SetCoefficent(Degree: Integer; Coefficient: TCnBigComplex);
+    {* 设置某次项的系数，内部值会从 Coefficient 中复制过去。
+
+       参数：
+         Degree: Integer                                  - 该项的多项式的次数
+         Coefficient: TCnBigComplex                        - 该项的多项式系数
+
+       返回值：（无）
+    }
+
+    procedure CorrectTop;
+    {* 剔除高次的 0 系数}
+
+    function ToString: string; {$IFDEF OBJECT_HAS_TOSTRING} override; {$ENDIF}
+    {* 将多项式转成字符串。
+
+       参数：
+         （无）
+
+       返回值：string                     - 返回字符串
+    }
+
+    function IsZero: Boolean;
+    {* 返回是否为 0。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 返回是否为 0
+    }
+
+    procedure SetZero;
+    {* 设为 0}
+
+    function IsOne: Boolean;
+    {* 返回是否为 1。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 返回是否为 1
+    }
+
+    procedure SetOne;
+    {* 设为 1}
+
+    function IsNegOne: Boolean;
+    {* 返回是否为 -1。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 返回是否为 -1
+    }
+
+    procedure Negate;
+    {* 所有系数求反}
+
+    function IsMonic: Boolean;
+    {* 是否首一多项式。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 返回是否首一多项式
+    }
+
+    property MaxDegree: Integer read GetMaxDegree write SetMaxDegree;
+    {* 最高次数，0 开始}
+  end;
+
+  TCnBigComplexPolynomialPool = class(TCnMathObjectPool)
+  {* 一元大整数复数多项式池实现类，允许使用到一元大整数复数多项式的地方自行创建一元大整数复数多项式池}
+  protected
+    function CreateObject: TObject; override;
+  public
+    function Obtain: TCnBigComplexPolynomial; reintroduce;
+    {* 从对象池获取一个对象，不用时需调用 Recycle 归还。
+
+       参数：
+         （无）
+
+       返回值：TCnBigComplexPolynomial     - 返回的多项式对象
+    }
+
+    procedure Recycle(Poly: TCnBigComplexPolynomial); reintroduce;
+    {* 将一个对象归还至对象池。
+
+       参数：
+         Poly: TCnBigComplexPolynomial     - 待归还的多项式对象
+
+       返回值：（无）
+    }
+  end;
+
+  TCnBigComplexDecimalPolynomial = class(TCnBigComplexDecimalList)
+  {* 一元大浮点复数多项式}
+  private
+    procedure EnsureDegree(Degree: Integer);
+    function GetMaxDegree: Integer;
+    procedure SetMaxDegree(const Value: Integer);
+  public
+    constructor Create(LowToHighCoefficients: array of const); overload;
+    {* 构造函数，参数为从低到高的系数。注意系数初始化时若大于 MaxInt32/MaxInt64 的值被当作 Integer/Int64 类型处理而变负
+
+       参数：
+         LowToHighCoefficients: array of const            - 从 0 开始的从低到高的多项式系数
+
+       返回值：                                           - 返回创建的多项式对象
+    }
+
+    constructor Create; overload;
+    {* 构造函数}
+    destructor Destroy; override;
+    {* 析构函数}
+
+    procedure SetCoefficents(LowToHighCoefficients: array of const);
+    {* 一次性设置所有从低到高的系数
+
+       参数：
+         LowToHighCoefficients: array of const            - 从 0 开始的从低到高的多项式系数
+
+       返回值：（无）
+    }
+
+    procedure SetCoefficent(Degree: Integer; Coefficient: TCnBigComplexDecimal);
+    {* 设置某一次项的系数，内部会复制 Coefficient 的值过去
+
+       参数：
+         Degree: Integer                                  - 设置的多项式的次数
+         Coefficient: TCnBigComplexDecimal                - 设置的多项式系数
+
+       返回值：（无）
+    }
+
+    procedure CorrectTop;
+    {* 删除最高次项的 0 系数}
+
+    function ToString: string; {$IFDEF OBJECT_HAS_TOSTRING} override; {$ENDIF}
+    {* 多项式转换为字符串表示
+
+       参数：
+         （无）
+
+       返回值：string                     - 返回字符串
+    }
+
+    function IsZero: Boolean;
+    {* 判断多项式是否为 0。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 多项式是否为 0
+    }
+
+    procedure SetZero;
+    {* 设为 0}
+
+    function IsOne: Boolean;
+    {* 判断多项式是否为 1。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 多项式是否为 1
+    }
+
+    procedure SetOne;
+    {* 设为 1}
+
+    function IsNegOne: Boolean;
+    {* 判断多项式是否为 -1。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 多项式是否为 -1
+    }
+
+    procedure Negate;
+    {* 取反系数}
+
+    function IsMonic: Boolean;
+    {* 是否为首一多项式。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 多项式是否为首一多项式
+    }
+
+    property MaxDegree: Integer read GetMaxDegree write SetMaxDegree;
+    {* 最高次数，从0 开始}
+  end;
+
+  TCnBigComplexDecimalPolynomialPool = class(TCnMathObjectPool)
+  {* 一元大浮点复数多项式池实现类，允许使用到一元大浮点复数多项式的地方自行创建一元大浮点复数多项式池}
+  protected
+    function CreateObject: TObject; override;
+  public
+    function Obtain: TCnBigComplexDecimalPolynomial; reintroduce;
+    {* 从对象池获取一个对象，不用时需调用 Recycle 归还
+
+       参数：
+         （无）
+
+       返回值：TCnBigComplexDecimalPolynomial - 返回的多项式对象
+    }
+
+    procedure Recycle(Poly: TCnBigComplexDecimalPolynomial); reintroduce;
+    {* 将一个对象归还至对象池。
+
+       参数：
+         Poly: TCnBigComplexDecimalPolynomial - 待归还的多项式对象
+
+       返回值：（无）
+    }
+  end;
+
+// ====================== 一元大整数复数多项式基础运算 =============================
+
+function BigComplexPolynomialNew: TCnBigComplexPolynomial;
+{* 创建一个动态分配的一元大整数复数多项式对象，等同于 TCnBigComplexPolynomial.Create。
+
+   参数：
+     （无）
+
+   返回值：TCnBigComplexPolynomial        - 返回创建的一元大整数复数多项式对象
+}
+
+procedure BigComplexPolynomialFree(P: TCnBigComplexPolynomial);
+{* 释放一个一元大整数复数多项式对象，等同于 TCnBigComplexPolynomial.Free
+
+   参数：
+     P: TCnBigComplexPolynomial           - 待释放的一元大整数复数多项式
+
+   返回值：（无）
+}
+
+function BigComplexPolynomialDuplicate(P: TCnBigComplexPolynomial): TCnBigComplexPolynomial;
+{* 从一个一元大整数复数多项式对象克隆一个新对象。
+
+   参数：
+     P: TCnBigComplexPolynomial           - 待复制的一元大整数复数多项式
+
+   返回值：TCnBigComplexPolynomial        - 返回新建的一元大整数复数多项式
+}
+
+function BigComplexPolynomialCopy(Dest: TCnBigComplexPolynomial;
+  Source: TCnBigComplexPolynomial): TCnBigComplexPolynomial;
+{* 复制一个一元大整数复数多项式对象，成功返回 Dest。
+
+   参数：
+     Dest: TCnBigComplexPolynomial        - 目标一元大整数复数多项式
+     Source: TCnBigComplexPolynomial      - 源一元大整数复数多项式
+
+   返回值：TCnBigComplexPolynomial        - 成功则返回目标对象，失败则返回 nil
+}
+
+procedure BigComplexPolynomialSwap(A: TCnBigComplexPolynomial;
+  B: TCnBigComplexPolynomial);
+{* 交换两个一元大整数复数多项式对象的系数值。
+
+   参数：
+     A: TCnBigComplexPolynomial           - 待交换的一元大整数复数多项式一
+     B: TCnBigComplexPolynomial           - 待交换的一元大整数复数多项式二
+
+   返回值：（无）
+}
+
+function BigComplexPolynomialToString(P: TCnBigComplexPolynomial;
+  const VarName: string = 'X'): string;
+{* 将一个一元大整数复数多项式对象转成字符串，未知数默认以 X 表示。
+
+   参数：
+     P: TCnBigComplexPolynomial    - 待转换的一元大整数复数多项式
+     const VarName: string                - 代表未知数的字符串
+
+   返回值：string                         - 返回字符串
+}
+
+function BigComplexPolynomialIsZero(P: TCnBigComplexPolynomial): Boolean;
+{* 判断一个一元大整数复数多项式对象是否为 0。
+
+   参数：
+     P: TCnBigComplexPolynomial           - 待判断的一元大整数复数多项式
+
+   返回值：Boolean                        - 返回是否为 0
+}
+
+procedure BigComplexPolynomialSetZero(P: TCnBigComplexPolynomial);
+{* 将一个一元大整数复数多项式对象设为 0。
+
+   参数：
+     P: TCnBigComplexPolynomial           - 待设置的一元大整数复数多项式
+
+   返回值：（无）
+}
+
+function BigComplexPolynomialIsOne(P: TCnBigComplexPolynomial): Boolean;
+{* 判断一个一元大整数复数多项式对象是否为 1。
+
+   参数：
+     P: TCnBigComplexPolynomial    - 待判断的一元大整数复数多项式
+
+   返回值：Boolean                        - 返回是否为 1
+}
+
+procedure BigComplexPolynomialSetOne(P: TCnBigComplexPolynomial);
+{* 将一个一元大整数复数多项式对象设为 1。
+
+   参数：
+     P: TCnBigComplexPolynomial    - 待设置的一元大整数复数多项式
+
+   返回值：（无）
+}
+
+function BigComplexPolynomialIsNegOne(P: TCnBigComplexPolynomial): Boolean;
+{* 判断一个一元大整数复数多项式对象是否为 -1。
+
+   参数：
+     P: TCnBigComplexPolynomial           - 待判断的一元大整数复数多项式
+
+   返回值：Boolean                        - 返回是否为 -1。
+}
+
+procedure BigComplexPolynomialNegate(P: TCnBigComplexPolynomial);
+{* 将一个一元大整数复数多项式对象所有系数求反。
+
+   参数：
+     P: TCnBigComplexPolynomial           - 待计算的一元大整数复数多项式
+
+   返回值：（无）
+}
+
+function BigComplexPolynomialIsMonic(P: TCnBigComplexPolynomial): Boolean;
+{* 判断一个一元大整数复数多项式是否是首一多项式，也就是判断最高次系数是否为 1。
+
+   参数：
+     P: TCnBigComplexPolynomial           - 待判断的一元大整数复数多项式
+
+   返回值：Boolean                        - 返回是否首一多项式
+}
+
+procedure BigComplexPolynomialShiftLeft(P: TCnBigComplexPolynomial; N: Integer);
+{* 将一个一元大整数复数多项式对象左移 N 次，也就是各项指数都加 N。
+
+   参数：
+     P: TCnBigComplexPolynomial           - 待左移的一元大整数复数多项式
+     N: Integer                           - 左移次数
+
+   返回值：（无）
+}
+
+procedure BigComplexPolynomialShiftRight(P: TCnBigComplexPolynomial; N: Integer);
+{* 将一个一元大整数复数多项式对象右移 N 次，也就是各项指数都减 N，小于 0 的忽略了。
+
+   参数：
+     P: TCnBigComplexPolynomial           - 待右移的一元大整数复数多项式
+     N: Integer                           - 右移次数
+
+   返回值：（无）
+}
+
+function BigComplexPolynomialEqual(A: TCnBigComplexPolynomial;
+  B: TCnBigComplexPolynomial): Boolean;
+{* 判断两个一元大整数复数多项式每项系数是否对应相等，是则返回 True。
+
+   参数：
+     A: TCnBigComplexPolynomial           - 待判断的一元大整数复数多项式一
+     B: TCnBigComplexPolynomial           - 待判断的一元大整数复数多项式二
+
+   返回值：Boolean                        - 返回是否相等
+}
+
+function BigComplexPolynomialAdd(Res: TCnBigComplexPolynomial;
+  P1: TCnBigComplexPolynomial; P2: TCnBigComplexPolynomial): Boolean;
+{* 两个一元大整数复数多项式对象相加，结果放至 Res 中，返回相加是否成功，P1 可以是 P2，Res 可以是 P1 或 P2。
+
+   参数：
+     Res: TCnBigComplexPolynomial         - 用来容纳结果的一元大整数复数多项式
+     P1: TCnBigComplexPolynomial          - 加数一
+     P2: TCnBigComplexPolynomial          - 加数二
+
+   返回值：Boolean                        - 返回是否相加成功
+}
+
+function BigComplexPolynomialSub(Res: TCnBigComplexPolynomial;
+  P1: TCnBigComplexPolynomial; P2: TCnBigComplexPolynomial): Boolean;
+{* 两个一元大整数复数多项式对象相减，结果放至 Res 中，返回相减是否成功，P1 可以是 P2，Res 可以是 P1 或 P2。
+
+   参数：
+     Res: TCnBigComplexPolynomial         - 用来容纳结果的一元大整数复数多项式
+     P1: TCnBigComplexPolynomial          - 被减数
+     P2: TCnBigComplexPolynomial          - 减数
+
+   返回值：Boolean                        - 返回是否相减成功
+}
+
+function BigComplexPolynomialMul(Res: TCnBigComplexPolynomial;
+  P1: TCnBigComplexPolynomial; P2: TCnBigComplexPolynomial): Boolean;
+{* 两个一元大整数复数多项式对象相乘，结果放至 Res 中，返回相乘是否成功，P1 可以是 P2，Res 可以是 P1 或 P2。
+
+   参数：
+     Res: TCnBigComplexPolynomial         - 用来容纳结果的一元大整数复数多项式
+     P1: TCnBigComplexPolynomial          - 乘数一
+     P2: TCnBigComplexPolynomial          - 乘数二
+
+   返回值：Boolean                        - 返回是否相乘成功
+}
+
+procedure BigComplexPolynomialMulBigComplex(P: TCnBigComplexPolynomial;
+  N: TCnBigComplex);
+{* 将一个一元大整数复数多项式对象的各个系数都乘以大浮点数复数 N。
+
+   参数：
+     P: TCnBigComplexPolynomial           - 待乘的一元大整数复数多项式
+     N: TCnBigComplex                     - 乘数
+
+   返回值：无。
+}
+
+function BigComplexPolynomialPower(Res: TCnBigComplexPolynomial;
+  P: TCnBigComplexPolynomial; Exponent: Int64): Boolean;
+{* 计算一元大整数复数多项式的 Exponent 次幂，返回是否计算成功，Res 可以是 P。
+
+   参数：
+     Res: TCnBigComplexPolynomial         - 用来容纳结果的一元大整数复数多项式
+     P: TCnBigComplexPolynomial           - 底数
+     Exponent: Int64                      - 指数
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
+function BigComplexPolynomialCompose(Res: TCnBigComplexPolynomial;
+  F: TCnBigComplexPolynomial; P: TCnBigComplexPolynomial): Boolean;
+{* 一元大整数复数多项式代换，也就是计算 F(P(x))，返回是否计算成功，Res 可以是 F 或 P。
+
+   参数：
+     Res: TCnBigComplexPolynomial         - 用来容纳结果的一元大整数复数多项式
+     F: TCnBigComplexPolynomial           - 代换原式
+     P: TCnBigComplexPolynomial           - 待代换式
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
+procedure BigComplexPolynomialGetValue(Res: TCnBigComplex; F: TCnBigComplexPolynomial;
+  X: TCnBigComplex);
+{* 一元大整数复数多项式求值，也就是计算 F(x)。Res 不能是 X。
+
+   参数：
+     Res: TCnBigComplex                   - 用来容纳结果的无限精度复数
+     F: TCnBigComplexPolynomial           - 待求值的一元大整数复数多项式
+     X: TCnBigComplex                     - 未知数的值
+
+   返回值：（无）
+}
+
+// ====================== 一元大浮点复数多项式基础运算 =============================
+
+function BigComplexDecimalPolynomialNew: TCnBigComplexDecimalPolynomial;
+{* 创建一个动态分配的一元大浮点复数多项式对象，等同于 TCnBigComplexDecimalPolynomial.Create。
+
+   参数：
+     （无）
+
+   返回值：TCnBigComplexDecimalPolynomial - 返回创建的一元大浮点复数多项式对象
+}
+
+procedure BigComplexDecimalPolynomialFree(P: TCnBigComplexDecimalPolynomial);
+{* 释放一个一元大浮点复数多项式对象，等同于 TCnBigComplexDecimalPolynomial.Free
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待释放的一元大浮点复数多项式
+
+   返回值：（无）
+}
+
+function BigComplexDecimalPolynomialDuplicate(P: TCnBigComplexDecimalPolynomial): TCnBigComplexDecimalPolynomial;
+{* 从一个一元大浮点复数多项式对象克隆一个新对象。
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待复制的一元大浮点复数多项式
+
+   返回值：TCnBigComplexDecimalPolynomial - 返回新建的一元大浮点复数多项式
+}
+
+function BigComplexDecimalPolynomialCopy(Dest: TCnBigComplexDecimalPolynomial;
+  Source: TCnBigComplexDecimalPolynomial): TCnBigComplexDecimalPolynomial;
+{* 复制一个一元大浮点复数多项式对象，成功返回 Dest。
+
+   参数：
+     Dest: TCnBigComplexDecimalPolynomial                 - 目标一元大浮点复数多项式
+     Source: TCnBigComplexDecimalPolynomial               - 源一元大浮点复数多项式
+
+   返回值：TCnBigComplexDecimalPolynomial                 - 成功则返回目标对象，失败则返回 nil
+}
+
+procedure BigComplexDecimalPolynomialSwap(A: TCnBigComplexDecimalPolynomial;
+  B: TCnBigComplexDecimalPolynomial);
+{* 交换两个一元大浮点复数多项式对象的系数值。
+
+   参数：
+     A: TCnBigComplexDecimalPolynomial    - 待交换的一元大浮点复数多项式一
+     B: TCnBigComplexDecimalPolynomial    - 待交换的一元大浮点复数多项式二
+
+   返回值：（无）
+}
+
+function BigComplexDecimalPolynomialToString(P: TCnBigComplexDecimalPolynomial;
+  const VarName: string = 'X'): string;
+{* 将一个一元大浮点复数多项式对象转成字符串，未知数默认以 X 表示。
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待转换的一元大浮点复数多项式
+     const VarName: string                - 代表未知数的字符串
+
+   返回值：string                         - 返回字符串
+}
+
+function BigComplexDecimalPolynomialIsZero(P: TCnBigComplexDecimalPolynomial): Boolean;
+{* 判断一个一元大浮点复数多项式对象是否为 0。
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待判断的一元大浮点复数多项式
+
+   返回值：Boolean                        - 返回是否为 0
+}
+
+procedure BigComplexDecimalPolynomialSetZero(P: TCnBigComplexDecimalPolynomial);
+{* 将一个一元大浮点复数多项式对象设为 0。
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待设置的一元大浮点复数多项式
+
+   返回值：（无）
+}
+
+function BigComplexDecimalPolynomialIsOne(P: TCnBigComplexDecimalPolynomial): Boolean;
+{* 判断一个一元大浮点复数多项式对象是否为 1。
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待判断的一元大浮点复数多项式
+
+   返回值：Boolean                        - 返回是否为 1
+}
+
+procedure BigComplexDecimalPolynomialSetOne(P: TCnBigComplexDecimalPolynomial);
+{* 将一个一元大浮点复数多项式对象设为 1。
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待设置的一元大浮点复数多项式
+
+   返回值：（无）
+}
+
+function BigComplexDecimalPolynomialIsNegOne(P: TCnBigComplexDecimalPolynomial): Boolean;
+{* 判断一个一元大浮点复数多项式对象是否为 -1。
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待判断的一元大浮点复数多项式
+
+   返回值：Boolean                        - 返回是否为 -1。
+}
+
+procedure BigComplexDecimalPolynomialNegate(P: TCnBigComplexDecimalPolynomial);
+{* 将一个一元大浮点复数多项式对象所有系数求反。
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待计算的一元大浮点复数多项式
+
+   返回值：（无）
+}
+
+function BigComplexDecimalPolynomialIsMonic(P: TCnBigComplexDecimalPolynomial): Boolean;
+{* 判断一个一元大浮点复数多项式是否是首一多项式，也就是判断最高次系数是否为 1。
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待判断的一元大浮点复数多项式
+
+   返回值：Boolean                        - 返回是否首一多项式
+}
+
+procedure BigComplexDecimalPolynomialShiftLeft(P: TCnBigComplexDecimalPolynomial; N: Integer);
+{* 将一个一元大浮点复数多项式对象左移 N 次，也就是各项指数都加 N。
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待左移的一元大浮点复数多项式
+     N: Integer                           - 左移次数
+
+   返回值：（无）
+}
+
+procedure BigComplexDecimalPolynomialShiftRight(P: TCnBigComplexDecimalPolynomial; N: Integer);
+{* 将一个一元大浮点复数多项式对象右移 N 次，也就是各项指数都减 N，小于 0 的忽略了。
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待右移的一元大浮点复数多项式
+     N: Integer                           - 右移次数
+
+   返回值：（无）
+}
+
+function BigComplexDecimalPolynomialEqual(A: TCnBigComplexDecimalPolynomial;
+  B: TCnBigComplexDecimalPolynomial): Boolean;
+{* 判断两个一元大浮点复数多项式每项系数是否对应相等，是则返回 True。
+
+   参数：
+     A: TCnBigComplexDecimalPolynomial    - 待判断的一元大浮点复数多项式一
+     B: TCnBigComplexDecimalPolynomial    - 待判断的一元大浮点复数多项式二
+
+   返回值：Boolean                        - 返回是否相等
+}
+
+function BigComplexDecimalPolynomialAdd(Res: TCnBigComplexDecimalPolynomial;
+  P1: TCnBigComplexDecimalPolynomial; P2: TCnBigComplexDecimalPolynomial): Boolean;
+{* 两个一元大浮点复数多项式对象相加，结果放至 Res 中，返回相加是否成功，P1 可以是 P2，Res 可以是 P1 或 P2。
+
+   参数：
+     Res: TCnBigComplexDecimalPolynomial  - 用来容纳结果的一元大浮点复数多项式
+     P1: TCnBigComplexDecimalPolynomial   - 加数一
+     P2: TCnBigComplexDecimalPolynomial   - 加数二
+
+   返回值：Boolean                        - 返回是否相加成功
+}
+
+function BigComplexDecimalPolynomialSub(Res: TCnBigComplexDecimalPolynomial;
+  P1: TCnBigComplexDecimalPolynomial; P2: TCnBigComplexDecimalPolynomial): Boolean;
+{* 两个一元大浮点复数多项式对象相减，结果放至 Res 中，返回相减是否成功，P1 可以是 P2，Res 可以是 P1 或 P2。
+
+   参数：
+     Res: TCnBigComplexDecimalPolynomial  - 用来容纳结果的一元大浮点复数多项式
+     P1: TCnBigComplexDecimalPolynomial   - 被减数
+     P2: TCnBigComplexDecimalPolynomial   - 减数
+
+   返回值：Boolean                        - 返回是否相减成功
+}
+
+function BigComplexDecimalPolynomialMul(Res: TCnBigComplexDecimalPolynomial;
+  P1: TCnBigComplexDecimalPolynomial; P2: TCnBigComplexDecimalPolynomial): Boolean;
+{* 两个一元大浮点复数多项式对象相乘，结果放至 Res 中，返回相乘是否成功，P1 可以是 P2，Res 可以是 P1 或 P2。
+
+   参数：
+     Res: TCnBigComplexDecimalPolynomial  - 用来容纳结果的一元大浮点复数多项式
+     P1: TCnBigComplexDecimalPolynomial   - 乘数一
+     P2: TCnBigComplexDecimalPolynomial   - 乘数二
+
+   返回值：Boolean                        - 返回是否相乘成功
+}
+
+function BigComplexDecimalPolynomialDiv(Res: TCnBigComplexDecimalPolynomial;
+  Remain: TCnBigComplexDecimalPolynomial; P: TCnBigComplexDecimalPolynomial;
+  Divisor: TCnBigComplexDecimalPolynomial): Boolean;
+{* 两个一元大浮点复数多项式对象相除，商放至 Res 中，余式放在 Remain 中，返回相除是否成功。
+   Res 或 Remain 可以是 nil，不给出对应结果。P 可以是 Divisor，Res 可以是 P 或 Divisor。
+
+   参数：
+     Res: TCnBigComplexDecimalPolynomial                  - 用来容纳结果的一元大浮点复数多项式
+     Remain: TCnBigComplexDecimalPolynomial               - 用来容纳余式的一元大浮点复数多项式
+     P: TCnBigComplexDecimalPolynomial                    - 被除数
+     Divisor: TCnBigComplexDecimalPolynomial              - 除数
+
+   返回值：Boolean                                        - 返回是否相除成功
+}
+
+procedure BigComplexDecimalPolynomialMulBigComplexDecimal(P: TCnBigComplexDecimalPolynomial;
+  N: TCnBigComplexDecimal);
+{* 将一个一元大浮点复数多项式对象的各个系数都乘以大浮点数复数 N。
+
+   参数：
+     P: TCnBigComplexDecimalPolynomial    - 待乘的一元大浮点复数多项式
+     N: TCnBigComplexDecimal              - 乘数
+
+   返回值：无。
+}
+
+function BigComplexDecimalPolynomialPower(Res: TCnBigComplexDecimalPolynomial;
+  P: TCnBigComplexDecimalPolynomial; Exponent: Int64): Boolean;
+{* 计算一元大浮点复数多项式的 Exponent 次幂，返回是否计算成功，Res 可以是 P。
+
+   参数：
+     Res: TCnBigComplexDecimalPolynomial  - 用来容纳结果的一元大浮点复数多项式
+     P: TCnBigComplexDecimalPolynomial    - 底数
+     Exponent: Int64                      - 指数
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
+function BigComplexDecimalPolynomialCompose(Res: TCnBigComplexDecimalPolynomial;
+  F: TCnBigComplexDecimalPolynomial; P: TCnBigComplexDecimalPolynomial): Boolean;
+{* 一元大浮点复数多项式代换，也就是计算 F(P(x))，返回是否计算成功，Res 可以是 F 或 P。
+
+   参数：
+     Res: TCnBigComplexDecimalPolynomial  - 用来容纳结果的一元大浮点复数多项式
+     F: TCnBigComplexDecimalPolynomial    - 代换原式
+     P: TCnBigComplexDecimalPolynomial    - 待代换式
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
+procedure BigComplexDecimalPolynomialGetValue(Res: TCnBigComplexDecimal; F: TCnBigComplexDecimalPolynomial;
+  X: TCnBigComplexDecimal);
+{* 一元大浮点复数多项式求值，也就是计算 F(x)。Res 不能是 X。
+
+   参数：
+     Res: TCnBigComplexDecimal            - 用来容纳结果的无限精度复数
+     F: TCnBigComplexDecimalPolynomial    - 待求值的一元大浮点复数多项式
+     X: TCnBigComplexDecimal              - 未知数的值
+
+   返回值：（无）
+}
 
 // ====================== 一元整系数多项式基础运算 =============================
 
@@ -630,12 +1375,12 @@ function Int64PolynomialDuplicate(P: TCnInt64Polynomial): TCnInt64Polynomial;
    返回值：TCnInt64Polynomial             - 返回新建的一元整系数多项式
 }
 
-function Int64PolynomialCopy(Dst: TCnInt64Polynomial; Src: TCnInt64Polynomial): TCnInt64Polynomial;
-{* 复制一个一元整系数多项式对象，成功返回 Dst。
+function Int64PolynomialCopy(Dest: TCnInt64Polynomial; Source: TCnInt64Polynomial): TCnInt64Polynomial;
+{* 复制一个一元整系数多项式对象，成功返回 Dest。
 
    参数：
-     Dst: TCnInt64Polynomial              - 目标一元整系数多项式
-     Src: TCnInt64Polynomial              - 源一元整系数多项式
+     Dest: TCnInt64Polynomial             - 目标一元整系数多项式
+     Source: TCnInt64Polynomial           - 源一元整系数多项式
 
    返回值：TCnInt64Polynomial             - 成功则返回目标对象，失败则返回 nil
 }
@@ -925,13 +1670,13 @@ function Int64PolynomialPower(Res: TCnInt64Polynomial; P: TCnInt64Polynomial; Ex
    返回值：Boolean                        - 返回是否计算成功
 }
 
-function Int64PolynomialReduce(P: TCnInt64Polynomial): Integer;
+function Int64PolynomialReduce(P: TCnInt64Polynomial): Int64;
 {* 化简一元整系数多项式系数，也就是找多项式系数的最大公约数，各个系数除以它，返回最大公约数。
 
    参数：
      P: TCnInt64Polynomial                - 待化简的一元整系数多项式
 
-   返回值：Integer                        - 返回各系数的最大公约数
+   返回值：Int64                          - 返回各系数的最大公约数
 }
 
 procedure Int64PolynomialCentralize(P: TCnInt64Polynomial; Modulus: Int64);
@@ -1328,61 +2073,61 @@ function Int64RationalPolynomialEqual(R1: TCnInt64RationalPolynomial;
    返回值：Boolean                        - 返回是否相等
 }
 
-function Int64RationalPolynomialCopy(Dst: TCnInt64RationalPolynomial;
-  Src: TCnInt64RationalPolynomial): TCnInt64RationalPolynomial;
+function Int64RationalPolynomialCopy(Dest: TCnInt64RationalPolynomial;
+  Source: TCnInt64RationalPolynomial): TCnInt64RationalPolynomial;
 {* 一元整系数有理分式复制。
 
    参数：
-     Dst: TCnInt64RationalPolynomial      - 目标一元整系数有理分式
-     Src: TCnInt64RationalPolynomial      - 源一元整系数有理分式
+     Dest: TCnInt64RationalPolynomial     - 目标一元整系数有理分式
+     Source: TCnInt64RationalPolynomial   - 源一元整系数有理分式
 
    返回值：TCnInt64RationalPolynomial     - 成功则返回目标对象，失败则返回 nil
 }
 
-procedure Int64RationalPolynomialAdd(R1: TCnInt64RationalPolynomial; R2: TCnInt64RationalPolynomial;
-  RationalResult: TCnInt64RationalPolynomial); overload;
+procedure Int64RationalPolynomialAdd(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; R2: TCnInt64RationalPolynomial); overload;
 {* 一元整系数有理分式普通加法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 加数一
      R2: TCnInt64RationalPolynomial                       - 加数二
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
 
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialSub(R1: TCnInt64RationalPolynomial; R2: TCnInt64RationalPolynomial;
-  RationalResult: TCnInt64RationalPolynomial); overload;
+procedure Int64RationalPolynomialSub(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; R2: TCnInt64RationalPolynomial); overload;
 {* 一元整系数有理分式普通减法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 被减数
      R2: TCnInt64RationalPolynomial                       - 减数
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
 
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialMul(R1: TCnInt64RationalPolynomial; R2: TCnInt64RationalPolynomial;
-  RationalResult: TCnInt64RationalPolynomial); overload;
+procedure Int64RationalPolynomialMul(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; R2: TCnInt64RationalPolynomial); overload;
 {* 一元整系数有理分式普通乘法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 乘数一
      R2: TCnInt64RationalPolynomial                       - 乘数二
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
 
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialDiv(R1: TCnInt64RationalPolynomial; R2: TCnInt64RationalPolynomial;
-  RationalResult: TCnInt64RationalPolynomial); overload;
+procedure Int64RationalPolynomialDiv(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; R2: TCnInt64RationalPolynomial); overload;
 {* 一元整系数有理分式普通除法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 被除数
      R2: TCnInt64RationalPolynomial                       - 除数
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
 
    返回值：（无）
 }
@@ -1427,50 +2172,50 @@ procedure Int64RationalPolynomialDivWord(R: TCnInt64RationalPolynomial; N: Int64
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialAdd(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial); overload;
+procedure Int64RationalPolynomialAdd(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial); overload;
 {* 一元整系数有理分式与整系数多项式的普通加法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 加数一
      P1: TCnInt64Polynomial                               - 加数二
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
 
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialSub(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial); overload;
+procedure Int64RationalPolynomialSub(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial); overload;
 {* 一元整系数有理分式与整系数多项式的普通减法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 被减数
      P1: TCnInt64Polynomial                               - 减数
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
 
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialMul(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial); overload;
+procedure Int64RationalPolynomialMul(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial); overload;
 {* 一元整系数有理分式与整系数多项式的普通乘法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 乘数一
      P1: TCnInt64Polynomial                               - 乘数二
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
 
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialDiv(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial); overload;
+procedure Int64RationalPolynomialDiv(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial); overload;
 {* 一元整系数有理分式与整系数多项式的普通除法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 被除数
      P1: TCnInt64Polynomial                               - 除数
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
 
    返回值：（无）
 }
@@ -1549,57 +2294,57 @@ procedure Int64RationalPolynomialGaloisNegate(P: TCnInt64RationalPolynomial;
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialGaloisAdd(R1: TCnInt64RationalPolynomial;
-  R2: TCnInt64RationalPolynomial; RationalResult: TCnInt64RationalPolynomial;
+procedure Int64RationalPolynomialGaloisAdd(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; R2: TCnInt64RationalPolynomial;
   Prime: Int64); overload;
 {* 一元整系数有理分式模系数加法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 加数一
      R2: TCnInt64RationalPolynomial                       - 加数二
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
      Prime: Int64                                         - 模数
 
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialGaloisSub(R1: TCnInt64RationalPolynomial;
-  R2: TCnInt64RationalPolynomial; RationalResult: TCnInt64RationalPolynomial;
+procedure Int64RationalPolynomialGaloisSub(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; R2: TCnInt64RationalPolynomial;
   Prime: Int64); overload;
 {* 一元整系数有理分式模系数减法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 被减数
      R2: TCnInt64RationalPolynomial                       - 减数
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
      Prime: Int64                                         - 模数
 
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialGaloisMul(R1: TCnInt64RationalPolynomial;
-  R2: TCnInt64RationalPolynomial; RationalResult: TCnInt64RationalPolynomial;
+procedure Int64RationalPolynomialGaloisMul(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; R2: TCnInt64RationalPolynomial;
   Prime: Int64); overload;
 {* 一元整系数有理分式模系数乘法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 乘数一
      R2: TCnInt64RationalPolynomial                       - 乘数二
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
      Prime: Int64                                         - 模数
 
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialGaloisDiv(R1: TCnInt64RationalPolynomial;
-  R2: TCnInt64RationalPolynomial; RationalResult: TCnInt64RationalPolynomial;
+procedure Int64RationalPolynomialGaloisDiv(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; R2: TCnInt64RationalPolynomial;
   Prime: Int64); overload;
 {* 一元整系数有理分式模系数除法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 被除数
      R2: TCnInt64RationalPolynomial                       - 除数
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
      Prime: Int64                                         - 模数
 
    返回值：（无）
@@ -1610,7 +2355,7 @@ procedure Int64RationalPolynomialGaloisAddWord(R: TCnInt64RationalPolynomial;
 {* 一元整系数有理分式模系数加法加上 Int64。
 
    参数：
-     R: TCnInt64RationalPolynomial        - 待计算的一元整系数有理分式
+     R: TCnInt64RationalPolynomial                   - 待计算的一元整系数有理分式
      N: Int64                             - 加数
      Prime: Int64                         - 模数
 
@@ -1653,53 +2398,53 @@ procedure Int64RationalPolynomialGaloisDivWord(R: TCnInt64RationalPolynomial;
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialGaloisAdd(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial; Prime: Int64); overload;
+procedure Int64RationalPolynomialGaloisAdd(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial; Prime: Int64); overload;
 {* 一元整系数有理分式与整系数多项式的模系数加法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 加数一
      P1: TCnInt64Polynomial                               - 加数二
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
      Prime: Int64                                         - 有限域上界
 
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialGaloisSub(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial; Prime: Int64); overload;
+procedure Int64RationalPolynomialGaloisSub(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial; Prime: Int64); overload;
 {* 一元整系数有理分式与整系数多项式的模系数减法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 被减数
      P1: TCnInt64Polynomial                               - 减数
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
      Prime: Int64                                         - 有限域上界
 
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialGaloisMul(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial; Prime: Int64); overload;
+procedure Int64RationalPolynomialGaloisMul(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial; Prime: Int64); overload;
 {* 一元整系数有理分式与整系数多项式的模系数乘法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 乘数一
      P1: TCnInt64Polynomial                               - 乘数二
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
      Prime: Int64                                         - 有限域上界
 
    返回值：（无）
 }
 
-procedure Int64RationalPolynomialGaloisDiv(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial; Prime: Int64); overload;
+procedure Int64RationalPolynomialGaloisDiv(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial; Prime: Int64); overload;
 {* 一元整系数有理分式与整系数多项式的模系数除法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnInt64RationalPolynomial                      - 用来容纳结果的一元整系数有理分式
      R1: TCnInt64RationalPolynomial                       - 被除数
      P1: TCnInt64Polynomial                               - 除数
-     RationalResult: TCnInt64RationalPolynomial           - 用来容纳结果的一元整系数有理分式
      Prime: Int64                                         - 模数
 
    返回值：（无）
@@ -1791,13 +2536,13 @@ function BigNumberPolynomialDuplicate(P: TCnBigNumberPolynomial): TCnBigNumberPo
    返回值：TCnBigNumberPolynomial         - 返回新建的一元大整系数多项式
 }
 
-function BigNumberPolynomialCopy(Dst: TCnBigNumberPolynomial;
-  Src: TCnBigNumberPolynomial): TCnBigNumberPolynomial;
-{* 复制一个一元大整系数多项式对象，成功返回 Dst。
+function BigNumberPolynomialCopy(Dest: TCnBigNumberPolynomial;
+  Source: TCnBigNumberPolynomial): TCnBigNumberPolynomial;
+{* 复制一个一元大整系数多项式对象，成功返回 Dest。
 
    参数：
-     Dst: TCnBigNumberPolynomial          - 目标一元大整系数多项式
-     Src: TCnBigNumberPolynomial          - 源一元大整系数多项式
+     Dest: TCnBigNumberPolynomial         - 目标一元大整系数多项式
+     Source: TCnBigNumberPolynomial       - 源一元大整系数多项式
 
    返回值：TCnBigNumberPolynomial         - 成功则返回目标对象，失败则返回 nil
 }
@@ -2173,7 +2918,7 @@ function BigNumberPolynomialCompose(Res: TCnBigNumberPolynomial;
 
 procedure BigNumberPolynomialGetValue(Res: TCnBigNumber; F: TCnBigNumberPolynomial;
   X: TCnBigNumber);
-{* 一元大整系数多项式求值，也就是计算 F(x)，返回是否计算成功，Res 不能是 X。
+{* 一元大整系数多项式求值，也就是计算 F(x)。Res 不能是 X。
 
    参数：
      Res: TCnBigNumber                    - 用来容纳结果的大数对象
@@ -2610,61 +3355,61 @@ function BigNumberRationalPolynomialEqual(R1: TCnBigNumberRationalPolynomial;
    返回值：Boolean                        - 返回是否相等
 }
 
-function BigNumberRationalPolynomialCopy(Dst: TCnBigNumberRationalPolynomial;
-  Src: TCnBigNumberRationalPolynomial): TCnBigNumberRationalPolynomial;
+function BigNumberRationalPolynomialCopy(Dest: TCnBigNumberRationalPolynomial;
+  Source: TCnBigNumberRationalPolynomial): TCnBigNumberRationalPolynomial;
 {* 一元大整系数有理分式复制。
 
    参数：
-     Dst: TCnBigNumberRationalPolynomial  - 目标一元大整系数有理分式
-     Src: TCnBigNumberRationalPolynomial  - 源一元大整系数有理分式
+     Dest: TCnBigNumberRationalPolynomial                 - 目标一元大整系数有理分式
+     Source: TCnBigNumberRationalPolynomial               - 源一元大整系数有理分式
 
-   返回值：TCnBigNumberRationalPolynomial - 成功则返回目标对象，失败则返回 nil
+   返回值：TCnBigNumberRationalPolynomial                 - 成功则返回目标对象，失败则返回 nil
 }
 
-procedure BigNumberRationalPolynomialAdd(R1: TCnBigNumberRationalPolynomial;
-  R2: TCnBigNumberRationalPolynomial; RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialAdd(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; R2: TCnBigNumberRationalPolynomial); overload;
 {* 一元大整系数有理分式普通加法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 加数一
      R2: TCnBigNumberRationalPolynomial                   - 加数二
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
 
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialSub(R1: TCnBigNumberRationalPolynomial;
-  R2: TCnBigNumberRationalPolynomial; RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialSub(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; R2: TCnBigNumberRationalPolynomial); overload;
 {* 一元大整系数有理分式普通减法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 被减数
      R2: TCnBigNumberRationalPolynomial                   - 减数
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
 
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialMul(R1: TCnBigNumberRationalPolynomial;
-  R2: TCnBigNumberRationalPolynomial; RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialMul(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; R2: TCnBigNumberRationalPolynomial); overload;
 {* 一元大整系数有理分式普通乘法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 乘数一
      R2: TCnBigNumberRationalPolynomial                   - 乘数二
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
 
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialDiv(R1: TCnBigNumberRationalPolynomial;
-  R2: TCnBigNumberRationalPolynomial; RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialDiv(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; R2: TCnBigNumberRationalPolynomial); overload;
 {* 一元大整系数有理分式普通除法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 被除数
      R2: TCnBigNumberRationalPolynomial                   - 除数
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
 
    返回值：（无）
 }
@@ -2713,50 +3458,50 @@ procedure BigNumberRationalPolynomialDivBigNumber(R: TCnBigNumberRationalPolynom
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialAdd(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialAdd(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial); overload;
 {* 一元大整系数有理分式与一元大整系数多项式的普通加法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 加数一
      P1: TCnBigNumberPolynomial                           - 加数二
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
 
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialSub(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialSub(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial); overload;
 {* 一元大整系数有理分式与一元大整系数多项式的普通减法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 被减数
      P1: TCnBigNumberPolynomial                           - 减数
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
 
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialMul(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialMul(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial); overload;
 {* 一元大整系数有理分式与一元大整系数多项式的普通乘法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 乘数一
      P1: TCnBigNumberPolynomial                           - 乘数二
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
 
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialDiv(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialDiv(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial); overload;
 {* 一元大整系数有理分式与整系数多项式的普通除法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 被除数
      P1: TCnBigNumberPolynomial                           - 除数
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
 
    返回值：（无）
 }
@@ -2835,57 +3580,57 @@ procedure BigNumberRationalPolynomialGaloisNegate(P: TCnBigNumberRationalPolynom
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialGaloisAdd(R1: TCnBigNumberRationalPolynomial;
-  R2: TCnBigNumberRationalPolynomial; RationalResult: TCnBigNumberRationalPolynomial;
+procedure BigNumberRationalPolynomialGaloisAdd(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; R2: TCnBigNumberRationalPolynomial;
   Prime: TCnBigNumber); overload;
 {* 一元大整系数有理分式模系数加法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 加数一
      R2: TCnBigNumberRationalPolynomial                   - 加数二
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
      Prime: TCnBigNumber                                  - 模数
 
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialGaloisSub(R1: TCnBigNumberRationalPolynomial;
-  R2: TCnBigNumberRationalPolynomial; RationalResult: TCnBigNumberRationalPolynomial;
+procedure BigNumberRationalPolynomialGaloisSub(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; R2: TCnBigNumberRationalPolynomial;
   Prime: TCnBigNumber); overload;
 {* 一元大整系数有理分式模系数减法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 被减数
      R2: TCnBigNumberRationalPolynomial                   - 减数
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
      Prime: TCnBigNumber                                  - 模数
 
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialGaloisMul(R1: TCnBigNumberRationalPolynomial;
-  R2: TCnBigNumberRationalPolynomial; RationalResult: TCnBigNumberRationalPolynomial;
+procedure BigNumberRationalPolynomialGaloisMul(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; R2: TCnBigNumberRationalPolynomial;
   Prime: TCnBigNumber); overload;
 {* 一元大整系数有理分式模系数乘法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 乘数一
      R2: TCnBigNumberRationalPolynomial                   - 乘数二
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
      Prime: TCnBigNumber                                  - 模数
 
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialGaloisDiv(R1: TCnBigNumberRationalPolynomial;
-  R2: TCnBigNumberRationalPolynomial; RationalResult: TCnBigNumberRationalPolynomial;
+procedure BigNumberRationalPolynomialGaloisDiv(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; R2: TCnBigNumberRationalPolynomial;
   Prime: TCnBigNumber); overload;
 {* 一元大整系数有理分式模系数除法，三个参数可以是同一对象。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 被除数
      R2: TCnBigNumberRationalPolynomial                   - 除数
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
      Prime: TCnBigNumber                                  - 模数
 
    返回值：（无）
@@ -2939,57 +3684,57 @@ procedure BigNumberRationalPolynomialGaloisDivBigNumber(R: TCnBigNumberRationalP
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialGaloisAdd(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial;
+procedure BigNumberRationalPolynomialGaloisAdd(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial;
   Prime: TCnBigNumber); overload;
 {* 一元大整系数有理分式与一元大整系数多项式的模系数加法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 加数一
      P1: TCnBigNumberPolynomial                           - 加数二
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
      Prime: TCnBigNumber                                  - 模数
 
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialGaloisSub(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial;
+procedure BigNumberRationalPolynomialGaloisSub(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial;
   Prime: TCnBigNumber); overload;
 {* 一元大整系数有理分式与一元大整系数多项式的模系数减法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 被减数
      P1: TCnBigNumberPolynomial                           - 减数
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
      Prime: TCnBigNumber                                  - 模数
 
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialGaloisMul(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial;
+procedure BigNumberRationalPolynomialGaloisMul(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial;
   Prime: TCnBigNumber); overload;
 {* 一元大整系数有理分式与一元大整系数多项式的模系数乘法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 乘数一
      P1: TCnBigNumberPolynomial                           - 乘数二
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
      Prime: TCnBigNumber                                  - 模数
 
    返回值：（无）
 }
 
-procedure BigNumberRationalPolynomialGaloisDiv(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial;
+procedure BigNumberRationalPolynomialGaloisDiv(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial;
   Prime: TCnBigNumber); overload;
 {* 一元大整系数有理分式与一元大整系数多项式的模系数除法，RationalResult 可以是 R1。
 
    参数：
+     Res: TCnBigNumberRationalPolynomial                  - 用来容纳结果的一元大整系数有理分式
      R1: TCnBigNumberRationalPolynomial                   - 被除数
      P1: TCnBigNumberPolynomial                           - 除数
-     RationalResult: TCnBigNumberRationalPolynomial       - 用来容纳结果的一元大整系数有理分式
      Prime: TCnBigNumber                                  - 模数
 
    返回值：（无）
@@ -3266,34 +4011,34 @@ function Int64BiPolynomialDuplicate(P: TCnInt64BiPolynomial): TCnInt64BiPolynomi
    返回值：TCnInt64BiPolynomial           - 返回新建的二元整系数多项式
 }
 
-function Int64BiPolynomialCopy(Dst: TCnInt64BiPolynomial;
-  Src: TCnInt64BiPolynomial): TCnInt64BiPolynomial;
-{* 复制一个二元整系数多项式对象，成功返回 Dst。
+function Int64BiPolynomialCopy(Dest: TCnInt64BiPolynomial;
+  Source: TCnInt64BiPolynomial): TCnInt64BiPolynomial;
+{* 复制一个二元整系数多项式对象，成功返回 Dest。
 
    参数：
-     Dst: TCnInt64BiPolynomial            - 目标二元整系数多项式
-     Src: TCnInt64BiPolynomial            - 源二元整系数多项式
+     Dest: TCnInt64BiPolynomial           - 目标二元整系数多项式
+     Source: TCnInt64BiPolynomial         - 源二元整系数多项式
 
    返回值：TCnInt64BiPolynomial           - 成功则返回目标对象，失败则返回 nil
 }
 
-function Int64BiPolynomialCopyFromX(Dst: TCnInt64BiPolynomial;
+function Int64BiPolynomialCopyFromX(Dest: TCnInt64BiPolynomial;
   SrcX: TCnInt64Polynomial): TCnInt64BiPolynomial;
-{* 从一元 X 整系数多项式中复制一个二元整系数多项式对象，成功返回 Dst。
+{* 从一元 X 整系数多项式中复制一个二元整系数多项式对象，成功返回 Dest。
 
    参数：
-     Dst: TCnInt64BiPolynomial            - 目标二元整系数多项式
+     Dest: TCnInt64BiPolynomial           - 目标二元整系数多项式
      SrcX: TCnInt64Polynomial             - 源一元 X 整系数多项式
 
    返回值：TCnInt64BiPolynomial           - 成功则返回目标对象，失败则返回 nil
 }
 
-function Int64BiPolynomialCopyFromY(Dst: TCnInt64BiPolynomial;
+function Int64BiPolynomialCopyFromY(Dest: TCnInt64BiPolynomial;
   SrcY: TCnInt64Polynomial): TCnInt64BiPolynomial;
-{* 从一元 Y 整系数多项式中复制一个二元整系数多项式对象，成功返回 Dst
+{* 从一元 Y 整系数多项式中复制一个二元整系数多项式对象，成功返回 Dest
 
    参数：
-     Dst: TCnInt64BiPolynomial            - 目标二元整系数多项式
+     Dest: TCnInt64BiPolynomial           - 目标二元整系数多项式
      SrcY: TCnInt64Polynomial             - 源一元 Y 整系数多项式
 
    返回值：TCnInt64BiPolynomial           - 成功则返回目标对象，失败则返回 nil
@@ -3576,12 +4321,12 @@ function Int64BiPolynomialEvaluateByX(Res: TCnInt64Polynomial;
    返回值：Boolean                        - 返回是否计算成功
 }
 
-procedure Int64BiPolynomialTranspose(Dst: TCnInt64BiPolynomial; Src: TCnInt64BiPolynomial);
-{* 将二元整系数多项式的 X Y 元互换至另一个二元整系数多项式对象中，Src 和 Dst 可以相同。
+procedure Int64BiPolynomialTranspose(Dest: TCnInt64BiPolynomial; Source: TCnInt64BiPolynomial);
+{* 将二元整系数多项式的 X Y 元互换至另一个二元整系数多项式对象中，Src 和 Dest 可以相同。
 
    参数：
-     Dst: TCnInt64BiPolynomial            - 目标二元整系数多项式
-     Src: TCnInt64BiPolynomial            - 源二元整系数多项式
+     Dest: TCnInt64BiPolynomial           - 目标二元整系数多项式
+     Source: TCnInt64BiPolynomial         - 源二元整系数多项式
 
    返回值：（无）
 }
@@ -3939,13 +4684,24 @@ type
        返回值：（无）
     }
 
-    procedure SetXYCoefficent(XDegree: Integer; YDegree: Integer; ACoefficient: TCnBigNumber);
+    procedure SetXYCoefficent(XDegree: Integer; YDegree: Integer; ACoefficient: Int64); overload;
     {* 针对特定次数的 X 和 Y，设置其系数。
 
        参数：
          XDegree: Integer                 - X 次数
          YDegree: Integer                 - Y 次数
-         ACoefficient: TCnBigNumber       - 系数
+         ACoefficient: Int64              - 整数系数
+
+       返回值：（无）
+    }
+
+    procedure SetXYCoefficent(XDegree: Integer; YDegree: Integer; ACoefficient: TCnBigNumber); overload;
+    {* 针对特定次数的 X 和 Y，设置其系数。
+
+       参数：
+         XDegree: Integer                 - X 次数
+         YDegree: Integer                 - Y 次数
+         ACoefficient: TCnBigNumber       - 大整数系数
 
        返回值：（无）
     }
@@ -4064,34 +4820,34 @@ function BigNumberBiPolynomialDuplicate(P: TCnBigNumberBiPolynomial): TCnBigNumb
    返回值：TCnBigNumberBiPolynomial       - 返回新建的二元大整系数多项式
 }
 
-function BigNumberBiPolynomialCopy(Dst: TCnBigNumberBiPolynomial;
-  Src: TCnBigNumberBiPolynomial): TCnBigNumberBiPolynomial;
-{* 复制一个二元大整系数多项式对象，成功返回 Dst。
+function BigNumberBiPolynomialCopy(Dest: TCnBigNumberBiPolynomial;
+  Source: TCnBigNumberBiPolynomial): TCnBigNumberBiPolynomial;
+{* 复制一个二元大整系数多项式对象，成功返回 Dest。
 
    参数：
-     Dst: TCnBigNumberBiPolynomial        - 目标二元大整系数多项式
-     Src: TCnBigNumberBiPolynomial        - 源二元大整系数多项式
+     Dest: TCnBigNumberBiPolynomial       - 目标二元大整系数多项式
+     Source: TCnBigNumberBiPolynomial     - 源二元大整系数多项式
 
    返回值：TCnBigNumberBiPolynomial       - 成功则返回目标对象，失败则返回 nil
 }
 
-function BigNumberBiPolynomialCopyFromX(Dst: TCnBigNumberBiPolynomial;
+function BigNumberBiPolynomialCopyFromX(Dest: TCnBigNumberBiPolynomial;
   SrcX: TCnBigNumberPolynomial): TCnBigNumberBiPolynomial;
-{* 从一元 X 大整系数多项式中复制一个二元大整系数多项式对象，成功返回 Dst。
+{* 从一元 X 大整系数多项式中复制一个二元大整系数多项式对象，成功返回 Dest。
 
    参数：
-     Dst: TCnBigNumberBiPolynomial        - 目标二元大整系数多项式
+     Dest: TCnBigNumberBiPolynomial       - 目标二元大整系数多项式
      SrcX: TCnBigNumberPolynomial         - 源一元 X 大整系数多项式
 
    返回值：TCnBigNumberBiPolynomial       - 成功则返回目标对象，失败则返回 nil
 }
 
-function BigNumberBiPolynomialCopyFromY(Dst: TCnBigNumberBiPolynomial;
+function BigNumberBiPolynomialCopyFromY(Dest: TCnBigNumberBiPolynomial;
   SrcY: TCnBigNumberPolynomial): TCnBigNumberBiPolynomial;
-{* 从一元 Y 大整系数多项式中复制一个二元大整系数多项式对象，成功返回 Dst
+{* 从一元 Y 大整系数多项式中复制一个二元大整系数多项式对象，成功返回 Dest
 
    参数：
-     Dst: TCnBigNumberBiPolynomial        - 目标二元大整系数多项式
+     Dest: TCnBigNumberBiPolynomial       - 目标二元大整系数多项式
      SrcY: TCnBigNumberPolynomial         - 源一元 Y 大整系数多项式
 
    返回值：TCnBigNumberBiPolynomial       - 成功则返回目标对象，失败则返回 nil
@@ -4390,13 +5146,13 @@ function BigNumberBiPolynomialEvaluateByX(Res: TCnBigNumberPolynomial;
    返回值：Boolean                        - 返回是否计算成功
 }
 
-procedure BigNumberBiPolynomialTranspose(Dst: TCnBigNumberBiPolynomial;
-  Src: TCnBigNumberBiPolynomial);
-{* 将二元大整系数多项式的 X Y 元互换至另一个二元大整系数多项式对象中，Src 和 Dst 可以相同。
+procedure BigNumberBiPolynomialTranspose(Dest: TCnBigNumberBiPolynomial;
+  Source: TCnBigNumberBiPolynomial);
+{* 将二元大整系数多项式的 X Y 元互换至另一个二元大整系数多项式对象中，Src 和 Dest 可以相同。
 
    参数：
-     Dst: TCnBigNumberBiPolynomial        - 目标二元大整系数多项式
-     Src: TCnBigNumberBiPolynomial        - 源二元大整系数多项式
+     Dest: TCnBigNumberBiPolynomial       - 目标二元大整系数多项式
+     Source: TCnBigNumberBiPolynomial     - 源二元大整系数多项式
 
    返回值：（无）
 }
@@ -4634,12 +5390,12 @@ procedure BigNumberBiPolynomialGaloisDivWord(P: TCnBigNumberBiPolynomial; N: Int
    返回值：（无）
 }
 
-procedure Int64PolynomialToBigNumberPolynomial(Dst: TCnBigNumberPolynomial; Src: TCnInt64Polynomial);
+procedure Int64PolynomialToBigNumberPolynomial(Dest: TCnBigNumberPolynomial; Source: TCnInt64Polynomial);
 {* 将一元整系数多项式赋值给一大整系数多项式。
 
    参数：
-     Dst: TCnBigNumberPolynomial          - 目标一元大整系数多项式
-     Src: TCnInt64Polynomial              - 源一元整系数多项式
+     Dest: TCnBigNumberPolynomial         - 目标一元大整系数多项式
+     Source: TCnInt64Polynomial           - 源一元整系数多项式
 
    返回值：（无）
 }
@@ -4672,6 +5428,10 @@ var
   FLocalBigNumberPool: TCnBigNumberPool = nil;
   FLocalInt64BiPolynomialPool: TCnInt64BiPolynomialPool = nil;
   FLocalBigNumberBiPolynomialPool: TCnBigNumberBiPolynomialPool = nil;
+  FLocalBigComplexPool: TCnBigComplexPool = nil;
+  FLocalBigComplexPolynomialPool: TCnBigComplexPolynomialPool = nil;
+  FLocalBigComplexDecimalPool: TCnBigComplexDecimalPool = nil;
+  FLocalBigComplexDecimalPolynomialPool: TCnBigComplexDecimalPolynomialPool = nil;
 
 procedure CheckDegree(Degree: Integer);
 begin
@@ -4959,18 +5719,18 @@ begin
     Int64PolynomialCopy(Result, P);
 end;
 
-function Int64PolynomialCopy(Dst: TCnInt64Polynomial;
-  Src: TCnInt64Polynomial): TCnInt64Polynomial;
+function Int64PolynomialCopy(Dest: TCnInt64Polynomial;
+  Source: TCnInt64Polynomial): TCnInt64Polynomial;
 var
   I: Integer;
 begin
-  Result := Dst;
-  if Src <> Dst then
+  Result := Dest;
+  if Source <> Dest then
   begin
-    Dst.Clear;
-    for I := 0 to Src.Count - 1 do
-      Dst.Add(Src[I]);
-    Dst.CorrectTop;
+    Dest.Clear;
+    for I := 0 to Source.Count - 1 do
+      Dest.Add(Source[I]);
+    Dest.CorrectTop;
   end;
 end;
 
@@ -5617,7 +6377,7 @@ begin
   end;
 end;
 
-function Int64PolynomialReduce(P: TCnInt64Polynomial): Integer;
+function Int64PolynomialReduce(P: TCnInt64Polynomial): Int64;
 var
   I: Integer;
   D: Int64;
@@ -5674,6 +6434,7 @@ function Int64PolynomialGreatestCommonDivisor(Res: TCnInt64Polynomial;
 var
   A, B, C: TCnInt64Polynomial;
   MF: Int64;
+  GcdValue: Int64;
 begin
   A := nil;
   B := nil;
@@ -5692,6 +6453,15 @@ begin
     begin
       Int64PolynomialCopy(A, P2);
       Int64PolynomialCopy(B, P1);
+    end;
+
+    // 特殊处理：如果两个多项式都是常数项，直接计算整数 GCD
+    if (A.MaxDegree = 0) and (B.MaxDegree = 0) then
+    begin
+      GcdValue := CnInt64GreatestCommonDivisor(A[0], B[0]);
+      Res.SetCoefficents([GcdValue]);
+      Result := True;
+      Exit;
     end;
 
     C := FLocalInt64PolynomialPool.Obtain;
@@ -6676,7 +7446,7 @@ procedure TCnInt64RationalPolynomial.AssignTo(Dest: TPersistent);
 begin
   if Dest is TCnInt64RationalPolynomial then
   begin
-    Int64PolynomialCopy(TCnInt64RationalPolynomial(Dest).Nominator, FNominator);
+    Int64PolynomialCopy(TCnInt64RationalPolynomial(Dest).Numerator, FNumerator);
     Int64PolynomialCopy(TCnInt64RationalPolynomial(Dest).Denominator, FDenominator);
   end
   else
@@ -6686,14 +7456,14 @@ end;
 constructor TCnInt64RationalPolynomial.Create;
 begin
   inherited;
-  FNominator := TCnInt64Polynomial.Create([0]);
+  FNumerator := TCnInt64Polynomial.Create([0]);
   FDenominator := TCnInt64Polynomial.Create([1]);
 end;
 
 destructor TCnInt64RationalPolynomial.Destroy;
 begin
   FDenominator.Free;
-  FNominator.Free;
+  FNumerator.Free;
   inherited;
 end;
 
@@ -6704,31 +7474,31 @@ end;
 
 function TCnInt64RationalPolynomial.IsOne: Boolean;
 begin
-  Result := not FNominator.IsZero and Int64PolynomialEqual(FNominator, FDenominator);
+  Result := not FNumerator.IsZero and Int64PolynomialEqual(FNumerator, FDenominator);
 end;
 
 function TCnInt64RationalPolynomial.IsZero: Boolean;
 begin
-  Result := not FDenominator.IsZero and FNominator.IsZero;
+  Result := not FDenominator.IsZero and FNumerator.IsZero;
 end;
 
 procedure TCnInt64RationalPolynomial.Neg;
 begin
-  FNominator.Negate;
+  FNumerator.Negate;
 end;
 
 procedure TCnInt64RationalPolynomial.Reciprocal;
 var
   T: TCnInt64Polynomial;
 begin
-  if FNominator.IsZero then
+  if FNumerator.IsZero then
     raise EDivByZero.Create(SDivByZero);
 
   T := FLocalInt64PolynomialPool.Obtain;
   try
     Int64PolynomialCopy(T, FDenominator);
-    Int64PolynomialCopy(FDenominator, FNominator);
-    Int64PolynomialCopy(FNominator, T);
+    Int64PolynomialCopy(FDenominator, FNumerator);
+    Int64PolynomialCopy(FNumerator, T);
   finally
     FLocalInt64PolynomialPool.Recycle(T);
   end;
@@ -6736,13 +7506,13 @@ end;
 
 procedure TCnInt64RationalPolynomial.Reduce;
 begin
-  Int64PolynomialReduce2(FNominator, FDenominator);
+  Int64PolynomialReduce2(FNumerator, FDenominator);
 end;
 
 procedure TCnInt64RationalPolynomial.SetOne;
 begin
   FDenominator.SetOne;
-  FNominator.SetOne;
+  FNumerator.SetOne;
 end;
 
 procedure TCnInt64RationalPolynomial.SetString(const Rational: string);
@@ -6756,12 +7526,12 @@ begin
     N := Copy(Rational, 1, P - 1);
     D := Copy(Rational, P + 1, MaxInt);
 
-    FNominator.SetString(Trim(N));
+    FNumerator.SetString(Trim(N));
     FDenominator.SetString(Trim(D));
   end
   else
   begin
-    FNominator.SetString(Rational);
+    FNumerator.SetString(Rational);
     FDenominator.SetOne;
   end;
 end;
@@ -6769,17 +7539,17 @@ end;
 procedure TCnInt64RationalPolynomial.SetZero;
 begin
   FDenominator.SetOne;
-  FNominator.SetZero;
+  FNumerator.SetZero;
 end;
 
 function TCnInt64RationalPolynomial.ToString: string;
 begin
   if FDenominator.IsOne then
-    Result := FNominator.ToString
-  else if FNominator.IsZero then
+    Result := FNumerator.ToString
+  else if FNumerator.IsZero then
     Result := '0'
   else
-    Result := FNominator.ToString + ' / ' + FDenominator.ToString;
+    Result := FNumerator.ToString + ' / ' + FDenominator.ToString;
 end;
 
 // ============================= 有理分式运算 ==================================
@@ -6796,7 +7566,7 @@ begin
 
   if R1.IsInt and R2.IsInt then
   begin
-    Result := Int64PolynomialEqual(R1.Nominator, R2.Nominator);
+    Result := Int64PolynomialEqual(R1.Numerator, R2.Numerator);
     Exit;
   end;
 
@@ -6805,8 +7575,8 @@ begin
 
   try
     // 判断分子分母互相乘的结果是否相等
-    Int64PolynomialMul(T1, R1.Nominator, R2.Denominator);
-    Int64PolynomialMul(T2, R2.Nominator, R1.Denominator);
+    Int64PolynomialMul(T1, R1.Numerator, R2.Denominator);
+    Int64PolynomialMul(T2, R2.Numerator, R1.Denominator);
     Result := Int64PolynomialEqual(T1, T2);
   finally
     FLocalInt64PolynomialPool.Recycle(T2);
@@ -6814,37 +7584,37 @@ begin
   end;
 end;
 
-function Int64RationalPolynomialCopy(Dst: TCnInt64RationalPolynomial;
-  Src: TCnInt64RationalPolynomial): TCnInt64RationalPolynomial;
+function Int64RationalPolynomialCopy(Dest: TCnInt64RationalPolynomial;
+  Source: TCnInt64RationalPolynomial): TCnInt64RationalPolynomial;
 begin
-  Result := Dst;
-  if Src <> Dst then
+  Result := Dest;
+  if Source <> Dest then
   begin
-    Int64PolynomialCopy(Dst.Nominator, Src.Nominator);
-    Int64PolynomialCopy(Dst.Denominator, Src.Denominator);
+    Int64PolynomialCopy(Dest.Numerator, Source.Numerator);
+    Int64PolynomialCopy(Dest.Denominator, Source.Denominator);
   end;
 end;
 
-procedure Int64RationalPolynomialAdd(R1, R2: TCnInt64RationalPolynomial;
-  RationalResult: TCnInt64RationalPolynomial);
+procedure Int64RationalPolynomialAdd(Res: TCnInt64RationalPolynomial;
+  R1, R2: TCnInt64RationalPolynomial);
 var
   M, R, F1, F2, D1, D2: TCnInt64Polynomial;
 begin
   if R1.IsInt and R2.IsInt then
   begin
-    Int64PolynomialAdd(RationalResult.Nominator, R1.Nominator, R2.Nominator);
-    RationalResult.Denominator.SetOne;
+    Int64PolynomialAdd(Res.Numerator, R1.Numerator, R2.Numerator);
+    Res.Denominator.SetOne;
     Exit;
   end
   else if R1.IsZero then
   begin
-    if R2 <> RationalResult then
-      RationalResult.Assign(R2);
+    if R2 <> Res then
+      Res.Assign(R2);
   end
   else if R2.IsZero then
   begin
-    if R1 <> RationalResult then
-      RationalResult.Assign(R1);
+    if R1 <> Res then
+      Res.Assign(R1);
   end
   else
   begin
@@ -6873,10 +7643,10 @@ begin
       Int64PolynomialDiv(F1, R, M, D1);
       Int64PolynomialDiv(F2, R, M, D2);
 
-      Int64PolynomialCopy(RationalResult.Denominator, M);
-      Int64PolynomialMul(R, R1.Nominator, F1);
-      Int64PolynomialMul(M, R2.Nominator, F2);
-      Int64PolynomialAdd(RationalResult.Nominator, R, M);
+      Int64PolynomialCopy(Res.Denominator, M);
+      Int64PolynomialMul(R, R1.Numerator, F1);
+      Int64PolynomialMul(M, R2.Numerator, F2);
+      Int64PolynomialAdd(Res.Numerator, R, M);
     finally
       FLocalInt64PolynomialPool.Recycle(M);
       FLocalInt64PolynomialPool.Recycle(R);
@@ -6888,35 +7658,35 @@ begin
   end;
 end;
 
-procedure Int64RationalPolynomialSub(R1, R2: TCnInt64RationalPolynomial;
-  RationalResult: TCnInt64RationalPolynomial);
+procedure Int64RationalPolynomialSub(Res: TCnInt64RationalPolynomial;
+  R1, R2: TCnInt64RationalPolynomial);
 begin
-  R2.Nominator.Negate;
-  Int64RationalPolynomialAdd(R1, R2, RationalResult);
-  if RationalResult <> R2 then
-    R2.Nominator.Negate;
+  R2.Numerator.Negate;
+  Int64RationalPolynomialAdd(Res, R1, R2);
+  if Res <> R2 then
+    R2.Numerator.Negate;
 end;
 
-procedure Int64RationalPolynomialMul(R1, R2: TCnInt64RationalPolynomial;
-  RationalResult: TCnInt64RationalPolynomial);
+procedure Int64RationalPolynomialMul(Res: TCnInt64RationalPolynomial;
+  R1, R2: TCnInt64RationalPolynomial);
 begin
-  Int64PolynomialMul(RationalResult.Nominator, R1.Nominator, R2.Nominator);
-  Int64PolynomialMul(RationalResult.Denominator, R1.Denominator, R2.Denominator);
+  Int64PolynomialMul(Res.Numerator, R1.Numerator, R2.Numerator);
+  Int64PolynomialMul(Res.Denominator, R1.Denominator, R2.Denominator);
 end;
 
-procedure Int64RationalPolynomialDiv(R1, R2: TCnInt64RationalPolynomial;
-  RationalResult: TCnInt64RationalPolynomial);
+procedure Int64RationalPolynomialDiv(Res: TCnInt64RationalPolynomial;
+  R1, R2: TCnInt64RationalPolynomial);
 var
   N: TCnInt64Polynomial;
 begin
   if R2.IsZero then
     raise EDivByZero.Create(SDivByZero);
 
-  N := FLocalInt64PolynomialPool.Obtain; // 交叉相乘，必须用中间变量，防止 RationalResult 是 Number1 或 Number 2
+  N := FLocalInt64PolynomialPool.Obtain; // 交叉相乘，必须用中间变量，防止 Res 是 Number1 或 Number 2
   try
-    Int64PolynomialMul(N, R1.Nominator, R2.Denominator);
-    Int64PolynomialMul(RationalResult.Denominator, R1.Denominator, R2.Nominator);
-    Int64PolynomialCopy(RationalResult.Nominator, N);
+    Int64PolynomialMul(N, R1.Numerator, R2.Denominator);
+    Int64PolynomialMul(Res.Denominator, R1.Denominator, R2.Numerator);
+    Int64PolynomialCopy(Res.Numerator, N);
   finally
     FLocalInt64PolynomialPool.Recycle(N);
   end;
@@ -6930,7 +7700,7 @@ begin
   try
     P.MaxDegree := 0;
     P[0] := N;
-    Int64RationalPolynomialAdd(R, P, R);
+    Int64RationalPolynomialAdd(R, R, P);
   finally
     FLocalInt64PolynomialPool.Recycle(P);
   end;
@@ -6944,7 +7714,7 @@ begin
   try
     P.MaxDegree := 0;
     P[0] := N;
-    Int64RationalPolynomialSub(R, P, R);
+    Int64RationalPolynomialSub(R, R, P);
   finally
     FLocalInt64PolynomialPool.Recycle(P);
   end;
@@ -6958,7 +7728,7 @@ begin
   try
     P.MaxDegree := 0;
     P[0] := N;
-    Int64RationalPolynomialMul(R, P, R);
+    Int64RationalPolynomialMul(R, R, P);
   finally
     FLocalInt64PolynomialPool.Recycle(P);
   end;
@@ -6972,22 +7742,22 @@ begin
   try
     P.MaxDegree := 0;
     P[0] := N;
-    Int64RationalPolynomialDiv(R, P, R);
+    Int64RationalPolynomialDiv(R, R, P);
   finally
     FLocalInt64PolynomialPool.Recycle(P);
   end;
 end;
 
-procedure Int64RationalPolynomialAdd(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial);
+procedure Int64RationalPolynomialAdd(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial);
 var
   T: TCnInt64RationalPolynomial;
 begin
   if P1.IsZero then
   begin
-    if R1 <> RationalResult then
+    if R1 <> Res then
     begin
-      Int64RationalPolynomialCopy(RationalResult, R1);
+      Int64RationalPolynomialCopy(Res, R1);
       Exit;
     end;
   end;
@@ -6995,50 +7765,50 @@ begin
   T := FLocalInt64RationalPolynomialPool.Obtain;
   try
     T.Denominator.SetOne;
-    Int64PolynomialCopy(T.Nominator, P1);
-    Int64RationalPolynomialAdd(R1, T, RationalResult);
+    Int64PolynomialCopy(T.Numerator, P1);
+    Int64RationalPolynomialAdd(Res, R1, T);
   finally
     FLocalInt64RationalPolynomialPool.Recycle(T);
   end;
 end;
 
-procedure Int64RationalPolynomialSub(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial);
+procedure Int64RationalPolynomialSub(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial);
 begin
   P1.Negate;
   try
-    Int64RationalPolynomialAdd(R1, P1, RationalResult);
+    Int64RationalPolynomialAdd(Res, R1, P1);
   finally
     P1.Negate;
   end;
 end;
 
-procedure Int64RationalPolynomialMul(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial);
+procedure Int64RationalPolynomialMul(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial);
 begin
   if P1.IsZero then
-    RationalResult.SetZero
+    Res.SetZero
   else if P1.IsOne then
-    RationalResult.Assign(R1)
+    Res.Assign(R1)
   else
   begin
-    Int64PolynomialMul(RationalResult.Nominator, R1.Nominator, P1);
-    Int64PolynomialCopy(RationalResult.Denominator, R1.Denominator);
+    Int64PolynomialMul(Res.Numerator, R1.Numerator, P1);
+    Int64PolynomialCopy(Res.Denominator, R1.Denominator);
   end;
 end;
 
-procedure Int64RationalPolynomialDiv(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial);
+procedure Int64RationalPolynomialDiv(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial);
 begin
   if P1.IsZero then
     raise EDivByZero.Create(SDivByZero);
 
   if P1.IsOne then
-    RationalResult.Assign(R1)
+    Res.Assign(R1)
   else
   begin
-    Int64PolynomialMul(RationalResult.Denominator, R1.Denominator, P1);
-    Int64PolynomialCopy(RationalResult.Nominator, R1.Nominator);
+    Int64PolynomialMul(Res.Denominator, R1.Denominator, P1);
+    Int64PolynomialCopy(Res.Numerator, R1.Numerator);
   end;
 end;
 
@@ -7048,18 +7818,18 @@ var
   RN, RD: TCnInt64RationalPolynomial;
 begin
   if P.IsInt then
-    Result := Int64RationalPolynomialCompose(Res, F, P.Nominator)
+    Result := Int64RationalPolynomialCompose(Res, F, P.Numerator)
   else
   begin
     RD := FLocalInt64RationalPolynomialPool.Obtain;
     RN := FLocalInt64RationalPolynomialPool.Obtain;
 
     try
-      Int64RationalPolynomialCompose(RN, F.Nominator, P);
+      Int64RationalPolynomialCompose(RN, F.Numerator, P);
       Int64RationalPolynomialCompose(RD, F.Denominator, P);
 
-      Int64PolynomialMul(Res.Nominator, RN.Nominator, RD.Denominator);
-      Int64PolynomialMul(Res.Denominator, RN.Denominator, RD.Nominator);
+      Int64PolynomialMul(Res.Numerator, RN.Numerator, RD.Denominator);
+      Int64PolynomialMul(Res.Denominator, RN.Denominator, RD.Numerator);
       Result := True;
     finally
       FLocalInt64RationalPolynomialPool.Recycle(RN);
@@ -7071,7 +7841,7 @@ end;
 function Int64RationalPolynomialCompose(Res: TCnInt64RationalPolynomial;
   F: TCnInt64RationalPolynomial; P: TCnInt64Polynomial): Boolean;
 begin
-  Int64PolynomialCompose(Res.Nominator, F.Nominator, P);
+  Int64PolynomialCompose(Res.Numerator, F.Numerator, P);
   Int64PolynomialCompose(Res.Denominator, F.Denominator, P);
   Result := True;
 end;
@@ -7085,7 +7855,7 @@ begin
   if P.IsZero or (F.MaxDegree = 0) then    // 0 代入，或只有常数项的情况下，得常数项
   begin
     Res.SetOne;
-    Res.Nominator[0] := F[0];
+    Res.Numerator[0] := F[0];
     Result := True;
     Exit;
   end;
@@ -7128,7 +7898,7 @@ end;
 procedure Int64RationalPolynomialGetValue(Res: TCnRationalNumber;
   F: TCnInt64RationalPolynomial; X: Int64);
 begin
-  Res.Nominator := Int64PolynomialGetValue(F.Nominator, X);
+  Res.Numerator := Int64PolynomialGetValue(F.Numerator, X);
   Res.Denominator := Int64PolynomialGetValue(F.Denominator, X);
   Res.Reduce;
 end;
@@ -7151,8 +7921,8 @@ begin
 
   try
     // 判断分子分母互相乘的结果是否相等
-    Int64PolynomialGaloisMul(T1, R1.Nominator, R2.Denominator, Prime, Primitive);
-    Int64PolynomialGaloisMul(T2, R2.Nominator, R1.Denominator, Prime, Primitive);
+    Int64PolynomialGaloisMul(T1, R1.Numerator, R2.Denominator, Prime, Primitive);
+    Int64PolynomialGaloisMul(T2, R2.Numerator, R1.Denominator, Prime, Primitive);
     Result := Int64PolynomialGaloisEqual(T1, T2, Prime);
   finally
     FLocalInt64PolynomialPool.Recycle(T2);
@@ -7163,30 +7933,30 @@ end;
 procedure Int64RationalPolynomialGaloisNegate(P: TCnInt64RationalPolynomial;
   Prime: Int64);
 begin
-  Int64PolynomialGaloisNegate(P.Nominator, Prime);
+  Int64PolynomialGaloisNegate(P.Numerator, Prime);
 end;
 
-procedure Int64RationalPolynomialGaloisAdd(R1, R2: TCnInt64RationalPolynomial;
-  RationalResult: TCnInt64RationalPolynomial; Prime: Int64);
+procedure Int64RationalPolynomialGaloisAdd(Res: TCnInt64RationalPolynomial;
+  R1, R2: TCnInt64RationalPolynomial; Prime: Int64);
 var
   M, R, F1, F2, D1, D2: TCnInt64Polynomial;
 begin
   if R1.IsInt and R2.IsInt then
   begin
-    Int64PolynomialGaloisAdd(RationalResult.Nominator, R1.Nominator,
-      R2.Nominator, Prime);
-    RationalResult.Denominator.SetOne;
+    Int64PolynomialGaloisAdd(Res.Numerator, R1.Numerator,
+      R2.Numerator, Prime);
+    Res.Denominator.SetOne;
     Exit;
   end
   else if R1.IsZero then
   begin
-    if R2 <> RationalResult then
-      RationalResult.Assign(R2);
+    if R2 <> Res then
+      Res.Assign(R2);
   end
   else if R2.IsZero then
   begin
-    if R1 <> RationalResult then
-      RationalResult.Assign(R1);
+    if R1 <> Res then
+      Res.Assign(R1);
   end
   else
   begin
@@ -7215,10 +7985,10 @@ begin
       Int64PolynomialGaloisDiv(F1, R, M, D1, Prime);  // 最小公倍数 M div D1 结果放 F1
       Int64PolynomialGaloisDiv(F2, R, M, D2, Prime);  // 最小公倍数 M div D2 结果放 F2
 
-      Int64PolynomialCopy(RationalResult.Denominator, M);  // 结果的分母是最小公倍数
-      Int64PolynomialGaloisMul(R, R1.Nominator, F1, Prime);
-      Int64PolynomialGaloisMul(M, R2.Nominator, F2, Prime);
-      Int64PolynomialGaloisAdd(RationalResult.Nominator, R, M, Prime);
+      Int64PolynomialCopy(Res.Denominator, M);  // 结果的分母是最小公倍数
+      Int64PolynomialGaloisMul(R, R1.Numerator, F1, Prime);
+      Int64PolynomialGaloisMul(M, R2.Numerator, F2, Prime);
+      Int64PolynomialGaloisAdd(Res.Numerator, R, M, Prime);
     finally
       FLocalInt64PolynomialPool.Recycle(M);
       FLocalInt64PolynomialPool.Recycle(R);
@@ -7230,35 +8000,35 @@ begin
   end;
 end;
 
-procedure Int64RationalPolynomialGaloisSub(R1, R2: TCnInt64RationalPolynomial;
-  RationalResult: TCnInt64RationalPolynomial; Prime: Int64);
+procedure Int64RationalPolynomialGaloisSub(Res: TCnInt64RationalPolynomial;
+  R1, R2: TCnInt64RationalPolynomial; Prime: Int64);
 begin
-  R2.Nominator.Negate;
-  Int64RationalPolynomialGaloisAdd(R1, R2, RationalResult, Prime);
-  if RationalResult <> R2 then
-    R2.Nominator.Negate;
+  R2.Numerator.Negate;
+  Int64RationalPolynomialGaloisAdd(Res, R1, R2, Prime);
+  if Res <> R2 then
+    R2.Numerator.Negate;
 end;
 
-procedure Int64RationalPolynomialGaloisMul(R1, R2: TCnInt64RationalPolynomial;
-  RationalResult: TCnInt64RationalPolynomial; Prime: Int64);
+procedure Int64RationalPolynomialGaloisMul(Res: TCnInt64RationalPolynomial;
+  R1, R2: TCnInt64RationalPolynomial; Prime: Int64);
 begin
-  Int64PolynomialGaloisMul(RationalResult.Nominator, R1.Nominator, R2.Nominator, Prime);
-  Int64PolynomialGaloisMul(RationalResult.Denominator, R1.Denominator, R2.Denominator, Prime);
+  Int64PolynomialGaloisMul(Res.Numerator, R1.Numerator, R2.Numerator, Prime);
+  Int64PolynomialGaloisMul(Res.Denominator, R1.Denominator, R2.Denominator, Prime);
 end;
 
-procedure Int64RationalPolynomialGaloisDiv(R1, R2: TCnInt64RationalPolynomial;
-  RationalResult: TCnInt64RationalPolynomial; Prime: Int64);
+procedure Int64RationalPolynomialGaloisDiv(Res: TCnInt64RationalPolynomial;
+  R1, R2: TCnInt64RationalPolynomial; Prime: Int64);
 var
   N: TCnInt64Polynomial;
 begin
   if R2.IsZero then
     raise EDivByZero.Create(SDivByZero);
 
-  N := FLocalInt64PolynomialPool.Obtain; // 交叉相乘，必须用中间变量，防止 RationalResult 是 Number1 或 Number 2
+  N := FLocalInt64PolynomialPool.Obtain; // 交叉相乘，必须用中间变量，防止 Res 是 Number1 或 Number 2
   try
-    Int64PolynomialGaloisMul(N, R1.Nominator, R2.Denominator, Prime);
-    Int64PolynomialGaloisMul(RationalResult.Denominator, R1.Denominator, R2.Nominator, Prime);
-    Int64PolynomialCopy(RationalResult.Nominator, N);
+    Int64PolynomialGaloisMul(N, R1.Numerator, R2.Denominator, Prime);
+    Int64PolynomialGaloisMul(Res.Denominator, R1.Denominator, R2.Numerator, Prime);
+    Int64PolynomialCopy(Res.Numerator, N);
   finally
     FLocalInt64PolynomialPool.Recycle(N);
   end;
@@ -7273,7 +8043,7 @@ begin
   try
     P.MaxDegree := 0;
     P[0] := N;
-    Int64RationalPolynomialGaloisAdd(R, P, R, Prime);
+    Int64RationalPolynomialGaloisAdd(R, R, P, Prime);
   finally
     FLocalInt64PolynomialPool.Recycle(P);
   end;
@@ -7288,7 +8058,7 @@ begin
   try
     P.MaxDegree := 0;
     P[0] := N;
-    Int64RationalPolynomialGaloisSub(R, P, R, Prime);
+    Int64RationalPolynomialGaloisSub(R, R, P, Prime);
   finally
     FLocalInt64PolynomialPool.Recycle(P);
   end;
@@ -7303,7 +8073,7 @@ begin
   try
     P.MaxDegree := 0;
     P[0] := N;
-    Int64RationalPolynomialGaloisMul(R, P, R, Prime);
+    Int64RationalPolynomialGaloisMul(R, R, P, Prime);
   finally
     FLocalInt64PolynomialPool.Recycle(P);
   end;
@@ -7318,22 +8088,22 @@ begin
   try
     P.MaxDegree := 0;
     P[0] := N;
-    Int64RationalPolynomialGaloisDiv(R, P, R, Prime);
+    Int64RationalPolynomialGaloisDiv(R, R, P, Prime);
   finally
     FLocalInt64PolynomialPool.Recycle(P);
   end;
 end;
 
-procedure Int64RationalPolynomialGaloisAdd(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial; Prime: Int64); overload;
+procedure Int64RationalPolynomialGaloisAdd(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial; Prime: Int64);
 var
   T: TCnInt64RationalPolynomial;
 begin
   if P1.IsZero then
   begin
-    if R1 <> RationalResult then
+    if R1 <> Res then
     begin
-      Int64RationalPolynomialCopy(RationalResult, R1);
+      Int64RationalPolynomialCopy(Res, R1);
       Exit;
     end;
   end;
@@ -7341,50 +8111,50 @@ begin
   T := FLocalInt64RationalPolynomialPool.Obtain;
   try
     T.Denominator.SetOne;
-    Int64PolynomialCopy(T.Nominator, P1);
-    Int64RationalPolynomialGaloisAdd(R1, T, RationalResult, Prime);
+    Int64PolynomialCopy(T.Numerator, P1);
+    Int64RationalPolynomialGaloisAdd(Res, R1, T, Prime);
   finally
     FLocalInt64RationalPolynomialPool.Recycle(T);
   end;
 end;
 
-procedure Int64RationalPolynomialGaloisSub(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial; Prime: Int64); overload;
+procedure Int64RationalPolynomialGaloisSub(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial; Prime: Int64);
 begin
   P1.Negate;
   try
-    Int64RationalPolynomialGaloisAdd(R1, P1, RationalResult, Prime);
+    Int64RationalPolynomialGaloisAdd(Res, R1, P1, Prime);
   finally
     P1.Negate;
   end;
 end;
 
-procedure Int64RationalPolynomialGaloisMul(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial; Prime: Int64); overload;
+procedure Int64RationalPolynomialGaloisMul(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial; Prime: Int64);
 begin
   if P1.IsZero then
-    RationalResult.SetZero
+    Res.SetZero
   else if P1.IsOne then
-    RationalResult.Assign(R1)
+    Res.Assign(R1)
   else
   begin
-    Int64PolynomialGaloisMul(RationalResult.Nominator, R1.Nominator, P1, Prime);
-    Int64PolynomialCopy(RationalResult.Denominator, R1.Denominator);
+    Int64PolynomialGaloisMul(Res.Numerator, R1.Numerator, P1, Prime);
+    Int64PolynomialCopy(Res.Denominator, R1.Denominator);
   end;
 end;
 
-procedure Int64RationalPolynomialGaloisDiv(R1: TCnInt64RationalPolynomial;
-  P1: TCnInt64Polynomial; RationalResult: TCnInt64RationalPolynomial; Prime: Int64); overload;
+procedure Int64RationalPolynomialGaloisDiv(Res: TCnInt64RationalPolynomial;
+  R1: TCnInt64RationalPolynomial; P1: TCnInt64Polynomial; Prime: Int64);
 begin
   if P1.IsZero then
     raise EDivByZero.Create(SDivByZero);
 
   if P1.IsOne then
-    RationalResult.Assign(R1)
+    Res.Assign(R1)
   else
   begin
-    Int64PolynomialGaloisMul(RationalResult.Denominator, R1.Denominator, P1, Prime);
-    Int64PolynomialCopy(RationalResult.Nominator, R1.Nominator);
+    Int64PolynomialGaloisMul(Res.Denominator, R1.Denominator, P1, Prime);
+    Int64PolynomialCopy(Res.Numerator, R1.Numerator);
   end;
 end;
 
@@ -7394,22 +8164,22 @@ var
   RN, RD: TCnInt64RationalPolynomial;
 begin
   if P.IsInt then
-    Result := Int64RationalPolynomialGaloisCompose(Res, F, P.Nominator, Prime, Primitive)
+    Result := Int64RationalPolynomialGaloisCompose(Res, F, P.Numerator, Prime, Primitive)
   else
   begin
     RD := FLocalInt64RationalPolynomialPool.Obtain;
     RN := FLocalInt64RationalPolynomialPool.Obtain;
 
     try
-      Int64RationalPolynomialGaloisCompose(RN, F.Nominator, P, Prime, Primitive);
+      Int64RationalPolynomialGaloisCompose(RN, F.Numerator, P, Prime, Primitive);
       Int64RationalPolynomialGaloisCompose(RD, F.Denominator, P, Prime, Primitive);
 
-      Int64PolynomialGaloisMul(Res.Nominator, RN.Nominator, RD.Denominator, Prime);
-      Int64PolynomialGaloisMul(Res.Denominator, RN.Denominator, RD.Nominator, Prime);
+      Int64PolynomialGaloisMul(Res.Numerator, RN.Numerator, RD.Denominator, Prime);
+      Int64PolynomialGaloisMul(Res.Denominator, RN.Denominator, RD.Numerator, Prime);
 
       if Primitive <> nil then
       begin
-        Int64PolynomialGaloisMod(Res.Nominator, Res.Nominator, Primitive, Prime);
+        Int64PolynomialGaloisMod(Res.Numerator, Res.Numerator, Primitive, Prime);
         Int64PolynomialGaloisMod(Res.Denominator, Res.Denominator, Primitive, Prime);
       end;
       Result := True;
@@ -7424,7 +8194,7 @@ function Int64RationalPolynomialGaloisCompose(Res: TCnInt64RationalPolynomial;
   F: TCnInt64RationalPolynomial; P: TCnInt64Polynomial; Prime: Int64;
   Primitive: TCnInt64Polynomial): Boolean;
 begin
-  Int64PolynomialGaloisCompose(Res.Nominator, F.Nominator, P, Prime, Primitive);
+  Int64PolynomialGaloisCompose(Res.Numerator, F.Numerator, P, Prime, Primitive);
   Int64PolynomialGaloisCompose(Res.Denominator, F.Denominator, P, Prime, Primitive);
   Result := True;
 end;
@@ -7439,7 +8209,7 @@ begin
   if P.IsZero or (F.MaxDegree = 0) then    // 0 代入，或只有常数项的情况下，得常数项
   begin
     Res.SetOne;
-    Res.Nominator[0] := Int64NonNegativeMod(F[0], Prime);
+    Res.Numerator[0] := Int64NonNegativeMod(F[0], Prime);
     Result := True;
     Exit;
   end;
@@ -7469,7 +8239,7 @@ begin
 
     if Primitive <> nil then
     begin
-      Int64PolynomialGaloisMod(R.Nominator, R.Nominator, Primitive, Prime);
+      Int64PolynomialGaloisMod(R.Numerator, R.Numerator, Primitive, Prime);
       Int64PolynomialGaloisMod(R.Denominator, R.Denominator, Primitive, Prime);
     end;
 
@@ -7494,7 +8264,7 @@ begin
   if D = 0 then
     raise EDivByZero.Create(SDivByZero);
 
-  N := Int64PolynomialGaloisGetValue(F.Nominator, X, Prime);
+  N := Int64PolynomialGaloisGetValue(F.Numerator, X, Prime);
   Result := Int64NonNegativeMulMod(N, CnInt64ModularInverse2(D, Prime), Prime);
 end;
 
@@ -7656,7 +8426,7 @@ procedure TCnBigNumberRationalPolynomial.AssignTo(Dest: TPersistent);
 begin
   if Dest is TCnBigNumberRationalPolynomial then
   begin
-    BigNumberPolynomialCopy(TCnBigNumberRationalPolynomial(Dest).Nominator, FNominator);
+    BigNumberPolynomialCopy(TCnBigNumberRationalPolynomial(Dest).Numerator, FNumerator);
     BigNumberPolynomialCopy(TCnBigNumberRationalPolynomial(Dest).Denominator, FDenominator);
   end
   else
@@ -7666,14 +8436,14 @@ end;
 constructor TCnBigNumberRationalPolynomial.Create;
 begin
   inherited;
-  FNominator := TCnBigNumberPolynomial.Create([0]);
+  FNumerator := TCnBigNumberPolynomial.Create([0]);
   FDenominator := TCnBigNumberPolynomial.Create([1]);
 end;
 
 destructor TCnBigNumberRationalPolynomial.Destroy;
 begin
   FDenominator.Free;
-  FNominator.Free;
+  FNumerator.Free;
   inherited;
 end;
 
@@ -7684,31 +8454,31 @@ end;
 
 function TCnBigNumberRationalPolynomial.IsOne: Boolean;
 begin
-  Result := not FNominator.IsZero and BigNumberPolynomialEqual(FNominator, FDenominator);
+  Result := not FNumerator.IsZero and BigNumberPolynomialEqual(FNumerator, FDenominator);
 end;
 
 function TCnBigNumberRationalPolynomial.IsZero: Boolean;
 begin
-  Result := not FDenominator.IsZero and FNominator.IsZero;
+  Result := not FDenominator.IsZero and FNumerator.IsZero;
 end;
 
 procedure TCnBigNumberRationalPolynomial.Neg;
 begin
-  FNominator.Negate;
+  FNumerator.Negate;
 end;
 
 procedure TCnBigNumberRationalPolynomial.Reciprocal;
 var
   T: TCnBigNumberPolynomial;
 begin
-  if FNominator.IsZero then
+  if FNumerator.IsZero then
     raise EDivByZero.Create(SDivByZero);
 
   T := FLocalBigNumberPolynomialPool.Obtain;
   try
     BigNumberPolynomialCopy(T, FDenominator);
-    BigNumberPolynomialCopy(FDenominator, FNominator);
-    BigNumberPolynomialCopy(FNominator, T);
+    BigNumberPolynomialCopy(FDenominator, FNumerator);
+    BigNumberPolynomialCopy(FNumerator, T);
   finally
     FLocalBigNumberPolynomialPool.Recycle(T);
   end;
@@ -7716,13 +8486,13 @@ end;
 
 procedure TCnBigNumberRationalPolynomial.Reduce;
 begin
-  BigNumberPolynomialReduce2(FNominator, FDenominator);
+  BigNumberPolynomialReduce2(FNumerator, FDenominator);
 end;
 
 procedure TCnBigNumberRationalPolynomial.SetOne;
 begin
   FDenominator.SetOne;
-  FNominator.SetOne;
+  FNumerator.SetOne;
 end;
 
 procedure TCnBigNumberRationalPolynomial.SetString(const Rational: string);
@@ -7736,12 +8506,12 @@ begin
     N := Copy(Rational, 1, P - 1);
     D := Copy(Rational, P + 1, MaxInt);
 
-    FNominator.SetString(Trim(N));
+    FNumerator.SetString(Trim(N));
     FDenominator.SetString(Trim(D));
   end
   else
   begin
-    FNominator.SetString(Rational);
+    FNumerator.SetString(Rational);
     FDenominator.SetOne;
   end;
 end;
@@ -7749,17 +8519,17 @@ end;
 procedure TCnBigNumberRationalPolynomial.SetZero;
 begin
   FDenominator.SetOne;
-  FNominator.SetZero;
+  FNumerator.SetZero;
 end;
 
 function TCnBigNumberRationalPolynomial.ToString: string;
 begin
   if FDenominator.IsOne then
-    Result := FNominator.ToString
-  else if FNominator.IsZero then
+    Result := FNumerator.ToString
+  else if FNumerator.IsZero then
     Result := '0'
   else
-    Result := FNominator.ToString + ' / ' + FDenominator.ToString;
+    Result := FNumerator.ToString + ' / ' + FDenominator.ToString;
 end;
 
 { TCnBigNumberPolynomialPool }
@@ -7821,18 +8591,18 @@ begin
     BigNumberPolynomialCopy(Result, P);
 end;
 
-function BigNumberPolynomialCopy(Dst: TCnBigNumberPolynomial;
-  Src: TCnBigNumberPolynomial): TCnBigNumberPolynomial;
+function BigNumberPolynomialCopy(Dest: TCnBigNumberPolynomial;
+  Source: TCnBigNumberPolynomial): TCnBigNumberPolynomial;
 var
   I: Integer;
 begin
-  Result := Dst;
-  if Src <> Dst then
+  Result := Dest;
+  if Source <> Dest then
   begin
-    Dst.MaxDegree := Src.MaxDegree;
-    for I := 0 to Src.Count - 1 do
-      BigNumberCopy(Dst[I], Src[I]);
-    Dst.CorrectTop;
+    Dest.MaxDegree := Source.MaxDegree;
+    for I := 0 to Source.Count - 1 do
+      BigNumberCopy(Dest[I], Source[I]);
+    Dest.CorrectTop;
   end;
 end;
 
@@ -8453,11 +9223,13 @@ function BigNumberPolynomialGreatestCommonDivisor(Res: TCnBigNumberPolynomial;
 var
   A, B, C: TCnBigNumberPolynomial;
   MF: TCnBigNumber;
+  GcdValue: TCnBigNumber;
 begin
   A := nil;
   B := nil;
   C := nil;
   MF := nil;
+  GcdValue := nil;
 
   try
     A := FLocalBigNumberPolynomialPool.Obtain;
@@ -8475,6 +9247,20 @@ begin
       BigNumberPolynomialCopy(B, P1);
     end;
 
+    // 特殊处理：如果两个多项式都是常数项，直接计算 BigNumber GCD
+    if (A.MaxDegree = 0) and (B.MaxDegree = 0) then
+    begin
+      GcdValue := FLocalBigNumberPool.Obtain;
+      if BigNumberGcd(GcdValue, A[0], B[0]) then
+      begin
+        Res.SetCoefficent(0, GcdValue);
+        Result := True;
+      end
+      else
+        Result := False;
+      Exit;
+    end;
+
     C := FLocalBigNumberPolynomialPool.Obtain;
     while not B.IsZero do
     begin
@@ -8490,6 +9276,7 @@ begin
     BigNumberPolynomialCopy(Res, A);
     Result := True;
   finally
+    FLocalBigNumberPool.Recycle(GcdValue);
     FLocalBigNumberPool.Recycle(MF);
     FLocalBigNumberPolynomialPool.Recycle(C);
     FLocalBigNumberPolynomialPool.Recycle(B);
@@ -9630,6 +10417,819 @@ begin
   inherited Recycle(Poly);
 end;
 
+{ TCnBigComplexPolynomial }
+
+procedure TCnBigComplexPolynomial.CorrectTop;
+begin
+  while (MaxDegree > 0) and Items[MaxDegree].IsZero do
+    Delete(MaxDegree);
+end;
+
+constructor TCnBigComplexPolynomial.Create;
+begin
+  inherited Create;
+  Add.SetZero;   // 常系数项
+end;
+
+constructor TCnBigComplexPolynomial.Create(LowToHighCoefficients: array of const);
+begin
+  inherited Create;
+  SetCoefficents(LowToHighCoefficients);
+end;
+
+destructor TCnBigComplexPolynomial.Destroy;
+begin
+
+  inherited;
+end;
+
+procedure TCnBigComplexPolynomial.EnsureDegree(Degree: Integer);
+begin
+  if Degree > MaxDegree then
+    SetMaxDegree(Degree);
+end;
+
+function TCnBigComplexPolynomial.GetMaxDegree: Integer;
+begin
+  if Count = 0 then
+    Add.SetZero;
+  Result := Count - 1;
+end;
+
+function TCnBigComplexPolynomial.IsMonic: Boolean;
+begin
+  Result := BigComplexPolynomialIsMonic(Self);
+end;
+
+function TCnBigComplexPolynomial.IsNegOne: Boolean;
+begin
+  Result := BigComplexPolynomialIsNegOne(Self);
+end;
+
+function TCnBigComplexPolynomial.IsOne: Boolean;
+begin
+  Result := BigComplexPolynomialIsOne(Self);
+end;
+
+function TCnBigComplexPolynomial.IsZero: Boolean;
+begin
+  Result := BigComplexPolynomialIsZero(Self);
+end;
+
+procedure TCnBigComplexPolynomial.Negate;
+begin
+  BigComplexPolynomialNegate(Self);
+end;
+
+procedure TCnBigComplexPolynomial.SetCoefficent(Degree: Integer;
+  Coefficient: TCnBigComplex);
+begin
+  CheckDegree(Degree);
+  EnsureDegree(Degree);
+  BigComplexCopy(Items[Degree], Coefficient);
+end;
+
+procedure TCnBigComplexPolynomial.SetCoefficents(LowToHighCoefficients: array of const);
+var
+  I: Integer;
+begin
+  Clear;
+  for I := Low(LowToHighCoefficients) to High(LowToHighCoefficients) do
+  begin
+    case LowToHighCoefficients[I].VType of
+    vtInteger:
+      begin
+        Add.SetValue(LowToHighCoefficients[I].VInteger, 0);
+      end;
+    vtInt64:
+      begin
+        Add.SetValue(LowToHighCoefficients[I].VInt64^, 0);
+      end;
+    vtBoolean:
+      begin
+        if LowToHighCoefficients[I].VBoolean then
+          Add.SetOne
+        else
+          Add.SetZero;
+      end;
+    vtString:
+      begin
+        Add.SetString(LowToHighCoefficients[I].VString^);
+      end;
+    vtObject:
+      begin
+        // 接受 TCnBigComplex 并从中复制值
+        if LowToHighCoefficients[I].VObject is TCnBigComplex then
+          BigComplexCopy(Add, LowToHighCoefficients[I].VObject as TCnBigComplex);
+      end;
+    else
+      raise ECnPolynomialException.CreateFmt(SInvalidInteger, ['Coefficients ' + IntToStr(I)]);
+    end;
+  end;
+
+  if Count = 0 then
+    Add.SetZero
+  else
+    CorrectTop;
+end;
+
+procedure TCnBigComplexPolynomial.SetMaxDegree(const Value: Integer);
+var
+  I, OC: Integer;
+begin
+  CheckDegree(Value);
+
+  OC := Count;
+  Count := Value + 1; // 直接设置 Count，如变小，会自动释放多余的对象
+
+  if Count > OC then  // 增加的部分创建新对象
+  begin
+    for I := OC to Count - 1 do
+      Items[I] := TCnBigComplex.Create;
+  end;
+end;
+
+procedure TCnBigComplexPolynomial.SetOne;
+begin
+  BigComplexPolynomialSetOne(Self);
+end;
+
+procedure TCnBigComplexPolynomial.SetZero;
+begin
+  BigComplexPolynomialSetZero(Self);
+end;
+
+function TCnBigComplexPolynomial.ToString: string;
+begin
+  Result := BigComplexPolynomialToString(Self);
+end;
+
+{ TCnBigComplexPolynomialPool }
+
+function TCnBigComplexPolynomialPool.CreateObject: TObject;
+begin
+  Result := TCnBigComplexPolynomial.Create;
+end;
+
+function TCnBigComplexPolynomialPool.Obtain: TCnBigComplexPolynomial;
+begin
+  Result := TCnBigComplexPolynomial(inherited Obtain);
+  Result.SetZero;
+end;
+
+procedure TCnBigComplexPolynomialPool.Recycle(Poly: TCnBigComplexPolynomial);
+begin
+  inherited Recycle(Poly);
+end;
+
+{ TCnBigComplexDecimalPolynomial }
+
+constructor TCnBigComplexDecimalPolynomial.Create;
+begin
+  inherited Create;
+end;
+
+constructor TCnBigComplexDecimalPolynomial.Create(LowToHighCoefficients: array of const);
+begin
+  inherited Create;
+  SetCoefficents(LowToHighCoefficients);
+end;
+
+destructor TCnBigComplexDecimalPolynomial.Destroy;
+begin
+  inherited;
+end;
+
+procedure TCnBigComplexDecimalPolynomial.EnsureDegree(Degree: Integer);
+begin
+  if Degree > MaxDegree then
+    SetMaxDegree(Degree);
+end;
+
+function TCnBigComplexDecimalPolynomial.GetMaxDegree: Integer;
+begin
+  if Count = 0 then
+    Add.SetZero;
+  Result := Count - 1;
+end;
+
+procedure TCnBigComplexDecimalPolynomial.SetMaxDegree(const Value: Integer);
+var
+  I, OC: Integer;
+begin
+  CheckDegree(Value);
+
+  OC := Count;
+  Count := Value + 1; // 直接设置 Count，如变小，会自动释放多余的对象
+
+  if Count > OC then  // 增加的部分创建新对象
+  begin
+    for I := OC to Count - 1 do
+      Items[I] := TCnBigComplexDecimal.Create;
+  end;
+end;
+
+procedure TCnBigComplexDecimalPolynomial.SetCoefficents(LowToHighCoefficients: array of const);
+var
+  I: Integer;
+begin
+  Clear;
+  for I := Low(LowToHighCoefficients) to High(LowToHighCoefficients) do
+  begin
+    case LowToHighCoefficients[I].VType of
+    vtInteger:
+      begin
+        Add.SetValue(LowToHighCoefficients[I].VInteger, 0);
+      end;
+    vtInt64:
+      begin
+        Add.SetValue(LowToHighCoefficients[I].VInt64^, 0);
+      end;
+    vtBoolean:
+      begin
+        if LowToHighCoefficients[I].VBoolean then
+          Add.SetOne
+        else
+          Add.SetZero;
+      end;
+    vtString:
+      begin
+        Add.SetString(LowToHighCoefficients[I].VString^);
+      end;
+    vtObject:
+      begin
+        // 接受 TCnBigComplexDecimal 并从中复制值
+        if LowToHighCoefficients[I].VObject is TCnBigComplexDecimal then
+          BigComplexDecimalCopy(Add, LowToHighCoefficients[I].VObject as TCnBigComplexDecimal);
+      end;
+    else
+      raise ECnPolynomialException.CreateFmt(SInvalidInteger, ['Coefficients ' + IntToStr(I)]);
+    end;
+  end;
+
+  if Count = 0 then
+    Add.SetZero
+  else
+    CorrectTop;
+end;
+
+procedure TCnBigComplexDecimalPolynomial.SetCoefficent(Degree: Integer; Coefficient: TCnBigComplexDecimal);
+begin
+  EnsureDegree(Degree);
+  BigComplexDecimalCopy(Items[Degree], Coefficient);
+end;
+
+procedure TCnBigComplexDecimalPolynomial.CorrectTop;
+begin
+  while (Count > 0) and TCnBigComplexDecimal(Items[Count - 1]).IsZero do
+    Delete(Count - 1);
+end;
+
+function TCnBigComplexDecimalPolynomial.ToString: string;
+begin
+  Result := BigComplexDecimalPolynomialToString(Self);
+end;
+
+function TCnBigComplexDecimalPolynomial.IsZero: Boolean;
+var
+  I: Integer;
+begin
+  for I := 0 to Count - 1 do
+  begin
+    if not Items[I].IsZero then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+  Result := True;
+end;
+
+procedure TCnBigComplexDecimalPolynomial.SetZero;
+begin
+  Clear;
+end;
+
+function TCnBigComplexDecimalPolynomial.IsOne: Boolean;
+begin
+  Result := (MaxDegree = 0) and Items[0].IsOne;
+end;
+
+procedure TCnBigComplexDecimalPolynomial.SetOne;
+begin
+  Clear;
+  EnsureDegree(0);
+  Items[0].SetOne;
+end;
+
+function TCnBigComplexDecimalPolynomial.IsNegOne: Boolean;
+begin
+  Result := (MaxDegree = 0) and Items[0].IsNegOne;
+end;
+
+procedure TCnBigComplexDecimalPolynomial.Negate;
+var
+  I: Integer;
+begin
+  for I := 0 to Count - 1 do
+    Items[I].Negate;
+end;
+
+function TCnBigComplexDecimalPolynomial.IsMonic: Boolean;
+begin
+  CorrectTop;
+  if Count = 0 then
+    Result := False
+  else
+    Result := TCnBigComplexDecimal(Items[Count - 1]).IsOne;
+end;
+
+{ TCnBigComplexDecimalPolynomialPool }
+
+function TCnBigComplexDecimalPolynomialPool.CreateObject: TObject;
+begin
+  Result := TCnBigComplexDecimalPolynomial.Create;
+end;
+
+function TCnBigComplexDecimalPolynomialPool.Obtain: TCnBigComplexDecimalPolynomial;
+begin
+  Result := TCnBigComplexDecimalPolynomial(inherited Obtain);
+  Result.SetZero;
+end;
+
+procedure TCnBigComplexDecimalPolynomialPool.Recycle(Poly: TCnBigComplexDecimalPolynomial);
+begin
+  inherited Recycle(Poly);
+end;
+
+// ================= 一元大整数复数多项式独立函数实现 ========================
+
+function BigComplexPolynomialNew: TCnBigComplexPolynomial;
+begin
+  Result := TCnBigComplexPolynomial.Create;
+end;
+
+procedure BigComplexPolynomialFree(P: TCnBigComplexPolynomial);
+begin
+  P.Free;
+end;
+
+function BigComplexPolynomialDuplicate(P: TCnBigComplexPolynomial): TCnBigComplexPolynomial;
+var
+  I: Integer;
+begin
+  Result := TCnBigComplexPolynomial.Create;
+  for I := 0 to P.Count - 1 do
+  begin
+    Result.EnsureDegree(I);
+    BigComplexCopy(Result.Items[I], P.Items[I]);
+  end;
+end;
+
+function BigComplexPolynomialCopy(Dest: TCnBigComplexPolynomial;
+  Source: TCnBigComplexPolynomial): TCnBigComplexPolynomial;
+var
+  I: Integer;
+begin
+  Result := Dest;
+  if Source <> Dest then
+  begin
+    Dest.Clear;
+    for I := 0 to Source.Count - 1 do
+    begin
+      Dest.EnsureDegree(I);
+      BigComplexCopy(Dest.Items[I], Source.Items[I]);
+    end;
+  end;
+end;
+
+procedure BigComplexPolynomialSwap(A: TCnBigComplexPolynomial;
+  B: TCnBigComplexPolynomial);
+var
+  I, MaxCount: Integer;
+  Temp: TCnBigComplex;
+begin
+  MaxCount := Max(A.Count, B.Count);
+
+  // 确保两个多项式都有足够的项
+  while A.Count < MaxCount do
+  begin
+    A.Add;
+    TCnBigComplex(A.Items[A.Count - 1]).SetZero;
+  end;
+
+  while B.Count < MaxCount do
+  begin
+    B.Add;
+    TCnBigComplex(B.Items[B.Count - 1]).SetZero;
+  end;
+
+  // 交换所有项
+  for I := 0 to MaxCount - 1 do
+  begin
+    Temp := TCnBigComplex.Create;
+    try
+      BigComplexCopy(Temp, A.Items[I]);
+      BigComplexCopy(A.Items[I], B.Items[I]);
+      BigComplexCopy(B.Items[I], Temp);
+    finally
+      Temp.Free;
+    end;
+  end;
+end;
+
+function BigComplexPolynomialToString(P: TCnBigComplexPolynomial;
+  const VarName: string): string;
+var
+  I: Integer;
+begin
+  P.CorrectTop;
+  if P.Count = 0 then
+  begin
+    Result := '0';
+    Exit;
+  end;
+
+  for I := P.Count - 1 downto 0 do
+  begin
+    if not P[I].IsZero then
+    begin
+      if Result <> '' then
+        Result := Result + '+';
+      if I = 0 then
+        Result := Result + P[I].ToString
+      else if I = 1 then
+      begin
+        if P[I].IsOne then
+          Result := Result + 'X'
+        else
+        begin
+          if P[I].IsPureReal then
+            Result := Result + P[I].ToString + 'X'
+          else
+            Result := Result + '(' + P[I].ToString + ')X';
+        end;
+      end
+      else
+      begin
+        if P[I].IsOne then
+          Result := Result + 'X^' + IntToStr(I)
+        else
+        begin
+          if P[I].IsPureReal then
+            Result := Result + P[I].ToString + 'X^' + IntToStr(I)
+          else
+            Result := Result + '(' + P[I].ToString + ')X^' + IntToStr(I);
+        end;
+      end;
+    end;
+  end;
+end;
+
+function BigComplexPolynomialIsZero(P: TCnBigComplexPolynomial): Boolean;
+begin
+  Result := (P.MaxDegree = 0) and P[0].IsZero;
+end;
+
+procedure BigComplexPolynomialSetZero(P: TCnBigComplexPolynomial);
+begin
+  P.Clear;
+  P.Add.SetZero;
+end;
+
+function BigComplexPolynomialIsOne(P: TCnBigComplexPolynomial): Boolean;
+begin
+  Result := (P.MaxDegree = 0) and P[0].IsOne;
+end;
+
+procedure BigComplexPolynomialSetOne(P: TCnBigComplexPolynomial);
+begin
+  P.Clear;
+  P.Add.SetOne;
+end;
+
+function BigComplexPolynomialIsNegOne(P: TCnBigComplexPolynomial): Boolean;
+begin
+  Result := (P.MaxDegree = 0) and P[0].IsNegOne;
+end;
+
+procedure BigComplexPolynomialNegate(P: TCnBigComplexPolynomial);
+var
+  I: Integer;
+begin
+  for I := 0 to P.MaxDegree do
+    P[I].Negate;
+end;
+
+function BigComplexPolynomialIsMonic(P: TCnBigComplexPolynomial): Boolean;
+begin
+  Result := P[P.MaxDegree].IsOne;
+end;
+
+procedure BigComplexPolynomialShiftLeft(P: TCnBigComplexPolynomial; N: Integer);
+var
+  I: Integer;
+begin
+  if N = 0 then
+    Exit
+  else if N < 0 then
+    BigComplexPolynomialShiftRight(P, -N)
+  else
+    for I := 1 to N do
+      P.Insert(0, TCnBigComplex.Create);
+end;
+
+procedure BigComplexPolynomialShiftRight(P: TCnBigComplexPolynomial; N: Integer);
+var
+  I: Integer;
+begin
+  if N = 0 then
+    Exit
+  else if N < 0 then
+    BigComplexPolynomialShiftLeft(P, -N)
+  else
+  begin
+    for I := 1 to N do
+      P.Delete(0);
+
+    if P.Count = 0 then
+      P.Add.SetZero;
+  end;
+end;
+
+function BigComplexPolynomialEqual(A: TCnBigComplexPolynomial;
+  B: TCnBigComplexPolynomial): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  if A.Count <> B.Count then
+    Exit;
+
+  for I := 0 to A.Count - 1 do
+  begin
+    if not BigComplexEqual(A.Items[I], B.Items[I]) then
+      Exit;
+  end;
+
+  Result := True;
+end;
+
+function BigComplexPolynomialAdd(Res: TCnBigComplexPolynomial;
+  P1: TCnBigComplexPolynomial; P2: TCnBigComplexPolynomial): Boolean;
+var
+  I, D1, D2: Integer;
+  PBig: TCnBigComplexPolynomial;
+begin
+  D1 := Max(P1.MaxDegree, P2.MaxDegree);
+  D2 := Min(P1.MaxDegree, P2.MaxDegree);
+
+  if D1 > D2 then
+  begin
+    if P1.MaxDegree > P2.MaxDegree then
+      PBig := P1
+    else
+      PBig := P2;
+
+    Res.MaxDegree := D1; // 考虑到 Res 可能是 P1 或 P2，所以给 Res 的 MaxDegree 赋值得放上面的比较之后
+    for I := D1 downto D2 + 1 do
+      BigComplexCopy(Res[I], PBig[I]);
+  end
+  else // D1 = D2 说明俩加式同次
+    Res.MaxDegree := D1;
+
+  for I := D2 downto 0 do
+    BigComplexAdd(Res[I], P1[I], P2[I]);
+
+  Res.CorrectTop;
+  Result := True;
+end;
+
+function BigComplexPolynomialSub(Res: TCnBigComplexPolynomial;
+  P1: TCnBigComplexPolynomial; P2: TCnBigComplexPolynomial): Boolean;
+var
+  I, D1, D2: Integer;
+begin
+  D1 := Max(P1.MaxDegree, P2.MaxDegree);
+  D2 := Min(P1.MaxDegree, P2.MaxDegree);
+
+  Res.MaxDegree := D1;
+  if D1 > D2 then
+  begin
+    if P1.MaxDegree > P2.MaxDegree then // 被减式大
+    begin
+      for I := D1 downto D2 + 1 do
+        BigComplexCopy(Res[I], P1[I]);
+    end
+    else  // 减式大
+    begin
+      for I := D1 downto D2 + 1 do
+      begin
+        BigComplexCopy(Res[I], P2[I]);
+        Res[I].Negate;
+      end;
+    end;
+  end;
+
+  for I := D2 downto 0 do
+    BigComplexSub(Res[I], P1[I], P2[I]);
+
+  Res.CorrectTop;
+  Result := True;
+end;
+
+function BigComplexPolynomialMul(Res: TCnBigComplexPolynomial;
+  P1: TCnBigComplexPolynomial; P2: TCnBigComplexPolynomial): Boolean;
+var
+  R: TCnBigComplexPolynomial;
+  T: TCnBigComplex;
+  I, J: Integer;
+begin
+  if BigComplexPolynomialIsZero(P1) or BigComplexPolynomialIsZero(P2) then
+  begin
+    BigComplexPolynomialSetZero(Res);
+    Result := True;
+    Exit;
+  end;
+
+  T := FLocalBigComplexPool.Obtain;
+  if (Res = P1) or (Res = P2) then
+    R := FLocalBigComplexPolynomialPool.Obtain
+  else
+    R := Res;
+
+  R.Clear;
+  R.MaxDegree := P1.MaxDegree + P2.MaxDegree;
+
+  for I := 0 to P1.MaxDegree do
+  begin
+    // 把第 I 次方的数字乘以 P2 的每一个数字，加到结果的 I 开头的部分
+    for J := 0 to P2.MaxDegree do
+    begin
+      BigComplexMul(T, P1[I], P2[J]);
+      BigComplexAdd(R[I + J], R[I + J], T);
+    end;
+  end;
+
+  R.CorrectTop;
+  if (Res = P1) or (Res = P2) then
+  begin
+    BigComplexPolynomialCopy(Res, R);
+    FLocalBigComplexPolynomialPool.Recycle(R);
+  end;
+
+  FLocalBigComplexPool.Recycle(T);
+  Result := True;
+end;
+
+procedure BigComplexPolynomialMulBigComplex(P: TCnBigComplexPolynomial;
+  N: TCnBigComplex);
+var
+  I: Integer;
+  T: TCnBigComplex;
+begin
+  if BigComplexIsZero(N) then
+    BigComplexPolynomialSetZero(P)
+  else if not N.IsOne then
+  begin
+    T := FLocalBigComplexPool.Obtain;
+    try
+      for I := 0 to P.MaxDegree do
+      begin
+        BigComplexMul(T, P[I], N);
+        BigComplexCopy(P[I], T);
+      end;
+    finally
+      FLocalBigComplexPool.Recycle(T);
+    end;
+  end;
+end;
+
+function BigComplexPolynomialPower(Res: TCnBigComplexPolynomial;
+  P: TCnBigComplexPolynomial; Exponent: Int64): Boolean;
+var
+  Temp, Temp2: TCnBigComplexPolynomial;
+  I: Int64;
+begin
+  Result := True;
+
+  if Exponent < 0 then
+  begin
+    Result := False;
+    Exit;
+  end;
+
+  if Exponent = 0 then
+  begin
+    Res.SetOne;
+    Exit;
+  end;
+
+  if Exponent = 1 then
+  begin
+    BigComplexPolynomialCopy(Res, P);
+    Exit;
+  end;
+
+  Temp := TCnBigComplexPolynomial.Create;
+  Temp2 := TCnBigComplexPolynomial.Create;
+  try
+    BigComplexPolynomialCopy(Temp, P);
+    Res.SetOne;
+
+    I := Exponent;
+    while I > 0 do
+    begin
+      if I and 1 = 1 then
+      begin
+        BigComplexPolynomialMul(Temp2, Res, Temp);
+        BigComplexPolynomialCopy(Res, Temp2);
+      end;
+
+      BigComplexPolynomialMul(Temp2, Temp, Temp);
+      BigComplexPolynomialCopy(Temp, Temp2);
+      I := I shr 1;
+    end;
+  finally
+    Temp.Free;
+    Temp2.Free;
+  end;
+end;
+
+function BigComplexPolynomialCompose(Res: TCnBigComplexPolynomial;
+  F: TCnBigComplexPolynomial; P: TCnBigComplexPolynomial): Boolean;
+var
+  I: Integer;
+  Temp, Temp2, PowerP: TCnBigComplexPolynomial;
+begin
+  Result := True;
+
+  if F.IsZero then
+  begin
+    Res.SetZero;
+    Exit;
+  end;
+
+  Temp := TCnBigComplexPolynomial.Create;
+  Temp2 := TCnBigComplexPolynomial.Create;
+  PowerP := TCnBigComplexPolynomial.Create;
+  try
+    Res.SetZero;
+    PowerP.SetOne;
+
+    for I := 0 to F.MaxDegree do
+    begin
+      if I > 0 then
+      begin
+        BigComplexPolynomialMul(Temp2, PowerP, P);
+        BigComplexPolynomialCopy(PowerP, Temp2);
+      end;
+
+      Temp.Clear;
+      Temp.EnsureDegree(0);
+      BigComplexCopy(Temp.Items[0], F.Items[I]);
+
+      BigComplexPolynomialMul(Temp2, Temp, PowerP);
+      BigComplexPolynomialAdd(Res, Res, Temp2);
+    end;
+  finally
+    Temp.Free;
+    Temp2.Free;
+    PowerP.Free;
+  end;
+end;
+
+procedure BigComplexPolynomialGetValue(Res: TCnBigComplex; F: TCnBigComplexPolynomial;
+  X: TCnBigComplex);
+var
+  I: Integer;
+  T, M: TCnBigComplex;
+begin
+  BigComplexCopy(Res, F[0]);
+  if X.IsZero or (F.MaxDegree = 0) then    // 只有常数项的情况下，得常数项
+    Exit;
+
+  T := FLocalBigComplexPool.Obtain;
+  M := FLocalBigComplexPool.Obtain;
+
+  try
+    BigComplexCopy(T, X);
+
+    // 把 F 中的每个系数都和 X 的对应次幂相乘，最后相加
+    for I := 1 to F.MaxDegree do
+    begin
+      BigComplexMul(M, F[I], T);
+      BigComplexAdd(Res, Res, M);
+
+      if I <> F.MaxDegree then
+        BigComplexMul(T, T, X);
+    end;
+  finally
+    FLocalBigComplexPool.Recycle(T);
+    FLocalBigComplexPool.Recycle(M);
+  end;
+end;
+
 // ======================= 一元大整系数有理分式常规运算 ============================
 
 function BigNumberRationalPolynomialEqual(R1, R2: TCnBigNumberRationalPolynomial): Boolean;
@@ -9644,7 +11244,7 @@ begin
 
   if R1.IsInt and R2.IsInt then
   begin
-    Result := BigNumberPolynomialEqual(R1.Nominator, R2.Nominator);
+    Result := BigNumberPolynomialEqual(R1.Numerator, R2.Numerator);
     Exit;
   end;
 
@@ -9653,8 +11253,8 @@ begin
 
   try
     // 判断分子分母互相乘的结果是否相等
-    BigNumberPolynomialMul(T1, R1.Nominator, R2.Denominator);
-    BigNumberPolynomialMul(T2, R2.Nominator, R1.Denominator);
+    BigNumberPolynomialMul(T1, R1.Numerator, R2.Denominator);
+    BigNumberPolynomialMul(T2, R2.Numerator, R1.Denominator);
     Result := BigNumberPolynomialEqual(T1, T2);
   finally
     FLocalBigNumberPolynomialPool.Recycle(T2);
@@ -9662,37 +11262,37 @@ begin
   end;
 end;
 
-function BigNumberRationalPolynomialCopy(Dst: TCnBigNumberRationalPolynomial;
-  Src: TCnBigNumberRationalPolynomial): TCnBigNumberRationalPolynomial;
+function BigNumberRationalPolynomialCopy(Dest: TCnBigNumberRationalPolynomial;
+  Source: TCnBigNumberRationalPolynomial): TCnBigNumberRationalPolynomial;
 begin
-  Result := Dst;
-  if Src <> Dst then
+  Result := Dest;
+  if Source <> Dest then
   begin
-    BigNumberPolynomialCopy(Dst.Nominator, Src.Nominator);
-    BigNumberPolynomialCopy(Dst.Denominator, Src.Denominator);
+    BigNumberPolynomialCopy(Dest.Numerator, Source.Numerator);
+    BigNumberPolynomialCopy(Dest.Denominator, Source.Denominator);
   end;
 end;
 
-procedure BigNumberRationalPolynomialAdd(R1, R2: TCnBigNumberRationalPolynomial;
-  RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialAdd(Res: TCnBigNumberRationalPolynomial;
+  R1, R2: TCnBigNumberRationalPolynomial); overload;
 var
   M, R, F1, F2, D1, D2: TCnBigNumberPolynomial;
 begin
   if R1.IsInt and R2.IsInt then
   begin
-    BigNumberPolynomialAdd(RationalResult.Nominator, R1.Nominator, R2.Nominator);
-    RationalResult.Denominator.SetOne;
+    BigNumberPolynomialAdd(Res.Numerator, R1.Numerator, R2.Numerator);
+    Res.Denominator.SetOne;
     Exit;
   end
   else if R1.IsZero then
   begin
-    if R2 <> RationalResult then
-      RationalResult.Assign(R2);
+    if R2 <> Res then
+      Res.Assign(R2);
   end
   else if R2.IsZero then
   begin
-    if R1 <> RationalResult then
-      RationalResult.Assign(R1);
+    if R1 <> Res then
+      Res.Assign(R1);
   end
   else
   begin
@@ -9721,10 +11321,10 @@ begin
       BigNumberPolynomialDiv(F1, R, M, D1);
       BigNumberPolynomialDiv(F2, R, M, D2);
 
-      BigNumberPolynomialCopy(RationalResult.Denominator, M);
-      BigNumberPolynomialMul(R, R1.Nominator, F1);
-      BigNumberPolynomialMul(M, R2.Nominator, F2);
-      BigNumberPolynomialAdd(RationalResult.Nominator, R, M);
+      BigNumberPolynomialCopy(Res.Denominator, M);
+      BigNumberPolynomialMul(R, R1.Numerator, F1);
+      BigNumberPolynomialMul(M, R2.Numerator, F2);
+      BigNumberPolynomialAdd(Res.Numerator, R, M);
     finally
       FLocalBigNumberPolynomialPool.Recycle(M);
       FLocalBigNumberPolynomialPool.Recycle(R);
@@ -9736,35 +11336,35 @@ begin
   end;
 end;
 
-procedure BigNumberRationalPolynomialSub(R1, R2: TCnBigNumberRationalPolynomial;
-  RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialSub(Res: TCnBigNumberRationalPolynomial;
+  R1, R2: TCnBigNumberRationalPolynomial); overload;
 begin
-  R2.Nominator.Negate;
-  BigNumberRationalPolynomialAdd(R1, R2, RationalResult);
-  if RationalResult <> R2 then
-    R2.Nominator.Negate;
+  R2.Numerator.Negate;
+  BigNumberRationalPolynomialAdd(Res, R1, R2);
+  if Res <> R2 then
+    R2.Numerator.Negate;
 end;
 
-procedure BigNumberRationalPolynomialMul(R1, R2: TCnBigNumberRationalPolynomial;
-  RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialMul(Res: TCnBigNumberRationalPolynomial;
+  R1, R2: TCnBigNumberRationalPolynomial); overload;
 begin
-  BigNumberPolynomialMul(RationalResult.Nominator, R1.Nominator, R2.Nominator);
-  BigNumberPolynomialMul(RationalResult.Denominator, R1.Denominator, R2.Denominator);
+  BigNumberPolynomialMul(Res.Numerator, R1.Numerator, R2.Numerator);
+  BigNumberPolynomialMul(Res.Denominator, R1.Denominator, R2.Denominator);
 end;
 
-procedure BigNumberRationalPolynomialDiv(R1, R2: TCnBigNumberRationalPolynomial;
-  RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialDiv(Res: TCnBigNumberRationalPolynomial;
+  R1, R2: TCnBigNumberRationalPolynomial); overload;
 var
   N: TCnBigNumberPolynomial;
 begin
   if R2.IsZero then
     raise EDivByZero.Create(SDivByZero);
 
-  N := FLocalBigNumberPolynomialPool.Obtain; // 交叉相乘，必须用中间变量，防止 RationalResult 是 Number1 或 Number 2
+  N := FLocalBigNumberPolynomialPool.Obtain; // 交叉相乘，必须用中间变量，防止 Res 是 Number1 或 Number 2
   try
-    BigNumberPolynomialMul(N, R1.Nominator, R2.Denominator);
-    BigNumberPolynomialMul(RationalResult.Denominator, R1.Denominator, R2.Nominator);
-    BigNumberPolynomialCopy(RationalResult.Nominator, N);
+    BigNumberPolynomialMul(N, R1.Numerator, R2.Denominator);
+    BigNumberPolynomialMul(Res.Denominator, R1.Denominator, R2.Numerator);
+    BigNumberPolynomialCopy(Res.Numerator, N);
   finally
     FLocalBigNumberPolynomialPool.Recycle(N);
   end;
@@ -9779,7 +11379,7 @@ begin
   try
     P.MaxDegree := 0;
     BigNumberCopy(P[0], Num);
-    BigNumberRationalPolynomialAdd(R, P, R);
+    BigNumberRationalPolynomialAdd(R, R, P);
   finally
     FLocalBigNumberPolynomialPool.Recycle(P);
   end;
@@ -9794,7 +11394,7 @@ begin
   try
     P.MaxDegree := 0;
     BigNumberCopy(P[0], Num);
-    BigNumberRationalPolynomialSub(R, P, R);
+    BigNumberRationalPolynomialSub(R, R, P);
   finally
     FLocalBigNumberPolynomialPool.Recycle(P);
   end;
@@ -9809,7 +11409,7 @@ begin
   try
     P.MaxDegree := 0;
     BigNumberCopy(P[0], Num);
-    BigNumberRationalPolynomialMul(R, P, R);
+    BigNumberRationalPolynomialMul(R, R, P);
   finally
     FLocalBigNumberPolynomialPool.Recycle(P);
   end;
@@ -9824,22 +11424,22 @@ begin
   try
     P.MaxDegree := 0;
     BigNumberCopy(P[0], Num);
-    BigNumberRationalPolynomialDiv(R, P, R);
+    BigNumberRationalPolynomialDiv(R, R, P);
   finally
     FLocalBigNumberPolynomialPool.Recycle(P);
   end;
 end;
 
-procedure BigNumberRationalPolynomialAdd(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialAdd(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial); overload;
 var
   T: TCnBigNumberRationalPolynomial;
 begin
   if P1.IsZero then
   begin
-    if R1 <> RationalResult then
+    if R1 <> Res then
     begin
-      BigNumberRationalPolynomialCopy(RationalResult, R1);
+      BigNumberRationalPolynomialCopy(Res, R1);
       Exit;
     end;
   end;
@@ -9847,50 +11447,50 @@ begin
   T := FLocalBigNumberRationalPolynomialPool.Obtain;
   try
     T.Denominator.SetOne;
-    BigNumberPolynomialCopy(T.Nominator, P1);
-    BigNumberRationalPolynomialAdd(R1, T, RationalResult);
+    BigNumberPolynomialCopy(T.Numerator, P1);
+    BigNumberRationalPolynomialAdd(Res, R1, T);
   finally
     FLocalBigNumberRationalPolynomialPool.Recycle(T);
   end;
 end;
 
-procedure BigNumberRationalPolynomialSub(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialSub(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial); overload;
 begin
   P1.Negate;
   try
-    BigNumberRationalPolynomialAdd(R1, P1, RationalResult);
+    BigNumberRationalPolynomialAdd(Res, R1, P1);
   finally
     P1.Negate;
   end;
 end;
 
-procedure BigNumberRationalPolynomialMul(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialMul(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial); overload;
 begin
   if P1.IsZero then
-    RationalResult.SetZero
+    Res.SetZero
   else if P1.IsOne then
-    RationalResult.Assign(R1)
+    Res.Assign(R1)
   else
   begin
-    BigNumberPolynomialMul(RationalResult.Nominator, R1.Nominator, P1);
-    BigNumberPolynomialCopy(RationalResult.Denominator, R1.Denominator);
+    BigNumberPolynomialMul(Res.Numerator, R1.Numerator, P1);
+    BigNumberPolynomialCopy(Res.Denominator, R1.Denominator);
   end;
 end;
 
-procedure BigNumberRationalPolynomialDiv(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial); overload;
+procedure BigNumberRationalPolynomialDiv(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial); overload;
 begin
   if P1.IsZero then
     raise EDivByZero.Create(SDivByZero);
 
   if P1.IsOne then
-    RationalResult.Assign(R1)
+    Res.Assign(R1)
   else
   begin
-    BigNumberPolynomialMul(RationalResult.Denominator, R1.Denominator, P1);
-    BigNumberPolynomialCopy(RationalResult.Nominator, R1.Nominator);
+    BigNumberPolynomialMul(Res.Denominator, R1.Denominator, P1);
+    BigNumberPolynomialCopy(Res.Numerator, R1.Numerator);
   end;
 end;
 
@@ -9900,18 +11500,18 @@ var
   RN, RD: TCnBigNumberRationalPolynomial;
 begin
   if P.IsInt then
-    Result := BigNumberRationalPolynomialCompose(Res, F, P.Nominator)
+    Result := BigNumberRationalPolynomialCompose(Res, F, P.Numerator)
   else
   begin
     RD := FLocalBigNumberRationalPolynomialPool.Obtain;
     RN := FLocalBigNumberRationalPolynomialPool.Obtain;
 
     try
-      BigNumberRationalPolynomialCompose(RN, F.Nominator, P);
+      BigNumberRationalPolynomialCompose(RN, F.Numerator, P);
       BigNumberRationalPolynomialCompose(RD, F.Denominator, P);
 
-      BigNumberPolynomialMul(Res.Nominator, RN.Nominator, RD.Denominator);
-      BigNumberPolynomialMul(Res.Denominator, RN.Denominator, RD.Nominator);
+      BigNumberPolynomialMul(Res.Numerator, RN.Numerator, RD.Denominator);
+      BigNumberPolynomialMul(Res.Denominator, RN.Denominator, RD.Numerator);
       Result := True;
     finally
       FLocalBigNumberRationalPolynomialPool.Recycle(RN);
@@ -9923,7 +11523,7 @@ end;
 function BigNumberRationalPolynomialCompose(Res: TCnBigNumberRationalPolynomial;
   F: TCnBigNumberRationalPolynomial; P: TCnBigNumberPolynomial): Boolean;
 begin
-  BigNumberPolynomialCompose(Res.Nominator, F.Nominator, P);
+  BigNumberPolynomialCompose(Res.Numerator, F.Numerator, P);
   BigNumberPolynomialCompose(Res.Denominator, F.Denominator, P);
   Result := True;
 end;
@@ -9937,7 +11537,7 @@ begin
   if P.IsZero or (F.MaxDegree = 0) then    // 0 代入，或只有常数项的情况下，得常数项
   begin
     Res.SetOne;
-    Res.Nominator[0] := F[0];
+    Res.Numerator[0] := F[0];
     Result := True;
     Exit;
   end;
@@ -9980,7 +11580,7 @@ end;
 procedure BigNumberRationalPolynomialGetValue(Res: TCnBigRational;
   F: TCnBigNumberRationalPolynomial; X: TCnBigNumber);
 begin
-  BigNumberPolynomialGetValue(Res.Nominator, F.Nominator, X);
+  BigNumberPolynomialGetValue(Res.Numerator, F.Numerator, X);
   BigNumberPolynomialGetValue(Res.Denominator, F.Denominator, X);
   Res.Reduce;
 end;
@@ -10003,8 +11603,8 @@ begin
 
   try
     // 判断分子分母互相乘的结果是否相等
-    BigNumberPolynomialGaloisMul(T1, R1.Nominator, R2.Denominator, Prime, Primitive);
-    BigNumberPolynomialGaloisMul(T2, R2.Nominator, R1.Denominator, Prime, Primitive);
+    BigNumberPolynomialGaloisMul(T1, R1.Numerator, R2.Denominator, Prime, Primitive);
+    BigNumberPolynomialGaloisMul(T2, R2.Numerator, R1.Denominator, Prime, Primitive);
     Result := BigNumberPolynomialGaloisEqual(T1, T2, Prime);
   finally
     FLocalBigNumberPolynomialPool.Recycle(T2);
@@ -10015,30 +11615,30 @@ end;
 procedure BigNumberRationalPolynomialGaloisNegate(P: TCnBigNumberRationalPolynomial;
   Prime: TCnBigNumber);
 begin
-  BigNumberPolynomialGaloisNegate(P.Nominator, Prime);
+  BigNumberPolynomialGaloisNegate(P.Numerator, Prime);
 end;
 
-procedure BigNumberRationalPolynomialGaloisAdd(R1, R2: TCnBigNumberRationalPolynomial;
-  RationalResult: TCnBigNumberRationalPolynomial; Prime: TCnBigNumber); overload;
+procedure BigNumberRationalPolynomialGaloisAdd(Res: TCnBigNumberRationalPolynomial;
+  R1, R2: TCnBigNumberRationalPolynomial; Prime: TCnBigNumber); overload;
 var
   M, R, F1, F2, D1, D2: TCnBigNumberPolynomial;
 begin
   if R1.IsInt and R2.IsInt then
   begin
-    BigNumberPolynomialGaloisAdd(RationalResult.Nominator, R1.Nominator,
-      R2.Nominator, Prime);
-    RationalResult.Denominator.SetOne;
+    BigNumberPolynomialGaloisAdd(Res.Numerator, R1.Numerator,
+      R2.Numerator, Prime);
+    Res.Denominator.SetOne;
     Exit;
   end
   else if R1.IsZero then
   begin
-    if R2 <> RationalResult then
-      RationalResult.Assign(R2);
+    if R2 <> Res then
+      Res.Assign(R2);
   end
   else if R2.IsZero then
   begin
-    if R1 <> RationalResult then
-      RationalResult.Assign(R1);
+    if R1 <> Res then
+      Res.Assign(R1);
   end
   else
   begin
@@ -10067,10 +11667,10 @@ begin
       BigNumberPolynomialGaloisDiv(F1, R, M, D1, Prime);  // 最小公倍数 M div D1 结果放 F1
       BigNumberPolynomialGaloisDiv(F2, R, M, D2, Prime);  // 最小公倍数 M div D2 结果放 F2
 
-      BigNumberPolynomialCopy(RationalResult.Denominator, M);  // 结果的分母是最小公倍数
-      BigNumberPolynomialGaloisMul(R, R1.Nominator, F1, Prime);
-      BigNumberPolynomialGaloisMul(M, R2.Nominator, F2, Prime);
-      BigNumberPolynomialGaloisAdd(RationalResult.Nominator, R, M, Prime);
+      BigNumberPolynomialCopy(Res.Denominator, M);  // 结果的分母是最小公倍数
+      BigNumberPolynomialGaloisMul(R, R1.Numerator, F1, Prime);
+      BigNumberPolynomialGaloisMul(M, R2.Numerator, F2, Prime);
+      BigNumberPolynomialGaloisAdd(Res.Numerator, R, M, Prime);
     finally
       FLocalBigNumberPolynomialPool.Recycle(M);
       FLocalBigNumberPolynomialPool.Recycle(R);
@@ -10082,35 +11682,35 @@ begin
   end;
 end;
 
-procedure BigNumberRationalPolynomialGaloisSub(R1, R2: TCnBigNumberRationalPolynomial;
-  RationalResult: TCnBigNumberRationalPolynomial; Prime: TCnBigNumber); overload;
+procedure BigNumberRationalPolynomialGaloisSub(Res: TCnBigNumberRationalPolynomial;
+  R1, R2: TCnBigNumberRationalPolynomial; Prime: TCnBigNumber); overload;
 begin
-  R2.Nominator.Negate;
-  BignumberRationalPolynomialGaloisAdd(R1, R2, RationalResult, Prime);
-  if RationalResult <> R2 then
-    R2.Nominator.Negate;
+  R2.Numerator.Negate;
+  BigNumberRationalPolynomialGaloisAdd(Res, R1, R2, Prime);
+  if Res <> R2 then
+    R2.Numerator.Negate;
 end;
 
-procedure BigNumberRationalPolynomialGaloisMul(R1, R2: TCnBigNumberRationalPolynomial;
-  RationalResult: TCnBigNumberRationalPolynomial; Prime: TCnBigNumber); overload;
+procedure BigNumberRationalPolynomialGaloisMul(Res: TCnBigNumberRationalPolynomial;
+  R1, R2: TCnBigNumberRationalPolynomial; Prime: TCnBigNumber); overload;
 begin
-  BigNumberPolynomialGaloisMul(RationalResult.Nominator, R1.Nominator, R2.Nominator, Prime);
-  BigNumberPolynomialGaloisMul(RationalResult.Denominator, R1.Denominator, R2.Denominator, Prime);
+  BigNumberPolynomialGaloisMul(Res.Numerator, R1.Numerator, R2.Numerator, Prime);
+  BigNumberPolynomialGaloisMul(Res.Denominator, R1.Denominator, R2.Denominator, Prime);
 end;
 
-procedure BigNumberRationalPolynomialGaloisDiv(R1, R2: TCnBigNumberRationalPolynomial;
-  RationalResult: TCnBigNumberRationalPolynomial; Prime: TCnBigNumber); overload;
+procedure BigNumberRationalPolynomialGaloisDiv(Res: TCnBigNumberRationalPolynomial;
+  R1, R2: TCnBigNumberRationalPolynomial; Prime: TCnBigNumber); overload;
 var
   N: TCnBigNumberPolynomial;
 begin
   if R2.IsZero then
     raise EDivByZero.Create(SDivByZero);
 
-  N := FLocalBigNumberPolynomialPool.Obtain; // 交叉相乘，必须用中间变量，防止 RationalResult 是 Number1 或 Number 2
+  N := FLocalBigNumberPolynomialPool.Obtain; // 交叉相乘，必须用中间变量，防止 Res 是 Number1 或 Number 2
   try
-    BigNumberPolynomialGaloisMul(N, R1.Nominator, R2.Denominator, Prime);
-    BigNumberPolynomialGaloisMul(RationalResult.Denominator, R1.Denominator, R2.Nominator, Prime);
-    BigNumberPolynomialCopy(RationalResult.Nominator, N);
+    BigNumberPolynomialGaloisMul(N, R1.Numerator, R2.Denominator, Prime);
+    BigNumberPolynomialGaloisMul(Res.Denominator, R1.Denominator, R2.Numerator, Prime);
+    BigNumberPolynomialCopy(Res.Numerator, N);
   finally
     FLocalBigNumberPolynomialPool.Recycle(N);
   end;
@@ -10125,7 +11725,7 @@ begin
   try
     P.MaxDegree := 0;
     BigNumberCopy(P[0], Num);
-    BigNumberRationalPolynomialGaloisAdd(R, P, R, Prime);
+    BigNumberRationalPolynomialGaloisAdd(R, R, P, Prime);
   finally
     FLocalBigNumberPolynomialPool.Recycle(P);
   end;
@@ -10140,7 +11740,7 @@ begin
   try
     P.MaxDegree := 0;
     BigNumberCopy(P[0], Num);
-    BigNumberRationalPolynomialGaloisSub(R, P, R, Prime);
+    BigNumberRationalPolynomialGaloisSub(R, R, P, Prime);
   finally
     FLocalBigNumberPolynomialPool.Recycle(P);
   end;
@@ -10155,7 +11755,7 @@ begin
   try
     P.MaxDegree := 0;
     BigNumberCopy(P[0], Num);
-    BigNumberRationalPolynomialGaloisMul(R, P, R, Prime);
+    BigNumberRationalPolynomialGaloisMul(R, R, P, Prime);
   finally
     FLocalBigNumberPolynomialPool.Recycle(P);
   end;
@@ -10170,22 +11770,22 @@ begin
   try
     P.MaxDegree := 0;
     BigNumberCopy(P[0], Num);
-    BigNumberRationalPolynomialGaloisDiv(R, P, R, Prime);
+    BigNumberRationalPolynomialGaloisDiv(R, R, P, Prime);
   finally
     FLocalBigNumberPolynomialPool.Recycle(P);
   end;
 end;
 
-procedure BigNumberRationalPolynomialGaloisAdd(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial; Prime: TCnBigNumber); overload;
+procedure BigNumberRationalPolynomialGaloisAdd(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial; Prime: TCnBigNumber); overload;
 var
   T: TCnBigNumberRationalPolynomial;
 begin
   if P1.IsZero then
   begin
-    if R1 <> RationalResult then
+    if R1 <> Res then
     begin
-      BigNumberRationalPolynomialCopy(RationalResult, R1);
+      BigNumberRationalPolynomialCopy(Res, R1);
       Exit;
     end;
   end;
@@ -10193,50 +11793,50 @@ begin
   T := FLocalBigNumberRationalPolynomialPool.Obtain;
   try
     T.Denominator.SetOne;
-    BigNumberPolynomialCopy(T.Nominator, P1);
-    BigNumberRationalPolynomialGaloisAdd(R1, T, RationalResult, Prime);
+    BigNumberPolynomialCopy(T.Numerator, P1);
+    BigNumberRationalPolynomialGaloisAdd(Res, R1, T, Prime);
   finally
     FLocalBigNumberRationalPolynomialPool.Recycle(T);
   end;
 end;
 
-procedure BigNumberRationalPolynomialGaloisSub(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial; Prime: TCnBigNumber); overload;
+procedure BigNumberRationalPolynomialGaloisSub(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial; Prime: TCnBigNumber); overload;
 begin
   P1.Negate;
   try
-    BigNumberRationalPolynomialGaloisAdd(R1, P1, RationalResult, Prime);
+    BigNumberRationalPolynomialGaloisAdd(Res, R1, P1, Prime);
   finally
     P1.Negate;
   end;
 end;
 
-procedure BigNumberRationalPolynomialGaloisMul(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial; Prime: TCnBigNumber); overload;
+procedure BigNumberRationalPolynomialGaloisMul(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial; Prime: TCnBigNumber); overload;
 begin
   if P1.IsZero then
-    RationalResult.SetZero
+    Res.SetZero
   else if P1.IsOne then
-    RationalResult.Assign(R1)
+    Res.Assign(R1)
   else
   begin
-    BigNumberPolynomialGaloisMul(RationalResult.Nominator, R1.Nominator, P1, Prime);
-    BigNumberPolynomialCopy(RationalResult.Denominator, R1.Denominator);
+    BigNumberPolynomialGaloisMul(Res.Numerator, R1.Numerator, P1, Prime);
+    BigNumberPolynomialCopy(Res.Denominator, R1.Denominator);
   end;
 end;
 
-procedure BigNumberRationalPolynomialGaloisDiv(R1: TCnBigNumberRationalPolynomial;
-  P1: TCnBigNumberPolynomial; RationalResult: TCnBigNumberRationalPolynomial; Prime: TCnBigNumber);
+procedure BigNumberRationalPolynomialGaloisDiv(Res: TCnBigNumberRationalPolynomial;
+  R1: TCnBigNumberRationalPolynomial; P1: TCnBigNumberPolynomial; Prime: TCnBigNumber);
 begin
   if P1.IsZero or Prime.IsZero then
     raise EDivByZero.Create(SDivByZero);
 
   if P1.IsOne then
-    RationalResult.Assign(R1)
+    Res.Assign(R1)
   else
   begin
-    BigNumberPolynomialGaloisMul(RationalResult.Denominator, R1.Denominator, P1, Prime);
-    BigNumberPolynomialCopy(RationalResult.Nominator, R1.Nominator);
+    BigNumberPolynomialGaloisMul(Res.Denominator, R1.Denominator, P1, Prime);
+    BigNumberPolynomialCopy(Res.Numerator, R1.Numerator);
   end;
 end;
 
@@ -10246,22 +11846,22 @@ var
   RN, RD: TCnBigNumberRationalPolynomial;
 begin
   if P.IsInt then
-    Result := BigNumberRationalPolynomialGaloisCompose(Res, F, P.Nominator, Prime, Primitive)
+    Result := BigNumberRationalPolynomialGaloisCompose(Res, F, P.Numerator, Prime, Primitive)
   else
   begin
     RD := FLocalBigNumberRationalPolynomialPool.Obtain;
     RN := FLocalBigNumberRationalPolynomialPool.Obtain;
 
     try
-      BigNumberRationalPolynomialGaloisCompose(RN, F.Nominator, P, Prime, Primitive);
+      BigNumberRationalPolynomialGaloisCompose(RN, F.Numerator, P, Prime, Primitive);
       BigNumberRationalPolynomialGaloisCompose(RD, F.Denominator, P, Prime, Primitive);
 
-      BigNumberPolynomialGaloisMul(Res.Nominator, RN.Nominator, RD.Denominator, Prime);
-      BigNumberPolynomialGaloisMul(Res.Denominator, RN.Denominator, RD.Nominator, Prime);
+      BigNumberPolynomialGaloisMul(Res.Numerator, RN.Numerator, RD.Denominator, Prime);
+      BigNumberPolynomialGaloisMul(Res.Denominator, RN.Denominator, RD.Numerator, Prime);
 
       if Primitive <> nil then
       begin
-        BigNumberPolynomialGaloisMod(Res.Nominator, Res.Nominator, Primitive, Prime);
+        BigNumberPolynomialGaloisMod(Res.Numerator, Res.Numerator, Primitive, Prime);
         BigNumberPolynomialGaloisMod(Res.Denominator, Res.Denominator, Primitive, Prime);
       end;
       Result := True;
@@ -10276,7 +11876,7 @@ function BigNumberRationalPolynomialGaloisCompose(Res: TCnBigNumberRationalPolyn
   F: TCnBigNumberRationalPolynomial; P: TCnBigNumberPolynomial; Prime: TCnBigNumber;
   Primitive: TCnBigNumberPolynomial): Boolean;
 begin
-  BigNumberPolynomialGaloisCompose(Res.Nominator, F.Nominator, P, Prime, Primitive);
+  BigNumberPolynomialGaloisCompose(Res.Numerator, F.Numerator, P, Prime, Primitive);
   BigNumberPolynomialGaloisCompose(Res.Denominator, F.Denominator, P, Prime, Primitive);
   Result := True;
 end;
@@ -10291,7 +11891,7 @@ begin
   if P.IsZero or (F.MaxDegree = 0) then    // 0 代入，或只有常数项的情况下，得常数项
   begin
     Res.SetOne;
-    BigNumberNonNegativeMod(Res.Nominator[0], F[0], Prime);
+    BigNumberNonNegativeMod(Res.Numerator[0], F[0], Prime);
     Result := True;
     Exit;
   end;
@@ -10321,7 +11921,7 @@ begin
 
     if Primitive <> nil then
     begin
-      BigNumberPolynomialGaloisMod(R.Nominator, R.Nominator, Primitive, Prime);
+      BigNumberPolynomialGaloisMod(R.Numerator, R.Numerator, Primitive, Prime);
       BigNumberPolynomialGaloisMod(R.Denominator, R.Denominator, Primitive, Prime);
     end;
 
@@ -10353,7 +11953,7 @@ begin
       raise EDivByZero.Create(SDivByZero);
 
     N := FLocalBigNumberPool.Obtain;
-    BigNumberPolynomialGaloisGetValue(N, F.Nominator, X, Prime);
+    BigNumberPolynomialGaloisGetValue(N, F.Numerator, X, Prime);
 
     T := FLocalBigNumberPool.Obtain;
     BigNumberModularInverse(T, D, Prime);
@@ -10547,48 +12147,48 @@ begin
     Int64BiPolynomialCopy(Result, P);
 end;
 
-function Int64BiPolynomialCopy(Dst: TCnInt64BiPolynomial;
-  Src: TCnInt64BiPolynomial): TCnInt64BiPolynomial;
+function Int64BiPolynomialCopy(Dest: TCnInt64BiPolynomial;
+  Source: TCnInt64BiPolynomial): TCnInt64BiPolynomial;
 var
   I: Integer;
 begin
-  Result := Dst;
-  if Src <> Dst then
+  Result := Dest;
+  if Source <> Dest then
   begin
-    if Src.MaxXDegree >= 0 then
+    if Source.MaxXDegree >= 0 then
     begin
-      Dst.MaxXDegree := Src.MaxXDegree;
-      for I := 0 to Src.MaxXDegree do
-        CnInt64ListCopy(Dst.YFactorsList[I], Src.YFactorsList[I]);
+      Dest.MaxXDegree := Source.MaxXDegree;
+      for I := 0 to Source.MaxXDegree do
+        CnInt64ListCopy(Dest.YFactorsList[I], Source.YFactorsList[I]);
     end
     else
-      Dst.SetZero; // 如果 Src 未初始化，则 Dst 也清零
+      Dest.SetZero; // 如果 Source 未初始化，则 Dest 也清零
   end;
 end;
 
-function Int64BiPolynomialCopyFromX(Dst: TCnInt64BiPolynomial;
+function Int64BiPolynomialCopyFromX(Dest: TCnInt64BiPolynomial;
   SrcX: TCnInt64Polynomial): TCnInt64BiPolynomial;
 var
   I: Integer;
 begin
-  Result := Dst;
-  Dst.Clear;
+  Result := Dest;
+  Dest.Clear;
 
-  Dst.MaxXDegree := SrcX.MaxDegree;
+  Dest.MaxXDegree := SrcX.MaxDegree;
   for I := 0 to SrcX.MaxDegree do
-    Dst.SafeValue[I, 0] := SrcX[I]; // 给每一个 YList 的首元素设值
+    Dest.SafeValue[I, 0] := SrcX[I]; // 给每一个 YList 的首元素设值
 end;
 
-function Int64BiPolynomialCopyFromY(Dst: TCnInt64BiPolynomial;
+function Int64BiPolynomialCopyFromY(Dest: TCnInt64BiPolynomial;
   SrcY: TCnInt64Polynomial): TCnInt64BiPolynomial;
 var
   I: Integer;
 begin
-  Result := Dst;
-  Dst.Clear;
+  Result := Dest;
+  Dest.Clear;
 
   for I := 0 to SrcY.MaxDegree do
-    Dst.YFactorsList[0].Add(SrcY[I]); // 给最低一个 YList 的所有元素设值
+    Dest.YFactorsList[0].Add(SrcY[I]); // 给最低一个 YList 的所有元素设值
 end;
 
 function Int64BiPolynomialToString(P: TCnInt64BiPolynomial;
@@ -11198,28 +12798,28 @@ begin
   Result := True;
 end;
 
-procedure Int64BiPolynomialTranspose(Dst, Src: TCnInt64BiPolynomial);
+procedure Int64BiPolynomialTranspose(Dest, Source: TCnInt64BiPolynomial);
 var
   I, J: Integer;
   T: TCnInt64BiPolynomial;
 begin
-  if Src = Dst then
+  if Source = Dest then
     T := FLocalInt64BiPolynomialPool.Obtain
   else
-    T := Dst;
+    T := Dest;
 
-  // 将 Src 转置塞入 T 中
+  // 将 Source 转置塞入 T 中
   T.SetZero;
-  T.MaxXDegree := Src.MaxYDegree;
-  T.MaxYDegree := Src.MaxXDegree;
+  T.MaxXDegree := Source.MaxYDegree;
+  T.MaxYDegree := Source.MaxXDegree;
 
-  for I := Src.FXs.Count - 1 downto 0 do
-    for J := Src.YFactorsList[I].Count - 1 downto 0 do
-      T.SafeValue[J, I] := Src.SafeValue[I, J];
+  for I := Source.FXs.Count - 1 downto 0 do
+    for J := Source.YFactorsList[I].Count - 1 downto 0 do
+      T.SafeValue[J, I] := Source.SafeValue[I, J];
 
-  if Src = Dst then
+  if Source = Dest then
   begin
-    Int64BiPolynomialCopy(Dst, T);
+    Int64BiPolynomialCopy(Dest, T);
     FLocalInt64BiPolynomialPool.Recycle(T);
   end;
 end;
@@ -11782,63 +13382,63 @@ begin
     BigNumberBiPolynomialCopy(Result, P);
 end;
 
-function BigNumberBiPolynomialCopy(Dst: TCnBigNumberBiPolynomial;
-  Src: TCnBigNumberBiPolynomial): TCnBigNumberBiPolynomial;
+function BigNumberBiPolynomialCopy(Dest: TCnBigNumberBiPolynomial;
+  Source: TCnBigNumberBiPolynomial): TCnBigNumberBiPolynomial;
 var
   I: Integer;
 begin
-  Result := Dst;
-  if Src <> Dst then
+  Result := Dest;
+  if Source <> Dest then
   begin
-    if Src.MaxXDegree >= 0 then
+    if Source.MaxXDegree >= 0 then
     begin
-      Dst.MaxXDegree := Src.MaxXDegree;
-      for I := 0 to Src.MaxXDegree do
+      Dest.MaxXDegree := Source.MaxXDegree;
+      for I := 0 to Source.MaxXDegree do
       begin
-        if Src.FXs[I] = nil then
+        if Source.FXs[I] = nil then
         begin
-          Dst.FXs[I].Free;
-          Dst.FXs[I] := nil;
+          Dest.FXs[I].Free;
+          Dest.FXs[I] := nil;
         end
         else
-          Src.YFactorsList[I].AssignTo(Dst.YFactorsList[I]);
+          Source.YFactorsList[I].AssignTo(Dest.YFactorsList[I]);
       end;
     end
     else
-      Dst.SetZero; // 如果 Src 未初始化，则 Dst 也清零
+      Dest.SetZero; // 如果 Source 未初始化，则 Dest 也清零
   end;
 end;
 
-function BigNumberBiPolynomialCopyFromX(Dst: TCnBigNumberBiPolynomial;
+function BigNumberBiPolynomialCopyFromX(Dest: TCnBigNumberBiPolynomial;
   SrcX: TCnBigNumberPolynomial): TCnBigNumberBiPolynomial;
 var
   I: Integer;
 begin
-  Result := Dst;
-  Dst.Clear;
+  Result := Dest;
+  Dest.Clear;
 
-  Dst.MaxXDegree := SrcX.MaxDegree;
+  Dest.MaxXDegree := SrcX.MaxDegree;
   for I := 0 to SrcX.MaxDegree do
     if SrcX[I].IsZero then
     begin
-      Dst.FXs[I].Free;
-      Dst.FXs[I] := nil;
+      Dest.FXs[I].Free;
+      Dest.FXs[I] := nil;
     end
     else
-      Dst.SafeValue[I, 0] := SrcX[I]; // 给每一个 YList 的首元素设值，0 则清空 FXs 对应项
+      Dest.SafeValue[I, 0] := SrcX[I]; // 给每一个 YList 的首元素设值，0 则清空 FXs 对应项
 end;
 
-function BigNumberBiPolynomialCopyFromY(Dst: TCnBigNumberBiPolynomial;
+function BigNumberBiPolynomialCopyFromY(Dest: TCnBigNumberBiPolynomial;
   SrcY: TCnBigNumberPolynomial): TCnBigNumberBiPolynomial;
 var
   I: Integer;
 begin
-  Result := Dst;
-  Dst.Clear;
+  Result := Dest;
+  Dest.Clear;
 
   if not SrcY.IsZero then
     for I := 0 to SrcY.MaxDegree do
-      Dst.YFactorsList[0].AddPair(I, SrcY[I]); // 给最低一个 YList 的所有元素设值
+      Dest.YFactorsList[0].AddPair(I, SrcY[I]); // 给最低一个 YList 的所有元素设值
 end;
 
 function BigNumberBiPolynomialToString(P: TCnBigNumberBiPolynomial;
@@ -12591,35 +14191,35 @@ begin
   Result := True;
 end;
 
-procedure BigNumberBiPolynomialTranspose(Dst, Src: TCnBigNumberBiPolynomial);
+procedure BigNumberBiPolynomialTranspose(Dest, Source: TCnBigNumberBiPolynomial);
 var
   I, J: Integer;
   T: TCnBigNumberBiPolynomial;
   Pair: TCnExponentBigNumberPair;
 begin
-  if Src = Dst then
+  if Source = Dest then
     T := FLocalBigNumberBiPolynomialPool.Obtain
   else
-    T := Dst;
+    T := Dest;
 
-  // 将 Src 转置塞入 T 中
+  // 将 Source 转置塞入 T 中
   T.SetZero;
-  T.MaxXDegree := Src.MaxYDegree;
-  T.MaxYDegree := Src.MaxXDegree;
+  T.MaxXDegree := Source.MaxYDegree;
+  T.MaxYDegree := Source.MaxXDegree;
 
-  for I := Src.FXs.Count - 1 downto 0 do
+  for I := Source.FXs.Count - 1 downto 0 do
   begin
-    if Src.FXs[I] <> nil then
-      for J := Src.YFactorsList[I].Count - 1 downto 0 do
+    if Source.FXs[I] <> nil then
+      for J := Source.YFactorsList[I].Count - 1 downto 0 do
       begin
-        Pair := Src.YFactorsList[I][J];
+        Pair := Source.YFactorsList[I][J];
         T.SafeValue[Pair.Exponent, I] := Pair.Value; // 内部复制
       end;
   end;
 
-  if Src = Dst then
+  if Source = Dest then
   begin
-    BigNumberBiPolynomialCopy(Dst, T);
+    BigNumberBiPolynomialCopy(Dest, T);
     FLocalBigNumberBiPolynomialPool.Recycle(T);
   end;
 end;
@@ -13178,14 +14778,14 @@ begin
   end;
 end;
 
-procedure Int64PolynomialToBigNumberPolynomial(Dst: TCnBigNumberPolynomial;
-  Src: TCnInt64Polynomial);
+procedure Int64PolynomialToBigNumberPolynomial(Dest: TCnBigNumberPolynomial;
+  Source: TCnInt64Polynomial);
 var
   I: Integer;
 begin
-  Dst.MaxDegree := Src.MaxDegree;
-  for I := 0 to Src.MaxDegree do
-    Dst[I].SetInt64(Src[I]);
+  Dest.MaxDegree := Source.MaxDegree;
+  for I := 0 to Source.MaxDegree do
+    Dest[I].SetInt64(Source[I]);
 end;
 { TCnBigNumberBiPolynomial }
 
@@ -13333,7 +14933,7 @@ function TCnBigNumberBiPolynomial.GetSafeValue(XDegree,
 var
   YL: TCnSparseBigNumberList;
 begin
-  if XDegree > MaxXDegree then  
+  if XDegree > MaxXDegree then
     MaxXDegree := XDegree;
 
   YL := YFactorsList[XDegree];  // 确保 XDegree 存在
@@ -13409,7 +15009,7 @@ procedure TCnBigNumberBiPolynomial.SetSafeValue(XDegree, YDegree: Integer;
 var
   YL: TCnSparseBigNumberList;
 begin
-  if XDegree > MaxXDegree then  
+  if XDegree > MaxXDegree then
     MaxXDegree := XDegree;
 
   YL := YFactorsList[XDegree];    // 确保 XDegree 存在
@@ -13440,6 +15040,18 @@ begin
     if S <> '' then
       SafeValue[I, YDegree].SetDec(AnsiString(ExtractBigNumberFromArrayConstElement(LowToHighXCoefficients[I])));
   end;
+end;
+
+procedure TCnBigNumberBiPolynomial.SetXYCoefficent(XDegree,
+  YDegree: Integer; ACoefficient: Int64);
+begin
+  CheckDegree(XDegree);
+  CheckDegree(YDegree);
+
+  if MaxXDegree < XDegree then
+    MaxXDegree := XDegree;
+
+  YFactorsList[XDegree].SafeValue[YDegree].SetInt64(ACoefficient); // 内部是 BigNumberCopy 值
 end;
 
 procedure TCnBigNumberBiPolynomial.SetXYCoefficent(XDegree,
@@ -13476,7 +15088,7 @@ var
 begin
   CheckDegree(XDegree);
 
-  if XDegree > MaxXDegree then   
+  if XDegree > MaxXDegree then
     MaxXDegree := XDegree;
 
   if PY.IsZero then
@@ -13499,7 +15111,7 @@ var
 begin
   CheckDegree(XDegree);
 
-  if XDegree > MaxXDegree then   
+  if XDegree > MaxXDegree then
     MaxXDegree := XDegree;
 
   if PY.IsZero then
@@ -13598,6 +15210,540 @@ begin
   end;
 end;
 
+// ================= 一元大浮点复数多项式独立函数实现 ========================
+
+function BigComplexDecimalPolynomialNew: TCnBigComplexDecimalPolynomial;
+begin
+  Result := TCnBigComplexDecimalPolynomial.Create;
+end;
+
+procedure BigComplexDecimalPolynomialFree(P: TCnBigComplexDecimalPolynomial);
+begin
+  P.Free;
+end;
+
+function BigComplexDecimalPolynomialDuplicate(P: TCnBigComplexDecimalPolynomial): TCnBigComplexDecimalPolynomial;
+var
+  I: Integer;
+begin
+  Result := TCnBigComplexDecimalPolynomial.Create;
+  for I := 0 to P.Count - 1 do
+  begin
+    Result.EnsureDegree(I);
+    BigComplexDecimalCopy(Result.Items[I], P.Items[I]);
+  end;
+end;
+
+function BigComplexDecimalPolynomialCopy(Dest: TCnBigComplexDecimalPolynomial;
+  Source: TCnBigComplexDecimalPolynomial): TCnBigComplexDecimalPolynomial;
+var
+  I: Integer;
+begin
+  Result := Dest;
+  if Source <> Dest then
+  begin
+    Dest.Clear;
+    for I := 0 to Source.Count - 1 do
+    begin
+      Dest.EnsureDegree(I);
+      BigComplexDecimalCopy(Dest.Items[I], Source.Items[I]);
+    end;
+  end;
+end;
+
+procedure BigComplexDecimalPolynomialSwap(A: TCnBigComplexDecimalPolynomial;
+  B: TCnBigComplexDecimalPolynomial);
+var
+  I, MaxCount: Integer;
+  Temp: TCnBigComplexDecimal;
+begin
+  MaxCount := Max(A.Count, B.Count);
+
+  // 确保两个多项式都有足够的项
+  while A.Count < MaxCount do
+  begin
+    A.Add;
+    TCnBigComplexDecimal(A.Items[A.Count - 1]).SetZero;
+  end;
+
+  while B.Count < MaxCount do
+  begin
+    B.Add;
+    TCnBigComplexDecimal(B.Items[B.Count - 1]).SetZero;
+  end;
+
+  // 交换所有项
+  for I := 0 to MaxCount - 1 do
+  begin
+    Temp := TCnBigComplexDecimal.Create;
+    try
+      BigComplexDecimalCopy(Temp, A.Items[I]);
+      BigComplexDecimalCopy(A.Items[I], B.Items[I]);
+      BigComplexDecimalCopy(B.Items[I], Temp);
+    finally
+      Temp.Free;
+    end;
+  end;
+end;
+
+function BigComplexDecimalPolynomialToString(P: TCnBigComplexDecimalPolynomial;
+  const VarName: string): string;
+var
+  I: Integer;
+begin
+  P.CorrectTop;
+  if P.Count = 0 then
+  begin
+    Result := '0';
+    Exit;
+  end;
+
+  for I := P.Count - 1 downto 0 do
+  begin
+    if not P[I].IsZero then
+    begin
+      if Result <> '' then
+        Result := Result + '+';
+      if I = 0 then
+        Result := Result + P[I].ToString
+      else if I = 1 then
+      begin
+        if P[I].IsOne then
+          Result := Result + 'X'
+        else
+          Result := Result + '(' + P[I].ToString + ')X'
+      end
+      else
+      begin
+        if P[I].IsOne then
+          Result := Result + 'X^' + IntToStr(I)
+        else
+          Result := Result + '(' + P[I].ToString + ')X^' + IntToStr(I);
+      end;
+    end;
+  end;
+end;
+
+function BigComplexDecimalPolynomialIsZero(P: TCnBigComplexDecimalPolynomial): Boolean;
+begin
+  Result := (P.MaxDegree = 0) and P[0].IsZero;
+end;
+
+procedure BigComplexDecimalPolynomialSetZero(P: TCnBigComplexDecimalPolynomial);
+begin
+  P.Clear;
+  P.Add.SetZero;
+end;
+
+function BigComplexDecimalPolynomialIsOne(P: TCnBigComplexDecimalPolynomial): Boolean;
+begin
+  Result := (P.MaxDegree = 0) and P[0].IsOne;
+end;
+
+procedure BigComplexDecimalPolynomialSetOne(P: TCnBigComplexDecimalPolynomial);
+begin
+  P.Clear;
+  P.Add.SetOne;
+end;
+
+function BigComplexDecimalPolynomialIsNegOne(P: TCnBigComplexDecimalPolynomial): Boolean;
+begin
+  Result := (P.MaxDegree = 0) and P[0].IsNegOne;
+end;
+
+procedure BigComplexDecimalPolynomialNegate(P: TCnBigComplexDecimalPolynomial);
+var
+  I: Integer;
+begin
+  for I := 0 to P.MaxDegree do
+    P[I].Negate;
+end;
+
+function BigComplexDecimalPolynomialIsMonic(P: TCnBigComplexDecimalPolynomial): Boolean;
+begin
+  Result := P[P.MaxDegree].IsOne;
+end;
+
+procedure BigComplexDecimalPolynomialShiftLeft(P: TCnBigComplexDecimalPolynomial; N: Integer);
+var
+  I: Integer;
+begin
+  if N = 0 then
+    Exit
+  else if N < 0 then
+    BigComplexDecimalPolynomialShiftRight(P, -N)
+  else
+    for I := 1 to N do
+      P.Insert(0, TCnBigComplexDecimal.Create);
+end;
+
+procedure BigComplexDecimalPolynomialShiftRight(P: TCnBigComplexDecimalPolynomial; N: Integer);
+var
+  I: Integer;
+begin
+  if N = 0 then
+    Exit
+  else if N < 0 then
+    BigComplexDecimalPolynomialShiftLeft(P, -N)
+  else
+  begin
+    for I := 1 to N do
+      P.Delete(0);
+
+    if P.Count = 0 then
+      P.Add.SetZero;
+  end;
+end;
+
+function BigComplexDecimalPolynomialEqual(A: TCnBigComplexDecimalPolynomial;
+  B: TCnBigComplexDecimalPolynomial): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  if A.Count <> B.Count then
+    Exit;
+
+  for I := 0 to A.Count - 1 do
+  begin
+    if not BigComplexDecimalEqual(A.Items[I], B.Items[I]) then
+      Exit;
+  end;
+
+  Result := True;
+end;
+
+function BigComplexDecimalPolynomialAdd(Res: TCnBigComplexDecimalPolynomial;
+  P1: TCnBigComplexDecimalPolynomial; P2: TCnBigComplexDecimalPolynomial): Boolean;
+var
+  I, D1, D2: Integer;
+  PBig: TCnBigComplexDecimalPolynomial;
+begin
+  D1 := Max(P1.MaxDegree, P2.MaxDegree);
+  D2 := Min(P1.MaxDegree, P2.MaxDegree);
+
+  if D1 > D2 then
+  begin
+    if P1.MaxDegree > P2.MaxDegree then
+      PBig := P1
+    else
+      PBig := P2;
+
+    Res.MaxDegree := D1; // 考虑到 Res 可能是 P1 或 P2，所以给 Res 的 MaxDegree 赋值得放上面的比较之后
+    for I := D1 downto D2 + 1 do
+      BigComplexDecimalCopy(Res[I], PBig[I]);
+  end
+  else // D1 = D2 说明俩加式同次
+    Res.MaxDegree := D1;
+
+  for I := D2 downto 0 do
+    BigComplexDecimalAdd(Res[I], P1[I], P2[I]);
+
+  Res.CorrectTop;
+  Result := True;
+end;
+
+function BigComplexDecimalPolynomialSub(Res: TCnBigComplexDecimalPolynomial;
+  P1: TCnBigComplexDecimalPolynomial; P2: TCnBigComplexDecimalPolynomial): Boolean;
+var
+  I, D1, D2: Integer;
+begin
+  D1 := Max(P1.MaxDegree, P2.MaxDegree);
+  D2 := Min(P1.MaxDegree, P2.MaxDegree);
+
+  Res.MaxDegree := D1;
+  if D1 > D2 then
+  begin
+    if P1.MaxDegree > P2.MaxDegree then // 被减式大
+    begin
+      for I := D1 downto D2 + 1 do
+        BigComplexDecimalCopy(Res[I], P1[I]);
+    end
+    else  // 减式大
+    begin
+      for I := D1 downto D2 + 1 do
+      begin
+        BigComplexDecimalCopy(Res[I], P2[I]);
+        Res[I].Negate;
+      end;
+    end;
+  end;
+
+  for I := D2 downto 0 do
+    BigComplexDecimalSub(Res[I], P1[I], P2[I]);
+
+  Res.CorrectTop;
+  Result := True;
+end;
+
+function BigComplexDecimalPolynomialMul(Res: TCnBigComplexDecimalPolynomial;
+  P1: TCnBigComplexDecimalPolynomial; P2: TCnBigComplexDecimalPolynomial): Boolean;
+var
+  R: TCnBigComplexDecimalPolynomial;
+  T: TCnBigComplexDecimal;
+  I, J: Integer;
+begin
+  if BigComplexDecimalPolynomialIsZero(P1) or BigComplexDecimalPolynomialIsZero(P2) then
+  begin
+    BigComplexDecimalPolynomialSetZero(Res);
+    Result := True;
+    Exit;
+  end;
+
+  T := FLocalBigComplexDecimalPool.Obtain;
+  if (Res = P1) or (Res = P2) then
+    R := FLocalBigComplexDecimalPolynomialPool.Obtain
+  else
+    R := Res;
+
+  R.Clear;
+  R.MaxDegree := P1.MaxDegree + P2.MaxDegree;
+
+  for I := 0 to P1.MaxDegree do
+  begin
+    // 把第 I 次方的数字乘以 P2 的每一个数字，加到结果的 I 开头的部分
+    for J := 0 to P2.MaxDegree do
+    begin
+      BigComplexDecimalMul(T, P1[I], P2[J]);
+      BigComplexDecimalAdd(R[I + J], R[I + J], T);
+    end;
+  end;
+
+  R.CorrectTop;
+  if (Res = P1) or (Res = P2) then
+  begin
+    BigComplexDecimalPolynomialCopy(Res, R);
+    FLocalBigComplexDecimalPolynomialPool.Recycle(R);
+  end;
+
+  FLocalBigComplexDecimalPool.Recycle(T);
+  Result := True;
+end;
+
+procedure BigComplexDecimalPolynomialMulBigComplexDecimal(P: TCnBigComplexDecimalPolynomial;
+  N: TCnBigComplexDecimal);
+var
+  I: Integer;
+  T: TCnBigComplexDecimal;
+begin
+  if BigComplexDecimalIsZero(N) then
+    BigComplexDecimalPolynomialSetZero(P)
+  else if not N.IsOne then
+  begin
+    T := FLocalBigComplexDecimalPool.Obtain;
+    try
+      for I := 0 to P.MaxDegree do
+      begin
+        BigComplexDecimalMul(T, P[I], N);
+        BigComplexDecimalCopy(P[I], T);
+      end;
+    finally
+      FLocalBigComplexDecimalPool.Recycle(T);
+    end;
+  end;
+end;
+
+function BigComplexDecimalPolynomialDiv(Res: TCnBigComplexDecimalPolynomial;
+  Remain: TCnBigComplexDecimalPolynomial; P: TCnBigComplexDecimalPolynomial;
+  Divisor: TCnBigComplexDecimalPolynomial): Boolean;
+var
+  SubRes: TCnBigComplexDecimalPolynomial; // 容纳递减差
+  MulRes: TCnBigComplexDecimalPolynomial; // 容纳除数乘积
+  DivRes: TCnBigComplexDecimalPolynomial; // 容纳临时商
+  I, D: Integer;
+  T: TCnBigComplexDecimal;
+begin
+  Result := False;
+
+  if BigComplexDecimalPolynomialIsZero(Divisor) then
+    raise EDivByZero.Create(SDivByZero);
+
+  if Divisor.MaxDegree > P.MaxDegree then // 除式次数高不够除，直接变成余数
+  begin
+    if Res <> nil then
+      BigComplexDecimalPolynomialSetZero(Res);
+    if (Remain <> nil) and (P <> Remain) then
+      BigComplexDecimalPolynomialCopy(Remain, P);
+    Result := True;
+    Exit;
+  end;
+
+  // 够除，循环
+  SubRes := nil;
+  MulRes := nil;
+  DivRes := nil;
+  T := nil;
+
+  try
+    T := FLocalBigComplexDecimalPool.Obtain;
+
+    SubRes := FLocalBigComplexDecimalPolynomialPool.Obtain;
+    BigComplexDecimalPolynomialCopy(SubRes, P);
+
+    D := P.MaxDegree - Divisor.MaxDegree;
+    DivRes := FLocalBigComplexDecimalPolynomialPool.Obtain;
+    DivRes.MaxDegree := D;
+    MulRes := FLocalBigComplexDecimalPolynomialPool.Obtain;
+
+    for I := 0 to D do
+    begin
+      if P.MaxDegree - I > SubRes.MaxDegree then                 // 中间结果可能跳位
+        Continue;
+
+      // 大浮点数复数除法：T = SubRes[P.MaxDegree - I] / Divisor[Divisor.MaxDegree]
+      if BigComplexDecimalIsZero(Divisor[Divisor.MaxDegree]) then
+        Exit;
+
+      BigComplexDecimalDiv(T, SubRes[P.MaxDegree - I], Divisor[Divisor.MaxDegree]);
+
+      BigComplexDecimalPolynomialCopy(MulRes, Divisor);
+      BigComplexDecimalPolynomialShiftLeft(MulRes, D - I);        // 对齐到 SubRes 的最高次
+
+      BigComplexDecimalPolynomialMulBigComplexDecimal(MulRes, T); // 除式乘到最高次系数相同
+      BigComplexDecimalCopy(DivRes[D - I], T);                    // 商放到 DivRes 位置
+
+      BigComplexDecimalPolynomialSub(SubRes, SubRes, MulRes);     // 减后结果重新放回 SubRes
+    end;
+
+    if Remain <> nil then
+      BigComplexDecimalPolynomialCopy(Remain, SubRes);
+    if Res <> nil then
+      BigComplexDecimalPolynomialCopy(Res, DivRes);
+
+    Result := True;
+  finally
+    FLocalBigComplexDecimalPolynomialPool.Recycle(DivRes);
+    FLocalBigComplexDecimalPolynomialPool.Recycle(MulRes);
+    FLocalBigComplexDecimalPolynomialPool.Recycle(SubRes);
+    FLocalBigComplexDecimalPool.Recycle(T);
+  end;
+end;
+
+function BigComplexDecimalPolynomialPower(Res: TCnBigComplexDecimalPolynomial;
+  P: TCnBigComplexDecimalPolynomial; Exponent: Int64): Boolean;
+var
+  Temp, Temp2: TCnBigComplexDecimalPolynomial;
+  I: Int64;
+begin
+  Result := True;
+
+  if Exponent < 0 then
+  begin
+    Result := False;
+    Exit;
+  end;
+
+  if Exponent = 0 then
+  begin
+    Res.SetOne;
+    Exit;
+  end;
+
+  if Exponent = 1 then
+  begin
+    BigComplexDecimalPolynomialCopy(Res, P);
+    Exit;
+  end;
+
+  Temp := TCnBigComplexDecimalPolynomial.Create;
+  Temp2 := TCnBigComplexDecimalPolynomial.Create;
+  try
+    BigComplexDecimalPolynomialCopy(Temp, P);
+    Res.SetOne;
+
+    I := Exponent;
+    while I > 0 do
+    begin
+      if I and 1 = 1 then
+      begin
+        BigComplexDecimalPolynomialMul(Temp2, Res, Temp);
+        BigComplexDecimalPolynomialCopy(Res, Temp2);
+      end;
+
+      BigComplexDecimalPolynomialMul(Temp2, Temp, Temp);
+      BigComplexDecimalPolynomialCopy(Temp, Temp2);
+      I := I shr 1;
+    end;
+  finally
+    Temp.Free;
+    Temp2.Free;
+  end;
+end;
+
+function BigComplexDecimalPolynomialCompose(Res: TCnBigComplexDecimalPolynomial;
+  F: TCnBigComplexDecimalPolynomial; P: TCnBigComplexDecimalPolynomial): Boolean;
+var
+  I: Integer;
+  Temp, Temp2, PowerP: TCnBigComplexDecimalPolynomial;
+begin
+  Result := True;
+
+  if F.IsZero then
+  begin
+    Res.SetZero;
+    Exit;
+  end;
+
+  Temp := TCnBigComplexDecimalPolynomial.Create;
+  Temp2 := TCnBigComplexDecimalPolynomial.Create;
+  PowerP := TCnBigComplexDecimalPolynomial.Create;
+  try
+    Res.SetZero;
+    PowerP.SetOne;
+
+    for I := 0 to F.MaxDegree do
+    begin
+      if I > 0 then
+      begin
+        BigComplexDecimalPolynomialMul(Temp2, PowerP, P);
+        BigComplexDecimalPolynomialCopy(PowerP, Temp2);
+      end;
+
+      Temp.Clear;
+      Temp.EnsureDegree(0);
+      BigComplexDecimalCopy(Temp.Items[0], F.Items[I]);
+
+      BigComplexDecimalPolynomialMul(Temp2, Temp, PowerP);
+      BigComplexDecimalPolynomialAdd(Res, Res, Temp2);
+    end;
+  finally
+    Temp.Free;
+    Temp2.Free;
+    PowerP.Free;
+  end;
+end;
+
+procedure BigComplexDecimalPolynomialGetValue(Res: TCnBigComplexDecimal; F: TCnBigComplexDecimalPolynomial;
+  X: TCnBigComplexDecimal);
+var
+  I: Integer;
+  T, M: TCnBigComplexDecimal;
+begin
+  BigComplexDecimalCopy(Res, F[0]);
+  if X.IsZero or (F.MaxDegree = 0) then    // 只有常数项的情况下，得常数项
+    Exit;
+
+  T := FLocalBigComplexDecimalPool.Obtain;
+  M := FLocalBigComplexDecimalPool.Obtain;
+
+  try
+    BigComplexDecimalCopy(T, X);
+
+    // 把 F 中的每个系数都和 X 的对应次幂相乘，最后相加
+    for I := 1 to F.MaxDegree do
+    begin
+      BigComplexDecimalMul(M, F[I], T);
+      BigComplexDecimalAdd(Res, Res, M);
+
+      if I <> F.MaxDegree then
+        BigComplexDecimalMul(T, T, X);
+    end;
+  finally
+    FLocalBigComplexDecimalPool.Recycle(T);
+    FLocalBigComplexDecimalPool.Recycle(M);
+  end;
+end;
+
 initialization
   FLocalInt64PolynomialPool := TCnInt64PolynomialPool.Create;
   FLocalInt64RationalPolynomialPool := TCnInt64RationalPolynomialPool.Create;
@@ -13606,6 +15752,10 @@ initialization
   FLocalBigNumberPool := TCnBigNumberPool.Create;
   FLocalInt64BiPolynomialPool := TCnInt64BiPolynomialPool.Create;
   FLocalBigNumberBiPolynomialPool := TCnBigNumberBiPolynomialPool.Create;
+  FLocalBigComplexPool := TCnBigComplexPool.Create;
+  FLocalBigComplexPolynomialPool := TCnBigComplexPolynomialPool.Create;
+  FLocalBigComplexDecimalPool := TCnBigComplexDecimalPool.Create;
+  FLocalBigComplexDecimalPolynomialPool := TCnBigComplexDecimalPolynomialPool.Create;
 
   CnInt64PolynomialOne := TCnInt64Polynomial.Create([1]);
   CnInt64PolynomialZero := TCnInt64Polynomial.Create([0]);
@@ -13622,6 +15772,10 @@ finalization
   CnInt64PolynomialOne.Free;
   CnInt64PolynomialZero.Free;
 
+  FLocalBigComplexDecimalPolynomialPool.Free;
+  FLocalBigComplexDecimalPool.Free;
+  FLocalBigComplexPolynomialPool.Free;
+  FLocalBigComplexPool.Free;
   FLocalBigNumberBiPolynomialPool.Free;
   FLocalInt64BiPolynomialPool.Free;
   FLocalInt64PolynomialPool.Free;

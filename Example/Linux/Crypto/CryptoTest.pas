@@ -51,7 +51,7 @@ uses
   CnPoly1305, CnTEA, CnZUC, CnFEC, CnPrime, Cn25519, CnPaillier, CnSecretSharing,
   CnPolynomial, CnBits, CnLattice, CnOTS, CnPemUtils, CnInt128, CnRC4, CnPDFCrypt,
   CnDSA, CnBLAKE, CnBLAKE2, CnXXH, CnWideStrings, CnContainers, CnMLKEM, CnMLDSA,
-  CnCalendar, CnBigDecimal, CnComplex, CnDFT, CnMath;
+  CnCalendar, CnBigDecimal, CnComplex, CnDFT, CnMath, CnQRCode;
 
 procedure TestCrypto;
 {* 密码库总测试入口}
@@ -104,14 +104,17 @@ function TestComplexNumberBasic: Boolean;
 function TestComplexNumberArithmetic: Boolean;
 function TestComplexNumberProperties: Boolean;
 function TestComplexNumberSqrt: Boolean;
-function TestBigComplexNumberBasic: Boolean;
-function TestBigComplexNumberArithmetic: Boolean;
-function TestBigComplexNumberProperties: Boolean;
+function TestComplexNumberString: Boolean;
+function TestBigComplexBasic: Boolean;
+function TestBigComplexArithmetic: Boolean;
+function TestBigComplexProperties: Boolean;
+function TestBigComplexString: Boolean;
 function TestBigComplexDecimalBasic: Boolean;
 function TestBigComplexDecimalArithmetic: Boolean;
 function TestBigComplexDecimalProperties: Boolean;
 function TestBigComplexDecimalRealMul: Boolean;
 function TestBigComplexDecimalPower: Boolean;
+function TestBigComplexDecimalString: Boolean;
 
 // ============================== DFT ==========================================
 
@@ -214,9 +217,28 @@ function TestFloatGaussLegendrePi: Boolean;
 function TestGaussLegendrePi: Boolean;
 function TestXavierGourdonEuler: Boolean;
 
+// ================================ QRCode =====================================
+
+function TestQREncoderBasicSize: Boolean;
+function TestQREncoderDataSize: Boolean;
+function TestQREncoderMultipleVersions: Boolean;
+function TestQREncoderErrorRecoveryLevels: Boolean;
+function TestQREncoderNumericMode: Boolean;
+function TestQREncoderAlphanumericMode: Boolean;
+function TestQREncoderByteMode: Boolean;
+function TestQREncoderTextMatrix: Boolean;
+
 // ============================= Polynomial ====================================
 
 function TestBigNumberPolynomialGaloisPrimePowerModularInverse: Boolean;
+function TestInt64Polynomial: Boolean;
+function TestBigNumberPolynomial: Boolean;
+function TestBigComplexPolynomial: Boolean;
+function TestBigComplexDecimalPolynomial: Boolean;
+function TestInt64RationalPolynomial: Boolean;
+function TestBigNumberRationalPolynomial: Boolean;
+function TestInt64BiPolynomial: Boolean;
+function TestBigNumberBiPolynomial: Boolean;
 
 // ================================ NTRU =======================================
 
@@ -625,14 +647,17 @@ begin
   MyAssert(TestComplexNumberArithmetic, 'TestComplexNumberArithmetic');
   MyAssert(TestComplexNumberProperties, 'TestComplexNumberProperties');
   MyAssert(TestComplexNumberSqrt, 'TestComplexNumberSqrt');
-  MyAssert(TestBigComplexNumberBasic, 'TestBigComplexNumberBasic');
-  MyAssert(TestBigComplexNumberArithmetic, 'TestBigComplexNumberArithmetic');
-  MyAssert(TestBigComplexNumberProperties, 'TestBigComplexNumberProperties');
+  MyAssert(TestComplexNumberString, 'TestComplexNumberString');
+  MyAssert(TestBigComplexBasic, 'TestBigComplexBasic');
+  MyAssert(TestBigComplexArithmetic, 'TestBigComplexArithmetic');
+  MyAssert(TestBigComplexProperties, 'TestBigComplexProperties');
+  MyAssert(TestBigComplexString, 'TestBigComplexString');
   MyAssert(TestBigComplexDecimalBasic, 'TestBigComplexDecimalBasic');
   MyAssert(TestBigComplexDecimalArithmetic, 'TestBigComplexDecimalArithmetic');
   MyAssert(TestBigComplexDecimalProperties, 'TestBigComplexDecimalProperties');
   MyAssert(TestBigComplexDecimalRealMul, 'TestBigComplexDecimalRealMul');
   MyAssert(TestBigComplexDecimalPower, 'TestBigComplexDecimalPower');
+  MyAssert(TestBigComplexDecimalString, 'TestBigComplexDecimalString');
 
 // ================================ DFT ========================================
 
@@ -735,9 +760,28 @@ begin
   MyAssert(TestGaussLegendrePi, 'TestGaussLegendrePi');
   MyAssert(TestXavierGourdonEuler, 'TestXavierGourdonEuler');
 
+// ================================ QRCode =====================================
+
+  MyAssert(TestQREncoderBasicSize, 'TestQREncoderBasicSize');
+  MyAssert(TestQREncoderDataSize, 'TestQREncoderDataSize');
+  MyAssert(TestQREncoderMultipleVersions, 'TestQREncoderMultipleVersions');
+  MyAssert(TestQREncoderErrorRecoveryLevels, 'TestQREncoderErrorRecoveryLevels');
+  MyAssert(TestQREncoderNumericMode, 'TestQREncoderNumericMode');
+  MyAssert(TestQREncoderAlphanumericMode, 'TestQREncoderAlphanumericMode');
+  MyAssert(TestQREncoderByteMode, 'TestQREncoderByteMode');
+  MyAssert(TestQREncoderTextMatrix, 'TestQREncoderMaskPatterns');
+
 // ============================= Polynomial ====================================
 
   MyAssert(TestBigNumberPolynomialGaloisPrimePowerModularInverse, 'TestBigNumberPolynomialGaloisPrimePowerModularInverse');
+  MyAssert(TestInt64Polynomial, 'TestInt64Polynomial');
+  MyAssert(TestBigNumberPolynomial, 'TestBigNumberPolynomial');
+  MyAssert(TestBigComplexPolynomial, 'TestBigComplexPolynomial');
+  MyAssert(TestBigComplexDecimalPolynomial, 'TestBigComplexDecimalPolynomial');
+  MyAssert(TestInt64RationalPolynomial, 'TestInt64RationalPolynomial');
+  MyAssert(TestBigNumberRationalPolynomial, 'TestBigNumberRationalPolynomial');
+  MyAssert(TestInt64BiPolynomial, 'TestInt64BiPolynomial');
+  MyAssert(TestBigNumberBiPolynomial, 'TestBigNumberBiPolynomial');
 
 // ================================ NTRU =======================================
 
@@ -1687,54 +1731,105 @@ begin
   Result := FloatEqual(Temp.R, C1.R) and FloatEqual(Temp.I, C1.I);
 end;
 
-function TestBigComplexNumberBasic: Boolean;
+function TestComplexNumberString: Boolean;
 var
-  C1, C2: TCnBigComplexNumber;
+  C1: TCnComplexNumber;
 begin
-  C1 := TCnBigComplexNumber.Create;
-  C2 := TCnBigComplexNumber.Create;
+  Result := False;
+
+  // 测试纯实数：0
+  ComplexNumberSetString(C1, '0');
+  Result := ComplexNumberIsZero(C1);
+  if not Result then Exit;
+
+  // 测试纯实数：3.5
+  ComplexNumberSetString(C1, '3.5');
+  Result := FloatEqual(C1.R, 3.5) and FloatEqual(C1.I, 0);
+  if not Result then Exit;
+
+  // 测试纯虚数：3i
+  ComplexNumberSetString(C1, '3i');
+  Result := FloatEqual(C1.R, 0) and FloatEqual(C1.I, 3);
+  if not Result then Exit;
+
+  // 测试纯虚数：i
+  ComplexNumberSetString(C1, 'i');
+  Result := FloatEqual(C1.R, 0) and FloatEqual(C1.I, 1);
+  if not Result then Exit;
+
+  // 测试纯虚数：-i
+  ComplexNumberSetString(C1, '-i');
+  Result := FloatEqual(C1.R, 0) and FloatEqual(C1.I, -1);
+  if not Result then Exit;
+
+  // 测试复数：1.4+2i
+  ComplexNumberSetString(C1, '1.4+2i');
+  Result := FloatEqual(C1.R, 1.4) and FloatEqual(C1.I, 2);
+  if not Result then Exit;
+
+  // 测试复数：2-i
+  ComplexNumberSetString(C1, '2-i');
+  Result := FloatEqual(C1.R, 2) and FloatEqual(C1.I, -1);
+  if not Result then Exit;
+
+  // 测试复数：-3.5+4.2i
+  ComplexNumberSetString(C1, '-3.5+4.2i');
+  Result := FloatEqual(C1.R, -3.5) and FloatEqual(C1.I, 4.2);
+  if not Result then Exit;
+
+  // 测试复数：5-2.8i
+  ComplexNumberSetString(C1, '5-2.8i');
+  Result := FloatEqual(C1.R, 5) and FloatEqual(C1.I, -2.8);
+end;
+
+function TestBigComplexBasic: Boolean;
+var
+  C1, C2: TCnBigComplex;
+begin
+  C1 := TCnBigComplex.Create;
+  C2 := TCnBigComplex.Create;
   try
     // 测试大精度复数初始化
-    BigComplexNumberSetZero(C1);
-    Result := BigComplexNumberIsZero(C1);
+    BigComplexSetZero(C1);
+    Result := BigComplexIsZero(C1);
     if not Result then Exit;
 
     // 测试大精度复数设置值
-    BigComplexNumberSetValue(C1, 3, 4);
-    BigComplexNumberSetValue(C2, 3, 4);
-    Result := BigComplexNumberEqual(C1, C2);
+    BigComplexSetValue(C1, 3, 4);
+    BigComplexSetValue(C2, 3, 4);
+    Result := BigComplexEqual(C1, C2);
     if not Result then Exit;
 
     // 测试大精度复数字符串转换
-    Result := Length(BigComplexNumberToString(C1)) > 0;
+    Result := Length(BigComplexToString(C1)) > 0;
   finally
     C1.Free;
     C2.Free;
   end;
 end;
 
-function TestBigComplexNumberArithmetic: Boolean;
+function TestBigComplexArithmetic: Boolean;
 var
-  C1, C2, Res: TCnBigComplexNumber;
+  C1, C2, Res: TCnBigComplex;
 begin
-  C1 := TCnBigComplexNumber.Create;
-  C2 := TCnBigComplexNumber.Create;
-  Res := TCnBigComplexNumber.Create;
+  C1 := TCnBigComplex.Create;
+  C2 := TCnBigComplex.Create;
+  Res := TCnBigComplex.Create;
   try
     // 测试大精度复数加法
-    BigComplexNumberSetValue(C1, 3, 4);
-    BigComplexNumberSetValue(C2, 1, 2);
-    BigComplexNumberAdd(Res, C1, C2);
+    BigComplexSetValue(C1, 3, 4);
+    BigComplexSetValue(C2, 1, 2);
+    BigComplexAdd(Res, C1, C2);
     Result := (Res.R.ToHex = '04') and (Res.I.ToHex = '06');
     if not Result then Exit;
 
     // 测试大精度复数减法
-    BigComplexNumberSub(Res, C1, C2);
+    BigComplexSub(Res, C1, C2);
     Result := (Res.R.ToHex = '02') and (Res.I.ToHex = '02');
     if not Result then Exit;
 
     // 测试大精度复数乘法
-    BigComplexNumberMul(Res, C1, C2);
+    BigComplexMul(Res, C1, C2);
     Result := (Res.R.ToHex = '-05') and (Res.I.ToHex = '0A');
   finally
     C1.Free;
@@ -1743,29 +1838,84 @@ begin
   end;
 end;
 
-function TestBigComplexNumberProperties: Boolean;
+function TestBigComplexProperties: Boolean;
 var
-  C1, Res: TCnBigComplexNumber;
+  C1, Res: TCnBigComplex;
 begin
-  C1 := TCnBigComplexNumber.Create;
-  Res := TCnBigComplexNumber.Create;
+  C1 := TCnBigComplex.Create;
+  Res := TCnBigComplex.Create;
   try
     // 测试大精度复数的模
-    BigComplexNumberSetValue(C1, 3, 4);
-    Result := BigComplexNumberAbsoluteValue(C1) > 0;
+    BigComplexSetValue(C1, 3, 4);
+    Result := BigComplexAbsoluteValue(C1) > 0;
     if not Result then Exit;
 
     // 测试大精度复数的共轭
-    BigComplexNumberConjugate(Res, C1);
+    BigComplexConjugate(Res, C1);
     Result := (Res.R.ToHex = '03') and (Res.I.ToHex = '-04');
     if not Result then Exit;
 
     // 测试大精度复数的取反
-    BigComplexNumberNegate(Res, C1);
+    BigComplexNegate(Res, C1);
     Result := (Res.R.ToHex = '-03') and (Res.I.ToHex = '-04');
   finally
     C1.Free;
     Res.Free;
+  end;
+end;
+
+function TestBigComplexString: Boolean;
+var
+  C1: TCnBigComplex;
+begin
+  Result := False;
+  C1 := TCnBigComplex.Create;
+  try
+    // 测试纯实数：0
+    BigComplexSetString(C1, '0');
+    Result := BigComplexToString(C1) = '0';
+    if not Result then Exit;
+
+    // 测试纯实数：123
+    BigComplexSetString(C1, '123');
+    Result := (C1.R.ToDec = '123') and C1.I.IsZero;
+    if not Result then Exit;
+
+    // 测试纯虚数：456i
+    BigComplexSetString(C1, '456i');
+    Result := C1.R.IsZero and (C1.I.ToDec = '456');
+    if not Result then Exit;
+
+    // 测试纯虚数：i
+    BigComplexSetString(C1, 'i');
+    Result := C1.R.IsZero and C1.I.IsOne;
+    if not Result then Exit;
+
+    // 测试纯虚数：-i
+    BigComplexSetString(C1, '-i');
+    Result := C1.R.IsZero and (C1.I.ToDec = '-1');
+    if not Result then Exit;
+
+    // 测试复数：12+34i
+    BigComplexSetString(C1, '12+34i');
+    Result := (C1.R.ToDec = '12') and (C1.I.ToDec = '34');
+    if not Result then Exit;
+
+    // 测试复数：56-78i
+    BigComplexSetString(C1, '56-78i');
+    Result := (C1.R.ToDec = '56') and (C1.I.ToDec = '-78');
+    if not Result then Exit;
+
+    // 测试复数：-99+100i
+    BigComplexSetString(C1, '-99+100i');
+    Result := (C1.R.ToDec = '-99') and (C1.I.ToDec = '100');
+    if not Result then Exit;
+
+    // 测试复数：-200-300i
+    BigComplexSetString(C1, '-200-300i');
+    Result := (C1.R.ToDec = '-200') and (C1.I.ToDec = '-300');
+  finally
+    C1.Free;
   end;
 end;
 
@@ -1934,6 +2084,61 @@ begin
   finally
     C1.Free;
     Res.Free;
+  end;
+end;
+
+function TestBigComplexDecimalString: Boolean;
+var
+  C1: TCnBigComplexDecimal;
+begin
+  Result := False;
+  C1 := TCnBigComplexDecimal.Create;
+  try
+    // 测试纯实数：0
+    BigComplexDecimalSetString(C1, '0');
+    Result := BigComplexDecimalToString(C1) = '0';
+    if not Result then Exit;
+
+    // 测试纯实数：3.14159
+    BigComplexDecimalSetString(C1, '3.14159');
+    Result := (C1.R.ToString = '3.14159') and C1.I.IsZero;
+    if not Result then Exit;
+
+    // 测试纯虚数：2.5i
+    BigComplexDecimalSetString(C1, '2.5i');
+    Result := C1.R.IsZero and (C1.I.ToString = '2.5');
+    if not Result then Exit;
+
+    // 测试纯虚数：i
+    BigComplexDecimalSetString(C1, 'i');
+    Result := C1.R.IsZero and C1.I.IsOne;
+    if not Result then Exit;
+
+    // 测试纯虚数：-i
+    BigComplexDecimalSetString(C1, '-i');
+    Result := C1.R.IsZero and (C1.I.ToString = '-1');
+    if not Result then Exit;
+
+    // 测试复数：1.4+2i
+    BigComplexDecimalSetString(C1, '1.4+2i');
+    Result := (C1.R.ToString = '1.4') and (C1.I.ToString = '2');
+    if not Result then Exit;
+
+    // 测试复数：2-i
+    BigComplexDecimalSetString(C1, '2-i');
+    Result := (C1.R.ToString = '2') and (C1.I.ToString = '-1');
+    if not Result then Exit;
+
+    // 测试复数：-3.5+4.2i
+    BigComplexDecimalSetString(C1, '-3.5+4.2i');
+    Result := (C1.R.ToString = '-3.5') and (C1.I.ToString = '4.2');
+    if not Result then Exit;
+
+    // 测试复数：5.8-2.3i
+    BigComplexDecimalSetString(C1, '5.8-2.3i');
+    Result := (C1.R.ToString = '5.8') and (C1.I.ToString = '-2.3');
+  finally
+    C1.Free;
   end;
 end;
 
@@ -4317,6 +4522,350 @@ begin
   Result := Pos(E_STR, S) = 1;
 end;
 
+// ================================ QRCode =====================================
+
+function TestQREncoderBasicSize: Boolean;
+var
+  Encoder: TCnQREncoder;
+  I: Integer;
+begin
+  Encoder := TCnQREncoder.Create;
+  try
+    // 测试版本 1 的 QR 码尺寸应为 1*4+17 = 21
+    Encoder.Text := 'Hello';
+    Encoder.QRVersion := 1;
+
+    Result := Encoder.QRSize = 21;
+    if not Result then Exit;
+
+    // 验证 QRData 是否为正方形矩阵
+    if Length(Encoder.QRData) <> 21 then
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    for I := 0 to 20 do
+    begin
+      if Length(Encoder.QRData[I]) <> 21 then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+
+    Result := True;
+  finally
+    Encoder.Free;
+  end;
+end;
+
+function TestQREncoderDataSize: Boolean;
+var
+  Encoder: TCnQREncoder;
+  I, J: Integer;
+  ExpectedSize: Integer;
+begin
+  Encoder := TCnQREncoder.Create;
+  try
+    // 测试版本 2 的 QR 码尺寸应为 2*4+17 = 25
+    Encoder.Text := 'Hello World';
+    Encoder.QRVersion := 2;
+
+    ExpectedSize := 2 * 4 + 17;
+    Result := Encoder.QRSize = ExpectedSize;
+    if not Result then Exit;
+
+    // 验证 QRData 矩阵的尺寸
+    if Length(Encoder.QRData) <> ExpectedSize then
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    for I := 0 to ExpectedSize - 1 do
+    begin
+      if Length(Encoder.QRData[I]) <> ExpectedSize then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+
+    // 验证矩阵中的数据都是有效的（0 或 1）
+    for I := 0 to ExpectedSize - 1 do
+    begin
+      for J := 0 to ExpectedSize - 1 do
+      begin
+        if (Encoder.QRData[I, J] <> 0) and (Encoder.QRData[I, J] <> 1) then
+        begin
+          Result := False;
+          Exit;
+        end;
+      end;
+    end;
+
+    Result := True;
+  finally
+    Encoder.Free;
+  end;
+end;
+
+function TestQREncoderMultipleVersions: Boolean;
+var
+  Encoder: TCnQREncoder;
+  I, Version: Integer;
+  ExpectedSize: Integer;
+begin
+  Encoder := TCnQREncoder.Create;
+  try
+    // 测试多个版本的 QR 码尺寸计算
+    Encoder.Text := 'Test';
+
+    for Version := 1 to 5 do
+    begin
+      Encoder.QRVersion := Version;
+      ExpectedSize := Version * 4 + 17;
+
+      if Encoder.QRSize <> ExpectedSize then
+      begin
+        Result := False;
+        Exit;
+      end;
+
+      // 验证矩阵尺寸
+      if Length(Encoder.QRData) <> ExpectedSize then
+      begin
+        Result := False;
+        Exit;
+      end;
+
+      for I := 0 to ExpectedSize - 1 do
+      begin
+        if Length(Encoder.QRData[I]) <> ExpectedSize then
+        begin
+          Result := False;
+          Exit;
+        end;
+      end;
+    end;
+
+    Result := True;
+  finally
+    Encoder.Free;
+  end;
+end;
+
+function TestQREncoderErrorRecoveryLevels: Boolean;
+var
+  Encoder: TCnQREncoder;
+  Level: TCnErrorRecoveryLevel;
+  I, J: Integer;
+begin
+  Encoder := TCnQREncoder.Create;
+  try
+    Encoder.Text := 'ErrorLevel';
+    Encoder.QRVersion := 2;
+
+    // 测试所有错误恢复等级
+    for Level := erlL to erlH do
+    begin
+      Encoder.QRErrorRecoveryLevel := Level;
+
+      // 验证矩阵数据有效
+      for I := 0 to Encoder.QRSize - 1 do
+      begin
+        for J := 0 to Encoder.QRSize - 1 do
+        begin
+          if (Encoder.QRData[I, J] <> 0) and (Encoder.QRData[I, J] <> 1) then
+          begin
+            Result := False;
+            Exit;
+          end;
+        end;
+      end;
+    end;
+
+    Result := True;
+  finally
+    Encoder.Free;
+  end;
+end;
+
+function TestQREncoderNumericMode: Boolean;
+var
+  Encoder: TCnQREncoder;
+  I, J: Integer;
+begin
+  Encoder := TCnQREncoder.Create;
+  try
+    // 测试纯数字模式
+    Encoder.Text := '1234567890';
+    Encoder.QRVersion := 1;
+
+    // 验证 QRSize 正确
+    if Encoder.QRSize <> 21 then
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    // 验证矩阵数据有效
+    for I := 0 to 20 do
+    begin
+      for J := 0 to 20 do
+      begin
+        if (Encoder.QRData[I, J] <> 0) and (Encoder.QRData[I, J] <> 1) then
+        begin
+          Result := False;
+          Exit;
+        end;
+      end;
+    end;
+
+    Result := True;
+  finally
+    Encoder.Free;
+  end;
+end;
+
+function TestQREncoderAlphanumericMode: Boolean;
+var
+  Encoder: TCnQREncoder;
+  I, J: Integer;
+begin
+  Encoder := TCnQREncoder.Create;
+  try
+    // 测试字母数字模式
+    Encoder.Text := 'HELLO WORLD';
+    Encoder.QRVersion := 1;
+
+    // 验证 QRSize 正确
+    if Encoder.QRSize <> 21 then
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    // 验证矩阵数据有效
+    for I := 0 to 20 do
+    begin
+      for J := 0 to 20 do
+      begin
+        if (Encoder.QRData[I, J] <> 0) and (Encoder.QRData[I, J] <> 1) then
+        begin
+          Result := False;
+          Exit;
+        end;
+      end;
+    end;
+
+    Result := True;
+  finally
+    Encoder.Free;
+  end;
+end;
+
+function TestQREncoderByteMode: Boolean;
+var
+  Encoder: TCnQREncoder;
+  I, J: Integer;
+begin
+  Encoder := TCnQREncoder.Create;
+  try
+    // 测试字节模式（包含中文或特殊字符）
+    Encoder.Text := 'Hello123!@#';
+    Encoder.QRVersion := 2;
+
+    // 验证 QRSize 正确
+    if Encoder.QRSize <> 25 then
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    // 验证矩阵数据有效
+    for I := 0 to 24 do
+    begin
+      for J := 0 to 24 do
+      begin
+        if (Encoder.QRData[I, J] <> 0) and (Encoder.QRData[I, J] <> 1) then
+        begin
+          Result := False;
+          Exit;
+        end;
+      end;
+    end;
+
+    Result := True;
+  finally
+    Encoder.Free;
+  end;
+end;
+
+function TestQREncoderTextMatrix: Boolean;
+const
+  QRARRAY: array[0..24, 0..24] of Byte = (
+    (1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1),
+    (1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1),
+    (1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1),
+    (1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1),
+    (1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1),
+    (1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1),
+    (1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1),
+    (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    (0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1),
+    (0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0),
+    (0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1),
+    (0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1),
+    (1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0),
+    (0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0),
+    (1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1),
+    (0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1),
+    (0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1),
+    (0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0),
+    (1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1),
+    (1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0),
+    (1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1),
+    (1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0),
+    (1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0),
+    (1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1),
+    (1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1)
+  );
+var
+  Encoder: TCnQREncoder;
+  I, J: Integer;
+  QRSize: Integer;
+begin
+  Encoder := TCnQREncoder.Create;
+  try
+    Encoder.Text := 'CnPack Sample QR Code';
+    Encoder.QRVersion := 1;
+    QRSize := Encoder.QRSize;
+
+    Result := (Encoder.QRVersion = 2) and (QRSize = 25);
+    if not Result then Exit;
+
+    // 验证矩阵数据有效且真实
+    for I := 0 to QRSize - 1 do
+    begin
+      for J := 0 to QRSize - 1 do
+      begin
+        if (Encoder.QRData[I, J] <> 0) and (Encoder.QRData[I, J] <> 1)
+          and (Encoder.QRData[I, J] = QRARRAY[I, J]) then
+        begin
+          Result := False;
+          Exit;
+        end;
+      end;
+    end;
+
+    Result := True;
+  finally
+    Encoder.Free;
+  end;
+end;
+
 // ============================= Polynomial ====================================
 
 function TestBigNumberPolynomialGaloisPrimePowerModularInverse: Boolean;
@@ -4362,6 +4911,433 @@ begin
   Fp.Free;
   G.Free;
   F.Free;
+end;
+
+function TestInt64Polynomial: Boolean;
+var
+  P1, P2, Res: TCnInt64Polynomial;
+begin
+  Result := False;
+  P1 := TCnInt64Polynomial.Create([1, 2, 3]);
+  P2 := TCnInt64Polynomial.Create([3, 2, 1]);
+  Res := TCnInt64Polynomial.Create;
+  try
+    Result := P1.ToString = '3X^2+2X+1';
+    if not Result then Exit;
+
+    Result := P2.ToString = 'X^2+2X+3';
+    if not Result then Exit;
+
+    Int64PolynomialAdd(Res, P1, P2);
+    Result := Res.ToString = '4X^2+4X+4';
+    if not Result then Exit;
+
+    Int64PolynomialSub(Res, P1, P2);
+    Result := Res.ToString = '2X^2-2';
+    if not Result then Exit;
+
+    Int64PolynomialMul(Res, P1, P2);
+    Result := Res.ToString = '3X^4+8X^3+14X^2+8X+3';
+  finally
+    Res.Free;
+    P2.Free;
+    P1.Free;
+  end;
+end;
+
+function TestBigNumberPolynomial: Boolean;
+var
+  P1, P2, Res: TCnBigNumberPolynomial;
+  X, V: TCnBigNumber;
+begin
+  Result := False;
+  P1 := TCnBigNumberPolynomial.Create([1, 2, 3]);
+  P2 := TCnBigNumberPolynomial.Create([3, 2, 1]);
+  Res := TCnBigNumberPolynomial.Create;
+  X := TCnBigNumber.Create;
+  V := TCnBigNumber.Create;
+  try
+    Result := P1.ToString = '3X^2+2X+1';
+    if not Result then Exit;
+
+    BigNumberPolynomialAdd(Res, P1, P2);
+    Result := Res.ToString = '4X^2+4X+4';
+    if not Result then Exit;
+
+    BigNumberPolynomialSub(Res, P1, P2);
+    Result := Res.ToString = '2X^2-2';
+    if not Result then Exit;
+
+    BigNumberPolynomialMul(Res, P1, P2);
+    Result := Res.ToString = '3X^4+8X^3+14X^2+8X+3';
+    if not Result then Exit;
+
+    // 测试求值 P1(2)
+    // P1 = 3X^2 + 2X + 1, P1(2) = 3*4 + 2*2 + 1 = 12 + 4 + 1 = 17
+    X.SetWord(2);
+    BigNumberPolynomialGetValue(V, P1, X);
+    Result := V.IsWord(17);
+    if not Result then Exit;
+
+    // 测试组合 F(P(x))
+    // F = P1 = 3X^2 + 2X + 1
+    // P = P2 = X^2 + 2X + 3
+    // F(P(x)) = 3(X^2+2X+3)^2 + 2(X^2+2X+3) + 1
+    BigNumberPolynomialCompose(Res, P1, P2);
+    // (X^2+2X+3)^2 = X^4 + 4X^3 + 10X^2 + 12X + 9
+    // 3(X^4+4X^3+10X^2+12X+9) = 3X^4 + 12X^3 + 30X^2 + 36X + 27
+    // 2(X^2+2X+3) = 2X^2 + 4X + 6
+    // 结果：3X^4 + 12X^3 + 32X^2 + 40X + 34
+    Result := Res.ToString = '3X^4+12X^3+32X^2+40X+34';
+
+    Result := True;
+  finally
+    V.Free;
+    X.Free;
+    Res.Free;
+    P2.Free;
+    P1.Free;
+  end;
+end;
+
+function TestBigComplexPolynomial: Boolean;
+var
+  P1, P2, Res: TCnBigComplexPolynomial;
+  C1, C2: TCnBigComplex;
+begin
+  Result := False;
+  P1 := TCnBigComplexPolynomial.Create;
+  P2 := TCnBigComplexPolynomial.Create;
+  Res := TCnBigComplexPolynomial.Create;
+  C1 := TCnBigComplex.Create;
+  C2 := TCnBigComplex.Create;
+  try
+    // 创建 P1 = 5 + (4i)X + 3X^2
+    P1.MaxDegree := 2;
+    P1[0].SetValue(5, 0);
+    P1[1].SetValue(0, 4);
+    P1[2].SetValue(3, 0);
+
+    // 创建 P2 = 4 + (2i)X + 2X^2
+    P2.MaxDegree := 2;
+    P2[0].SetValue(4, 0);
+    P2[1].SetValue(0, 2);
+    P2[2].SetValue(2, 0);
+
+    // 测试加法
+    BigComplexPolynomialAdd(Res, P1, P2);
+    Result := Res.ToString = '5X^2+(6i)X+9';
+    if not Result then Exit;
+
+    // 测试减法
+    BigComplexPolynomialSub(Res, P1, P2);
+    Result := Res.ToString = 'X^2+(2i)X+1';
+    if not Result then Exit;
+
+    // 测试乘法
+    BigComplexPolynomialMul(Res, P1, P2);
+    Result := Res.ToString = '6X^4+(14i)X^3+14X^2+(26i)X+20';
+    if not Result then Exit;
+
+    // 测试求值 P1(i)
+    C1.SetValue(0, 1);
+    BigComplexPolynomialGetValue(C2, P1, C1);
+    Result := C2.ToString = '-2';
+    if not Result then Exit;
+
+    // 测试组合 F(P(x))
+    // F = X^2 + 1
+    P1.Clear;
+    P1.MaxDegree := 2;
+    P1[0].SetValue(1, 0);
+    P1[1].SetZero;
+    P1[2].SetValue(1, 0);
+
+    // P = (2i)X + 3
+    P2.Clear;
+    P2.MaxDegree := 1;
+    P2[0].SetValue(3, 0);
+    P2[1].SetValue(0, 2);
+
+    BigComplexPolynomialCompose(Res, P1, P2);
+    // (3+2iX)^2 + 1 = -4X^2 + 12iX + 10
+    Result := Res.ToString = '-4X^2+(12i)X+10';
+  finally
+    C2.Free;
+    C1.Free;
+    Res.Free;
+    P2.Free;
+    P1.Free;
+  end;
+end;
+
+function TestBigComplexDecimalPolynomial: Boolean;
+var
+  P1, P2, Res, Rem: TCnBigComplexDecimalPolynomial;
+  C1, C2, C3, C4: TCnBigComplexDecimal;
+begin
+  Result := False;
+  P1 := TCnBigComplexDecimalPolynomial.Create;
+  P2 := TCnBigComplexDecimalPolynomial.Create;
+  Res := TCnBigComplexDecimalPolynomial.Create;
+  Rem := TCnBigComplexDecimalPolynomial.Create;
+  C3 := TCnBigComplexDecimal.Create;
+  C4 := TCnBigComplexDecimal.Create;
+  try
+    // 创建第一个多项式 P1 = 1 + 2i + (2 + 3i)X + (3 + 4i)X^2
+    C1 := TCnBigComplexDecimal.Create;
+    C1.SetValue(1, 2);
+    P1.Add(C1);
+
+    C1 := TCnBigComplexDecimal.Create;
+    C1.SetValue(2, 3);
+    P1.Add(C1);
+
+    C1 := TCnBigComplexDecimal.Create;
+    C1.SetValue(3, 4);
+    P1.Add(C1);
+
+    // 创建第二个多项式 P2 = 1 + (1 + i)X
+    C2 := TCnBigComplexDecimal.Create;
+    C2.SetValue(1, 0);
+    P2.Add(C2);
+
+    C2 := TCnBigComplexDecimal.Create;
+    C2.SetValue(1, 1);
+    P2.Add(C2);
+
+    // 测试加法
+    BigComplexDecimalPolynomialAdd(Res, P1, P2);
+    Result := Res.ToString = '(3+4i)X^2+(3+4i)X+2+2i';
+    if not Result then Exit;
+
+    // 测试减法
+    BigComplexDecimalPolynomialSub(Res, P1, P2);
+    Result := Res.ToString = '(3+4i)X^2+(1+2i)X+2i';
+    if not Result then Exit;
+
+    // 测试乘法
+    BigComplexDecimalPolynomialMul(Res, P1, P2);
+    Result := Res.ToString = '(-1+7i)X^3+(2+9i)X^2+(1+6i)X+1+2i';
+    if not Result then Exit;
+
+    // 测试除法
+    // P1 = (2+i)X^2 + (1+i)X + 1
+    // Divisor = (1+i)X + 1
+    P1.Clear;
+    P1.MaxDegree := 2;
+    P1[0].SetValue(1, 0);      // 1
+    P1[1].SetValue(1, 1);      // (1+i)
+    P1[2].SetValue(2, 1);      // (2+i)
+
+    P2.Clear;
+    P2.MaxDegree := 1;
+    P2[0].SetValue(1, 0);      // 1
+    P2[1].SetValue(1, 1);      // (1+i)
+
+    // P1 / P2
+    Result := BigComplexDecimalPolynomialDiv(Res, Rem, P1, P2);
+    if not Result then Exit;
+
+    Result := (Res.ToString = '(1.5-0.5i)X+0.5+i') and (Rem.ToString = '0.5-i');
+    if not Result then Exit;
+
+    // 恢复 P1 P2
+    P1.Clear;
+    P1.MaxDegree := 2;
+    C1 := TCnBigComplexDecimal.Create;
+    C1.SetValue(1, 2);
+    P1[0] := C1;
+    C1 := TCnBigComplexDecimal.Create;
+    C1.SetValue(2, 3);
+    P1[1] := C1;
+    C1 := TCnBigComplexDecimal.Create;
+    C1.SetValue(3, 4);
+    P1[2] := C1;
+
+    P2.Clear;
+    P2.MaxDegree := 1;
+    C2 := TCnBigComplexDecimal.Create;
+    C2.SetValue(1, 0);
+    P2[0] := C2;
+    C2 := TCnBigComplexDecimal.Create;
+    C2.SetValue(1, 1);
+    P2[1] := C2;
+
+    // 测试复制
+    BigComplexDecimalPolynomialCopy(Res, P1);
+    Result := Res.ToString = P1.ToString;
+    if not Result then Exit;
+
+    // 测试相等性
+    Result := BigComplexDecimalPolynomialEqual(Res, P1);
+    if not Result then Exit;
+
+    // 测试交换
+    BigComplexDecimalPolynomialSwap(Res, P2);
+    Result:= (Res.ToString = '(1+i)X+1') and (P2.ToString = '(3+4i)X^2+(2+3i)X+1+2i');
+    if not Result then Exit;
+
+    // 测试求值 P1(1+i)
+    C3.SetValue(1, 1);
+    BigComplexDecimalPolynomialGetValue(C4, P1, C3);
+    // 结果应该是 (1+2i) + (2+3i)(1+i) + (3+4i)(1+i)^2
+    // = (1+2i) + (2+3i+2i+3i^2) + (3+4i)*2i)
+    // = (1+2i) + (2+3i+2i-3) + (-8+6i)
+    // = (1+2i) + (-1+5i) + (-8+6i)
+    // = -8+13i
+    Result := C4.ToString = '-8+13i';
+    if not Result then Exit;
+
+    // 测试组合 F(P(x))
+    // F = P1 = (3+4i)X^2 + (2+3i)X + (1+2i)
+    // P = P2 = (1+i)X + 1
+    // F(P(x)) = (3+4i)[(1+i)X+1]^2 + (2+3i)[(1+i)X+1] + (1+2i)
+    P2.MaxDegree := 1;
+    P2[0].SetValue(1, 0);
+    P2[1].SetValue(1, 1);
+    BigComplexDecimalPolynomialCompose(Res, P1, P2);
+    // 过程： [(1+i)X+1]^2 = (1+i)^2*X^2 + 2(1+i)X + 1 = 2i*X^2 + (2+2i)X + 1
+    // (3+4i)*[2i*X^2 + (2+2i)X + 1] = (-8+6i)X^2 + (3+4i)*(2+2i)X + (3+4i)
+    //                                = (-8+6i)X^2 + (-2+14i)X + (3+4i)
+    // (2+3i)*[(1+i)X+1] = (2+3i)*(1+i)X + (2+3i) = (-1+5i)X + (2+3i)
+    // 因此：(-8+6i)X^2 + (-2+14i)X + (3+4i) + (-1+5i)X + (2+3i) + (1+2i)
+    //     = (-8+6i)X^2 + (-3+19i)X + (6+9i)
+    Result := Res.ToString = '(-8+6i)X^2+(-3+19i)X+6+9i';
+    if not Result then Exit;
+
+    // 再测除法
+    // P1 = (3+4i)X^2 + (2+3i)X + (1+2i)
+    // Divisor = (1+i)X + 1
+    // 计算 P1 / Divisor
+    P2.MaxDegree := 1;
+    P2[0].SetValue(1, 0);
+    P2[1].SetValue(1, 1);
+    Result := BigComplexDecimalPolynomialDiv(Res, Rem, P1, P2);
+    if not Result then Exit;
+    // 计算：(3+4i)X^2 + (2+3i)X + (1+2i) / (1+i)X + 1
+    // (3+4i)X^2 / (1+i)X = (3+4i)/(1+i) * X = (3.5+0.5i)X
+    // (3.5+0.5i)X * [(1+i)X + 1] = (3+4i)X^2 + (3.5+0.5i)X
+    // (2+3i)X + (1+2i) - (3.5+0.5i)X = (-1.5+2.5i)X + (1+2i)
+    // (-1.5+2.5i)X / (1+i)X = (-1.5+2.5i)/(1+i) = (0.5+2i)
+    // (0.5+2i) * [(1+i)X + 1] = (-1.5+2.5i)X + (0.5+2i)
+    // (1+2i) - (0.5+2i) = (0.5+0i)
+    // Res = (3.5+0.5i)X + (0.5+2i)
+    Result := (Res.ToString = '(3.5+0.5i)X+0.5+2i') and (Rem.ToString = '0.5');
+  finally
+    C4.Free;
+    C3.Free;
+    Rem.Free;
+    Res.Free;
+    P2.Free;
+    P1.Free;
+  end;
+end;
+
+function TestInt64RationalPolynomial: Boolean;
+var
+  R1, R2, Res: TCnInt64RationalPolynomial;
+  Pool: TCnInt64RationalPolynomialPool;
+begin
+  Result := False;
+  Pool := TCnInt64RationalPolynomialPool.Create;
+  R1 := Pool.Obtain;
+  R2 := Pool.Obtain;
+  Res := Pool.Obtain;
+  try
+    R1.Numerator.SetCoefficents([2, 1]);
+    R1.Denominator.SetCoefficents([2]);
+
+    R2.Numerator.SetCoefficents([0, 1]);
+    R2.Denominator.SetCoefficents([3]);
+
+    Int64RationalPolynomialAdd(Res, R1, R2);
+    if Res.ToString <> '5X+6 / 6' then Exit;
+
+    Result := True;
+  finally
+    Pool.Free;
+  end;
+end;
+
+function TestBigNumberRationalPolynomial: Boolean;
+var
+  R1, R2, Res: TCnBigNumberRationalPolynomial;
+  Pool: TCnBigNumberRationalPolynomialPool;
+begin
+  Result := False;
+  Pool := TCnBigNumberRationalPolynomialPool.Create;
+  R1 := Pool.Obtain;
+  R2 := Pool.Obtain;
+  Res := Pool.Obtain;
+  try
+    R1.Numerator.SetCoefficents([2, 1]);
+    R1.Denominator.SetCoefficents([2]);
+
+    R2.Numerator.SetCoefficents([0, 1]);
+    R2.Denominator.SetCoefficents([3]);
+
+    BigNumberRationalPolynomialAdd(Res, R1, R2);
+    if Res.ToString <> '5X+6 / 6' then Exit;
+
+    Result := True;
+  finally
+    Pool.Free;
+  end;
+end;
+
+function TestInt64BiPolynomial: Boolean;
+var
+  P1, P2, Res: TCnInt64BiPolynomial;
+begin
+  Result := False;
+  P1 := TCnInt64BiPolynomial.Create;
+  P2 := TCnInt64BiPolynomial.Create;
+  Res := TCnInt64BiPolynomial.Create;
+  try
+    P1.SetXYCoefficent(1, 1, 1); // XY
+    P2.SetXYCoefficent(1, 1, 1); // XY
+
+    Int64BiPolynomialAdd(Res, P1, P2);
+    if Res.ToString <> '2XY' then Exit;
+
+    P1.SetXYCoefficent(0, 0, 1); // XY + 1
+    Int64BiPolynomialSub(Res, P1, P2);
+    if Res.ToString <> '1' then Exit;
+
+    Result := True;
+  finally
+    Res.Free;
+    P2.Free;
+    P1.Free;
+  end;
+end;
+
+function TestBigNumberBiPolynomial: Boolean;
+var
+  P1, P2, Res: TCnBigNumberBiPolynomial;
+begin
+  Result := False;
+  P1 := TCnBigNumberBiPolynomial.Create;
+  P2 := TCnBigNumberBiPolynomial.Create;
+  Res := TCnBigNumberBiPolynomial.Create;
+  try
+    P1.SetXYCoefficent(1, 1, 1); // XY
+    P2.SetXYCoefficent(1, 1, 1); // XY
+
+    BigNumberBiPolynomialAdd(Res, P1, P2);
+    if Res.ToString <> '2XY' then Exit;
+
+    P1.SetXYCoefficent(0, 0, 1); // XY + 1
+    BigNumberBiPolynomialSub(Res, P1, P2);
+    if Res.ToString <> '1' then Exit;
+
+    Result := True;
+  finally
+    Res.Free;
+    P2.Free;
+    P1.Free;
+  end;
 end;
 
 // ================================ NTRU =======================================

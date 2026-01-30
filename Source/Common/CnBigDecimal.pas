@@ -50,7 +50,7 @@ interface
 {$I CnPack.inc}
 
 uses
-  SysUtils, Classes, SysConst,
+  SysUtils, Classes, SysConst, Contnrs,
   CnNative, CnFloat, CnContainers, CnBigRational, CnBigNumber;
 
 const
@@ -234,6 +234,15 @@ type
        返回值：Boolean                    - 返回是否为 1
     }
 
+    function IsNegOne: Boolean;
+    {* 是否为 -1，只判断值是 -1 且指数是 0。
+
+       参数：
+         （无）
+
+       返回值：Boolean                    - 返回是否为 -1
+    }
+
     procedure RoundTo(Precision: Integer; RoundMode: TCnBigRoundMode = dr465RoundEven);
     {* 舍入至指定小数位数，如原来小数位数少于 Precision 则不动。
 
@@ -286,6 +295,111 @@ type
     }
   end;
 
+  TCnBigDecimalList = class(TObjectList)
+  {* 容纳大十进制浮点数的对象列表，同时拥有大十进制浮点数对象们}
+  private
+
+  protected
+    function GetItem(Index: Integer): TCnBigDecimal;
+    procedure SetItem(Index: Integer; ABigDecimal: TCnBigDecimal);
+  public
+    constructor Create; reintroduce;
+    {* 构造函数}
+    destructor Destroy; override;
+    {* 析构函数}
+
+    function Add: TCnBigDecimal; overload;
+    {* 新增一个大十进制浮点数对象，返回该对象。注意添加后返回的对象已由列表纳入管理，无需也不应手动释放。
+
+       参数：
+         （无）
+
+       返回值：TCnBigDecimal              - 内部新增的大十进制浮点数对象
+    }
+
+    function Add(ABigDecimal: TCnBigDecimal): Integer; overload;
+    {* 添加外部的大十进制浮点数对象，注意添加后该对象由列表纳入管理，无需也不应手动释放。
+
+       参数：
+         ABigDecimal: TCnBigDecimal       - 待添加的大十进制浮点数对象
+
+       返回值：Integer                    - 新增的该大十进制浮点数对象的索引值
+    }
+
+    function Add(Num: Integer): TCnBigDecimal; overload;
+    {* 添加一整数，内部生成大十进制浮点数对象，注意返回的结果已由列表纳入管理，无需也不应手动释放。
+
+       参数：
+         Num: Integer                     - 待添加的整数
+
+       返回值：TCnBigDecimal              - 新增的该大十进制浮点数对象
+    }
+
+    procedure AddList(List: TCnBigDecimalList);
+    {* 添加一大十进制浮点数列表，也即复制列表内的所有大十进制浮点数对象并添加。
+
+       参数：
+         List: TCnBigDecimalList          - 待添加的大十进制浮点数列表
+
+       返回值：（无）
+    }
+
+    function Remove(ABigDecimal: TCnBigDecimal): Integer;
+    {* 从列表中删除指定引用的大十进制浮点数对象并释放。
+
+       参数：
+         ABigDecimal: TCnBigDecimal       - 待删除的大十进制浮点数对象
+
+       返回值：Integer                    - 删除的位置索引，无则返回 -1
+    }
+
+    function IndexOfValue(ABigDecimal: TCnBigDecimal): Integer;
+    {* 根据大十进制浮点数的值在列表中查找该值对应的位置索引。
+
+       参数：
+         ABigDecimal: TCnBigDecimal       - 待查找的大十进制浮点数值
+
+       返回值：Integer                    - 返回位置索引，无则返回 -1
+    }
+
+    procedure Insert(Index: Integer; ABigDecimal: TCnBigDecimal);
+    {* 在第 Index 个位置前插入大十进制浮点数对象，注意插入后无需也不应手动释放。
+
+       参数：
+         Index: Integer                   - 待插入的位置索引
+         ABigDecimal: TCnBigDecimal       - 待插入的大十进制浮点数对象
+
+       返回值：（无）
+    }
+
+    procedure RemoveDuplicated;
+    {* 去重，也就是删除并释放值重复的大十进制浮点数对象，只留一个}
+
+    procedure SumTo(Sum: TCnBigDecimal);
+    {* 列表内所有数求和。
+
+       参数：
+         Sum: TCnBigDecimal               - 输出的和
+
+       返回值：（无）
+    }
+
+    procedure BigDecimalSort;
+    {* 列表内大十进制浮点数从小到大排序}
+
+    function ToString: string; {$IFDEF OBJECT_HAS_TOSTRING} override; {$ENDIF}
+    {* 将大十进制浮点数列表转成字符串。
+
+       参数：
+         （无）
+
+       返回值：string                     - 返回字符串
+    }
+
+    property Items[Index: Integer]: TCnBigDecimal read GetItem write SetItem; default;
+    {* 大十进制浮点数列表项}
+  end;
+
   ECnBigBinaryException = class(Exception);
   {* 大二进制浮点数相关异常}
 
@@ -295,7 +409,7 @@ type
      正时简而言之就是二进制模式下小数点后有 FScale 位，负时简而言之还要加 -FScale 个 0}
   private
     FValue: TCnBigNumber;
-    FScale: Integer;                 // 精确值为 FValue / (2^FScale)，默认 FScale 为 0，也就是除以 1，等于不除
+    FScale: Integer;                      // 精确值为 FValue / (2^FScale)，默认 FScale 为 0，也就是除以 1，等于不除
     function GetDebugDump: string;
     function GetDecString: string;
   public
@@ -506,6 +620,111 @@ type
 
        返回值：（无）
     }
+  end;
+
+  TCnBigBinaryList = class(TObjectList)
+  {* 容纳大二进制浮点数的对象列表，同时拥有大二进制浮点数对象们}
+  private
+
+  protected
+    function GetItem(Index: Integer): TCnBigBinary;
+    procedure SetItem(Index: Integer; ABigBinary: TCnBigBinary);
+  public
+    constructor Create; reintroduce;
+    {* 构造函数}
+    destructor Destroy; override;
+    {* 析构函数}
+
+    function Add: TCnBigBinary; overload;
+    {* 新增一个大二进制浮点数对象，返回该对象。注意添加后返回的对象已由列表纳入管理，无需也不应手动释放。
+
+       参数：
+         （无）
+
+       返回值：TCnBigBinary               - 内部新增的大二进制浮点数对象
+    }
+
+    function Add(ABigBinary: TCnBigBinary): Integer; overload;
+    {* 添加外部的大二进制浮点数对象，注意添加后该对象由列表纳入管理，无需也不应手动释放。
+
+       参数：
+         ABigBinary: TCnBigBinary         - 待添加的大二进制浮点数对象
+
+       返回值：Integer                    - 新增的该大二进制浮点数对象的索引值
+    }
+
+    function Add(Num: Integer): TCnBigBinary; overload;
+    {* 添加一整数，内部生成大二进制浮点数对象，注意返回的结果已由列表纳入管理，无需也不应手动释放。
+
+       参数：
+         Num: Integer                     - 待添加的整数
+
+       返回值：TCnBigBinary               - 新增的该大二进制浮点数对象
+    }
+
+    procedure AddList(List: TCnBigBinaryList);
+    {* 添加一大二进制浮点数列表，也即复制列表内的所有大二进制浮点数对象并添加。
+
+       参数：
+         List: TCnBigBinaryList           - 待添加的大二进制浮点数列表
+
+       返回值：（无）
+    }
+
+    function Remove(ABigBinary: TCnBigBinary): Integer;
+    {* 从列表中删除指定引用的大二进制浮点数对象并释放。
+
+       参数：
+         ABigBinary: TCnBigBinary         - 待删除的大二进制浮点数对象
+
+       返回值：Integer                    - 删除的位置索引，无则返回 -1
+    }
+
+    function IndexOfValue(ABigBinary: TCnBigBinary): Integer;
+    {* 根据大二进制浮点数的值在列表中查找该值对应的位置索引。
+
+       参数：
+         ABigBinary: TCnBigBinary         - 待查找的大二进制浮点数值
+
+       返回值：Integer                    - 返回位置索引，无则返回 -1
+    }
+
+    procedure Insert(Index: Integer; ABigBinary: TCnBigBinary);
+    {* 在第 Index 个位置前插入大二进制浮点数对象，注意插入后无需也不应手动释放。
+
+       参数：
+         Index: Integer                   - 待插入的位置索引
+         ABigBinary: TCnBigBinary         - 待插入的大二进制浮点数对象
+
+       返回值：（无）
+    }
+
+    procedure RemoveDuplicated;
+    {* 去重，也就是删除并释放值重复的大二进制浮点数对象，只留一个}
+
+    procedure SumTo(Sum: TCnBigBinary);
+    {* 列表内所有数求和。
+
+       参数：
+         Sum: TCnBigBinary                - 输出的和
+
+       返回值：（无）
+    }
+
+    procedure BigBinarySort;
+    {* 列表内大二进制浮点数从小到大排序}
+
+    function ToString: string; {$IFDEF OBJECT_HAS_TOSTRING} override; {$ENDIF}
+    {* 将大二进制浮点数列表转成字符串。
+
+       参数：
+         （无）
+
+       返回值：string                     - 返回字符串
+    }
+
+    property Items[Index: Integer]: TCnBigBinary read GetItem write SetItem; default;
+    {* 大二进制浮点数列表项}
   end;
 
 // ====================== 大十进制浮点数操作函数 ===============================
@@ -1238,6 +1457,25 @@ var
   FDefaultDecimalPrecisionDigits: Integer = CN_BIG_DECIMAL_DEFAULT_PRECISION;
   FDefaultBinaryPrecisionDigits: Integer = CN_BIG_BINARY_DEFAULT_PRECISION;
 
+function TrimRightZeroDot(const Str: string): string;
+var
+  I, Len: Integer;
+begin
+  Len := Length(Str);
+  for I := Len downto 1 do
+  begin
+    if Str[I] <> '0' then
+    begin
+      Result := Copy(Str, 1, I);
+      // 如果 0 前面还有小数点也得去掉
+      if (Length(Result) > 0) and (Result[Length(Result)] = '.') then
+        Result := Copy(Result, 1, Length(Result) - 1);
+      Exit;
+    end;
+  end;
+  Result := ''; // 全是 '0' 时返回空字符串
+end;
+
 // 根据精度数字整出一个差值供迭代求解过程中停止
 procedure GetGapFromPrecisionDigits(Precision: Integer; Gap: TCnBigDecimal);
 begin
@@ -1343,6 +1581,40 @@ begin
   for I := 1 to D do                 // 一次整 9 个乘
     Num.MulWord(SCN_POWER_TENS32[L]);
   Num.MulWord(SCN_POWER_TENS32[R]);  // 补上乘剩下的
+end;
+
+function DefBigDecimalCompare(Item1, Item2: Pointer): Integer;
+var
+  A, B: TCnBigDecimal;
+begin
+  A := TCnBigDecimal(Item1);
+  B := TCnBigDecimal(Item2);
+
+  if (A = nil) and (B = nil) then
+    Result := 0
+  else if A = nil then
+    Result := -1
+  else if B = nil then
+    Result := 1
+  else
+    Result := BigDecimalCompare(A, B);
+end;
+
+function DefBigBinaryCompare(Item1, Item2: Pointer): Integer;
+var
+  A, B: TCnBigBinary;
+begin
+  A := TCnBigBinary(Item1);
+  B := TCnBigBinary(Item2);
+
+  if (A = nil) and (B = nil) then
+    Result := 0
+  else if A = nil then
+    Result := -1
+  else if B = nil then
+    Result := 1
+  else
+    Result := BigBinaryCompare(A, B);
 end;
 
 procedure BigDecimalClear(Num: TCnBigDecimal);
@@ -1551,7 +1823,7 @@ end;
 function BigDecimalSetExtended(Value: Extended; Res: TCnBigDecimal): Boolean;
 var
   N: Boolean;
-  E: Integer;
+  E, L: Integer;
   S: TUInt64;
 begin
   if ExtendedIsInfinite(Value) or ExtendedIsNan(Value) then
@@ -1565,9 +1837,14 @@ begin
     Exit;
   end;
 
+  if SizeOf(Extended) = CN_EXTENDED_SIZE_8 then
+    L := CN_DOUBLE_SIGNIFICAND_BITLENGTH
+  else
+    L := CN_EXTENDED_SIGNIFICAND_BITLENGTH;
+
   ExtractFloatExtended(Value, N, E, S);
-  // 把 1. 开头的有效数字当成整数，E 需要减 63
-  Result := InternalBigDecimalSetFloat(N, E - CN_EXTENDED_SIGNIFICAND_BITLENGTH, S, Res);
+  // 把 1. 开头的有效数字当成整数，E 需要减去 Extendded 类型的有效数字长度
+  Result := InternalBigDecimalSetFloat(N, E - L, S, Res);
 end;
 
 function BigDecimalToString(Num: TCnBigDecimal): string;
@@ -1600,12 +1877,17 @@ begin
   else if Num.FScale = 0 then
     Result := S
   else if Num.FScale >= L then
-    //Result := '0.' + StringOfChar('0', Num.FScale - L) + S
-    Result := '0' + DefaultFormatSettings.DecimalSeparator + StringOfChar('0', Num.FScale - L) + S
+  begin
+    Result := '0.' + StringOfChar('0', Num.FScale - L) + S;
+    Result := TrimRightZeroDot(Result);
+  end
   else
-    Result := Copy(S, 1, L - Num.FScale) + {'.'} DefaultFormatSettings.DecimalSeparator + Copy(S, L - Num.FScale + 1, MaxInt);
+  begin
+    Result := Copy(S, 1, L - Num.FScale) + '.' + Copy(S, L - Num.FScale + 1, MaxInt);
+    Result := TrimRightZeroDot(Result);
+  end;
 
-  // 再把正负号加回来
+  // 小数点后去掉 0 之后，再把正负号加回来
   if C <> #0 then
     Result := C + Result;
 end;
@@ -1729,7 +2011,7 @@ end;
 function BigDecimalToExtended(Num: TCnBigDecimal): Extended;
 var
   T: TCnBigDecimal;
-  E: Integer;
+  E, L: Integer;
   M: TUInt64;
 begin
   if Num.Value.IsZero then
@@ -1738,16 +2020,21 @@ begin
     Exit;
   end;
 
+  if SizeOf(Extended) = CN_EXTENDED_SIZE_8 then
+    L := CN_DOUBLE_SIGNIFICAND_BITLENGTH
+  else
+    L := CN_EXTENDED_SIGNIFICAND_BITLENGTH;
+
   T := FLocalBigDecimalPool.Obtain;
   try
     BigDecimalCopy(T, Num);
-    InternalBigDecimalConvertToBitsCount(T, CN_EXTENDED_SIGNIFICAND_BITLENGTH + 1);
+    InternalBigDecimalConvertToBitsCount(T, L + 1);
     // 无需清除最高位的 1
 
     M := BigNumberGetUInt64UsingInt64(T.FValue);
     E := -T.FScale;
 
-    CombineFloatExtended(Num.IsNegative, E + CN_EXTENDED_SIGNIFICAND_BITLENGTH, M, Result);
+    CombineFloatExtended(Num.IsNegative, E + L, M, Result);
   finally
     FLocalBigDecimalPool.Recycle(T);
   end;
@@ -2128,9 +2415,9 @@ begin
 
       // R := (X0 + Num/X0) / 2;
       BigDecimalToBigRational(R, Num);
-      BigRationalNumberDiv(R, R, X0);
-      BigRationalNumberAdd(R, R, X0);
-      BigRationalNumberDiv(R, R, D);
+      BigRationalDiv(R, R, X0);
+      BigRationalAdd(R, R, X0);
+      BigRationalDiv(R, R, D);
 
       X0.Assign(R);
     end;
@@ -2330,7 +2617,7 @@ var
 begin
   if (Res <> nil) and (Num <> nil) then
   begin
-    BigNumberCopy(Res.Nominator, Num.FValue);
+    BigNumberCopy(Res.Numerator, Num.FValue);
 
     // 精确值为 FValue / (10^FScale)，如果 FScale > 0 则乘方到分母上去，否则相反数乘方到分子上去
     Res.Denominator.SetOne;
@@ -2345,7 +2632,7 @@ begin
       try
         T.SetWord(10);
         T.PowerWord(-Num.FScale);
-        BigNumberMul(Res.Nominator, Res.Nominator, T);
+        BigNumberMul(Res.Numerator, Res.Numerator, T);
       finally
         FLocalBigNumberPool.Recycle(T);
       end;
@@ -2425,6 +2712,11 @@ end;
 function TCnBigDecimal.IsNegative: Boolean;
 begin
   Result := FValue.IsNegative;
+end;
+
+function TCnBigDecimal.IsNegOne: Boolean;
+begin
+  Result := FValue.IsNegOne and (FScale = 0);
 end;
 
 function TCnBigDecimal.IsOne: Boolean;
@@ -2534,6 +2826,125 @@ end;
 procedure TCnBigDecimalPool.Recycle(Num: TCnBigDecimal);
 begin
   inherited Recycle(Num);
+end;
+
+{ TCnBigDecimalList }
+
+function TCnBigDecimalList.Add(ABigDecimal: TCnBigDecimal): Integer;
+begin
+  Result := inherited Add(ABigDecimal);
+end;
+
+function TCnBigDecimalList.Add: TCnBigDecimal;
+begin
+  Result := TCnBigDecimal.Create;
+  Add(Result);
+end;
+
+function TCnBigDecimalList.Add(Num: Integer): TCnBigDecimal;
+begin
+  Result := TCnBigDecimal.Create;
+  Result.SetInt64(Num);
+  Add(Result);
+end;
+
+procedure TCnBigDecimalList.AddList(List: TCnBigDecimalList);
+var
+  I: Integer;
+  T: TCnBigDecimal;
+begin
+  if (List <> nil) and (List.Count > 0) then
+  begin
+    for I := 0 to List.Count - 1 do
+    begin
+      T := TCnBigDecimal.Create;
+      BigDecimalCopy(T, List[I]);
+      Add(T);
+    end;
+  end;
+end;
+
+procedure TCnBigDecimalList.BigDecimalSort;
+begin
+  inherited Sort(DefBigDecimalCompare);
+end;
+
+constructor TCnBigDecimalList.Create;
+begin
+  inherited Create(True);
+end;
+
+destructor TCnBigDecimalList.Destroy;
+begin
+
+  inherited;
+end;
+
+function TCnBigDecimalList.GetItem(Index: Integer): TCnBigDecimal;
+begin
+  Result := TCnBigDecimal(inherited GetItem(Index));
+end;
+
+function TCnBigDecimalList.IndexOfValue(ABigDecimal: TCnBigDecimal): Integer;
+begin
+  Result := 0;
+  while (Result < Count) and (BigDecimalCompare(Items[Result], ABigDecimal) <> 0) do
+    Inc(Result);
+  if Result = Count then
+    Result := -1;
+end;
+
+procedure TCnBigDecimalList.Insert(Index: Integer;
+  ABigDecimal: TCnBigDecimal);
+begin
+  inherited Insert(Index, ABigDecimal);
+end;
+
+function TCnBigDecimalList.Remove(ABigDecimal: TCnBigDecimal): Integer;
+begin
+  Result := inherited Remove(ABigDecimal);
+end;
+
+procedure TCnBigDecimalList.RemoveDuplicated;
+var
+  I, Idx: Integer;
+begin
+  for I := Count - 1 downto 0 do
+  begin
+    // 去除重复的项
+    Idx := IndexOfValue(Items[I]);
+    if (Idx >= 0) and (Idx <> I) then
+      Delete(I);
+  end;
+end;
+
+procedure TCnBigDecimalList.SetItem(Index: Integer;
+  ABigDecimal: TCnBigDecimal);
+begin
+  inherited SetItem(Index, ABigDecimal);
+end;
+
+procedure TCnBigDecimalList.SumTo(Sum: TCnBigDecimal);
+var
+  I: Integer;
+begin
+  Sum.SetZero;
+  for I := 0 to Count - 1 do
+    BigDecimalAdd(Sum, Sum, Items[I]);
+end;
+
+function TCnBigDecimalList.ToString: string;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 0 to Count - 1 do
+  begin
+    if I = 0 then
+      Result := Items[I].ToString
+    else
+      Result := Result + ',' + Items[I].ToString;
+  end;
 end;
 
 procedure BigBinaryClear(Num: TCnBigBinary);
@@ -2909,7 +3320,8 @@ begin
         D := S.ToDec; // 注意 ToDec 后长度可能不够 FScale 个，前头要补零
         if Length(D) < Num.FScale then
           D := StringOfChar('0', Num.FScale - Length(D)) + D;
-        Result := Result + {'.'} DefaultFormatSettings.DecimalSeparator + D;
+        Result := Result + '.' + D;
+        Result := TrimRightZeroDot(Result);
       finally
         FLocalBigNumberPool.Recycle(T);
         FLocalBigNumberPool.Recycle(S);
@@ -3659,6 +4071,125 @@ end;
 procedure TCnBigBinaryPool.Recycle(Num: TCnBigBinary);
 begin
   inherited Recycle(Num);
+end;
+
+{ TCnBigBinaryList }
+
+function TCnBigBinaryList.Add(ABigBinary: TCnBigBinary): Integer;
+begin
+  Result := inherited Add(ABigBinary);
+end;
+
+function TCnBigBinaryList.Add: TCnBigBinary;
+begin
+  Result := TCnBigBinary.Create;
+  Add(Result);
+end;
+
+function TCnBigBinaryList.Add(Num: Integer): TCnBigBinary;
+begin
+  Result := TCnBigBinary.Create;
+  Result.SetInt64(Num);
+  Add(Result);
+end;
+
+procedure TCnBigBinaryList.AddList(List: TCnBigBinaryList);
+var
+  I: Integer;
+  T: TCnBigBinary;
+begin
+  if (List <> nil) and (List.Count > 0) then
+  begin
+    for I := 0 to List.Count - 1 do
+    begin
+      T := TCnBigBinary.Create;
+      BigBinaryCopy(T, List[I]);
+      Add(T);
+    end;
+  end;
+end;
+
+procedure TCnBigBinaryList.BigBinarySort;
+begin
+  inherited Sort(DefBigBinaryCompare);
+end;
+
+constructor TCnBigBinaryList.Create;
+begin
+  inherited Create(True);
+end;
+
+destructor TCnBigBinaryList.Destroy;
+begin
+
+  inherited;
+end;
+
+function TCnBigBinaryList.GetItem(Index: Integer): TCnBigBinary;
+begin
+  Result := TCnBigBinary(inherited GetItem(Index));
+end;
+
+function TCnBigBinaryList.IndexOfValue(ABigBinary: TCnBigBinary): Integer;
+begin
+  Result := 0;
+  while (Result < Count) and (BigBinaryCompare(Items[Result], ABigBinary) <> 0) do
+    Inc(Result);
+  if Result = Count then
+    Result := -1;
+end;
+
+procedure TCnBigBinaryList.Insert(Index: Integer;
+  ABigBinary: TCnBigBinary);
+begin
+  inherited Insert(Index, ABigBinary);
+end;
+
+function TCnBigBinaryList.Remove(ABigBinary: TCnBigBinary): Integer;
+begin
+  Result := inherited Remove(ABigBinary);
+end;
+
+procedure TCnBigBinaryList.RemoveDuplicated;
+var
+  I, Idx: Integer;
+begin
+  for I := Count - 1 downto 0 do
+  begin
+    // 去除重复的项
+    Idx := IndexOfValue(Items[I]);
+    if (Idx >= 0) and (Idx <> I) then
+      Delete(I);
+  end;
+end;
+
+procedure TCnBigBinaryList.SetItem(Index: Integer;
+  ABigBinary: TCnBigBinary);
+begin
+  inherited SetItem(Index, ABigBinary);
+end;
+
+procedure TCnBigBinaryList.SumTo(Sum: TCnBigBinary);
+var
+  I: Integer;
+begin
+  Sum.SetZero;
+  for I := 0 to Count - 1 do
+    BigBinaryAdd(Sum, Sum, Items[I]);
+end;
+
+function TCnBigBinaryList.ToString: string;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 0 to Count - 1 do
+  begin
+    if I = 0 then
+      Result := Items[I].ToString
+    else
+      Result := Result + ',' + Items[I].ToString;
+  end;
 end;
 
 initialization

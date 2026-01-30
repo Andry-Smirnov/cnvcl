@@ -1378,6 +1378,9 @@ function StrToBytes(const S: AnsiString): TBytes;
 function BytesToStr(Data: TBytes): AnsiString;
 {* 将字节数组的内容转为一新的 AnsiString}
 
+function MakeFormFullyDesktopVisible(AForm: TCustomForm): Boolean;
+{* 将一个窗体的位置限定在当前主桌面显示区内，返回是否成功}
+
 function ConvertStringToIdent(const Str: string; const Prefix: string = 'S';
   UseUnderLine: Boolean = False; IdentWordStyle: TCnIdentWordStyle = iwsUpperFirstChar;
   UseFullPinYin: Boolean = False; MaxWideChars: Integer = 7; MaxWords: Integer = 7;
@@ -8725,6 +8728,73 @@ begin
   end
   else
     Result := '';
+end;
+
+// 将一个窗体的位置限定在当前主桌面显示区内，返回是否成功
+function MakeFormFullyDesktopVisible(AForm: TCustomForm): Boolean;
+var
+  Pr: TControl;
+  Pf: TCustomForm;
+  M: TMonitor;
+  R, D: TRect;
+  W, H: Integer;
+  Chgd: Boolean;
+{$IFNDEF TMONITOR_HAS_WORKAREA}
+  MonInfo: TMonitorInfo;
+{$ENDIF}
+begin
+  Result := False;
+  Pf := nil;
+
+  Pr := AForm.Parent;
+  if Pr = nil then
+    Pf := Application.MainForm
+  else if Pr is TCustomForm then
+    Pf := TCustomForm(Pr);
+
+  if Pf = nil then Exit;
+
+  M := Pf.Monitor;
+  if M = nil then
+    Exit;
+
+{$IFDEF TMONITOR_HAS_WORKAREA}
+  R := M.WorkAreaRect;
+{$ELSE}
+  MonInfo.cbSize := SizeOf(MonInfo);
+  GetMonitorInfo(M.Handle, @MonInfo);
+  R := MonInfo.rcWork;
+{$ENDIF}
+  D := AForm.BoundsRect;
+  Chgd := False;
+
+  W := R.Right - R.Left;
+  H := R.Bottom - R.Top;
+
+  if (AForm.Left < R.Left) or (AForm.Width > W) then
+  begin
+    D.Left := R.Left;
+    Chgd := True;
+  end;
+  if (AForm.Top < R.Top) or (AForm.Height > H) then
+  begin
+    D.Top := R.Top;
+    Chgd := True;
+  end;
+
+  if (AForm.Left + AForm.Width > W) and (AForm.Width < W) then
+  begin
+    D.Left := W - AForm.Width;
+    Chgd := True;
+  end;
+  if (AForm.Top + AForm.Height > H) and (AForm.Height < H) then
+  begin
+    D.Top := H - AForm.Height;
+    Chgd := True;
+  end;
+
+  if Chgd then
+    AForm.BoundsRect := D;
 end;
 
 type

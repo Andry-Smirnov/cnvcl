@@ -188,10 +188,19 @@ type
   TCnMenuObj = class(TObject)
   private
     FOldOnPopup: TNotifyEvent;
+    FNewOnPopup: TNotifyEvent;
     FMenu: TPopupMenu;
   public
     constructor Create(AMenu: TPopupMenu; NewOnPopup: TNotifyEvent);
     destructor Destroy; override;
+
+    procedure SyncHook;
+    {* 当菜单事件被外界改动时调用此方法重新确保 Hook。
+       Hook 时无原事件时，FOldOnPopup 为 nil，此时需判断 OnPopup 是否为 FNewOnPopup，
+       如否，表示 Hook 后被别人赋值了新的事件，则需 FOldOnPopup := OnPopup，再将 OnPopup := FNewOnPopup
+       Hook 时如有原事件，FOldOnPopup 不为 nil，如果判断得知 OnPopup 不为 FNewOnPopup 了
+       说明 Hook 后被别人赋值了新的事件，原事件被抛弃了，这种情况 Hook 处理不了，索性不处理。}
+
     property Menu: TPopupMenu read FMenu;
     property OldOnPopup: TNotifyEvent read FOldOnPopup;
   end;
@@ -211,6 +220,7 @@ type
 {$ENDIF}
   TCnMenuHook = class(TCnComponent)
   private
+    FText: string;
     FMenuList: TObjectList;
     FMenuItemDefList: TObjectList;
     FActive: Boolean;
@@ -219,6 +229,8 @@ type
     procedure SetActive(const Value: Boolean);
     function GetMenuItemDef(Index: Integer): TCnAbstractMenuItemDef;
     function GetMenuItemDefCount: Integer;
+    function GetHookedMenuCount: Integer;
+    function GetHookedMenu(Index: Integer): TPopupMenu;
   protected
     function GetMenuObj(Menu: TPopupMenu): TCnMenuObj;
     procedure OnMenuPopup(Sender: TObject); virtual;
@@ -247,12 +259,21 @@ type
     function IndexOfMenuItemDef(const AName: string): Integer;
     {* 查找指定菜单在列表中的索引号}
 
-    property Active: Boolean read FActive write SetActive;
-    {* 菜单挂接活跃属性}
     property MenuItemDefCount: Integer read GetMenuItemDefCount;
     {* 用户菜单项定义计数}
     property MenuItemDefs[Index: Integer]: TCnAbstractMenuItemDef read GetMenuItemDef;
     {* 用户菜单项定义数组}
+
+    property HookedMenuCount: Integer read GetHookedMenuCount;
+    {* Hook 了多少个弹出菜单}
+    property HookedMenu[Index: Integer]: TPopupMenu read GetHookedMenu;
+    {* Hook 的菜单实例}
+  published
+    property Active: Boolean read FActive write SetActive;
+    {* 菜单挂接活跃属性}
+    property Text: string read FText write FText;
+    {* 额外字符串数据}
+
     property OnBeforePopup: TCnMenuPopupEvent read FOnBeforePopup write FOnBeforePopup;
     {* 被挂接的菜单弹出前事件，此时用户菜单项已经释放，用户可在此进行特别的处理}
     property OnAfterPopup: TCnMenuPopupEvent read FOnAfterPopup write FOnAfterPopup;
@@ -390,6 +411,7 @@ begin
   inherited Create;
   FMenu := AMenu;
   FOldOnPopup := FMenu.OnPopup;
+  FNewOnPopup := NewOnPopup;
   FMenu.OnPopup := NewOnPopup;
 end;
 
@@ -397,6 +419,21 @@ destructor TCnMenuObj.Destroy;
 begin
   FMenu.OnPopup := FOldOnPopup;
   inherited;
+end;
+
+procedure TCnMenuObj.SyncHook;
+begin
+  if (FMenu <> nil) and not Assigned(FOldOnPopup) then
+  begin
+    // FOldOnPopup 为 nil，此时需判断 OnPopup 是否为 FNewOnPopup，
+    // 如否，表示 Hook 后被别人赋值了新的事件（新事件可以为 nil），
+    // 则需 FOldOnPopup := OnPopup，再将 OnPopup := FNewOnPopup
+    if @FMenu.OnPopup <> @FNewOnPopup then
+    begin
+      FOldOnPopup := FMenu.OnPopup;
+      FMenu.OnPopup := FNewOnPopup;
+    end;
+  end;
 end;
 
 //==============================================================================
@@ -503,6 +540,22 @@ begin
   Item := FindMenuItem(AMenu, AName);
   if Assigned(Item) then
     Item.Free;
+end;
+
+function TCnMenuHook.GetHookedMenuCount: Integer;
+begin
+  Result := FMenuList.Count;
+end;
+
+function TCnMenuHook.GetHookedMenu(Index: Integer): TPopupMenu;
+var
+  Obj: TCnMenuObj;
+begin
+  Obj := TCnMenuObj(FMenuList[Index]);
+  if Obj <> nil then
+    Result := Obj.Menu
+  else
+    Result := nil;
 end;
 
 //------------------------------------------------------------------------------

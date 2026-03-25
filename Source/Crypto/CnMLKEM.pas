@@ -722,7 +722,7 @@ var
   J: Integer;
 begin
   if Length(RandBytes) < CN_MLKEM_KEY_SIZE + 2 then
-    raise Exception.Create(SCnErrorMLKEMInvalidSampleNTT);
+    raise ECnMLKEMException.Create(SCnErrorMLKEMInvalidSampleNTT);
 
   SetLength(Result, CN_MLKEM_POLY_SIZE);
 
@@ -775,7 +775,7 @@ var
 begin
   MLKEMCheckEta(Eta);
   if Length(RandBytes) < 64 * Eta then
-    raise Exception.Create(SCnErrorMLKEMInvalidRandomLength);
+    raise ECnMLKEMException.Create(SCnErrorMLKEMInvalidRandomLength);
 
   SetLength(Result, CN_MLKEM_POLY_SIZE);
   Bits := TCnBitBuilder.Create;
@@ -888,7 +888,7 @@ begin
   ComputedHash := MLKEMHFunc(EkBytes);
 
   // 比较计算出的杂凑值与存储的杂凑值
-  if not CompareMem(@HBytes[0], @ComputedHash[0], SizeOf(TCnMLKEMBlock)) then
+  if not ConstTimeCompareMem(@HBytes[0], @ComputedHash[0], SizeOf(TCnMLKEMBlock)) then
     raise ECnMLKEMException.Create(SCnErrorMLKEMDecapKeyHashFailed);
 end;
 
@@ -909,7 +909,7 @@ begin
 
   // 进行 ByteDecode12 然后 ByteEncode12 往返
   TestBytes := MLKEMByteEncode(MLKEMByteDecode(PolyBytes, 12), 12);
-  if not CompareBytes(PolyBytes, TestBytes) then
+  if not ConstTimeCompareBytes(PolyBytes, TestBytes) then
     raise ECnMLKEMException.Create(SCnErrorMLKEMEncapKeyModulusCheckFailed);
 end;
 
@@ -934,7 +934,7 @@ begin
   MLKEMEncaps(En, M, ShareKey, CipherText); // 包装一个共享密钥，并拿到密文
 
   M := MLKEMDecaps(De, CipherText);         // 解密文，核对是否和共享密钥相等
-  if not CompareBytes(M, ShareKey) then
+  if not ConstTimeCompareBytes(M, ShareKey) then
     raise ECnMLKEMException.Create(SCnErrorMLKEMKeyPairCheckFail);
 end;
 
@@ -1464,7 +1464,7 @@ begin
       C := ConcatBytes(C, MLKEMByteEncode(UC[I], FCompressU));
     C := ConcatBytes(C, MLKEMByteEncode(VC, FCompressV));
 
-    if not CompareBytes(C, CipherText) then
+    if not ConstTimeCompareBytes(C, CipherText) then
     begin
       // 结果不匹配，说明出错，重新计算失败的胡乱杂凑放 S 里
       C := NewBytesFromMemory(@De.InjectionSeed[0], SizeOf(TCnMLKEMSeed));

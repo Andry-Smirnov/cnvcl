@@ -28,7 +28,9 @@ unit CnLangUtils;
 * 开发平台：PWin2000 + Delphi 5.0
 * 兼容测试：PWin9X/2000/XP + Delphi 5/6/7
 * 本 地 化：该单元中的字符串均符合本地化处理方式
-* 修改记录：2025.04.11 V1.2
+* 修改记录：2026.03.06 V1.3
+*               TCnLangStringExtractor 加入取值的事件允许外界忽略条目
+*           2025.04.11 V1.2
 *               屏蔽可能的 TStrings 的 Text 获取异常的问题
 *           2021.02.20 V1.1
 *               增加代码页的获取
@@ -49,13 +51,31 @@ type
   TLangTransFilter = (tfFont, tfCaption, tfCategory, tfHelpKeyword, tfHint,
     tfText, tfImeName, tfTitle, tfDefaultExt, tfFilter, tfInitialDir,
     tfSubItemsText, tfOthers);
+  {* 过滤器集合}
 
   TLangTransFilterSet = set of TLangTransFilter;
+  {* 过滤器集合}
+
+  TCnNoNameProcessType = (cnptIndex, cnptAtClassName);
+  {* 无组件名时，使用组件索引还是 @组件类名作为引用}
+
+  TCnLangAllowItemEvent = procedure (AObject: TObject; const PropName: string; var Allow: Boolean) of object;
+  {* 遍历某条目时触发的事件，事件处理程序中给 Allow 赋值 False 代表忽略该条目。
+    注意 PropName 可能为空，代表此轮仅检查该 Object，后续可能有多轮重复调用。
+    PropName 不为空时，对应的属性类型不一定是 String，可能是 Items 以及其他 Object}
 
   TCnLangStringExtractor = class
   private
     FFilterOptions: TLangTransFilterSet;
+    FOnAllowItem: TCnLangAllowItemEvent;
+    FSkipEmptyComponentName: Boolean;
+    FIgnoreRootFont: Boolean;
+    FNoNameProcessType: TCnNoNameProcessType;
+    function CRLFStringToBRString(const CRLFStr: string): string;
+    function GetComponentNameForLang(Comp: TComponent): string;
   protected
+    function DoAllowItem(AObject: TObject; const PropName: string = ''): Boolean; virtual;
+
     procedure GetObjectStrings(AOwner: TComponent; AObject: TObject; Strings: TStrings;
       const BaseName: string; SkipEmptyStr: Boolean);
     procedure GetRecurComponentStrings(AOwner: TComponent; AComponent: TComponent;
@@ -74,7 +94,18 @@ type
       const BaseName: string = ''; SkipEmptyStr: Boolean = False);
     {* 获得一 Component 的所有字串 }
     procedure SetFilterOptions(const AFilterOptions: TLangTransFilterSet);
-    {* 设置过滤 *}
+    {* 设置过滤}
+
+    property FilterOptions: TLangTransFilterSet read FFilterOptions write SetFilterOptions;
+    {* 过滤选项}
+    property SkipEmptyComponentName: Boolean read FSkipEmptyComponentName write FSkipEmptyComponentName;
+    {* 是否跳过名称为空的组件，默认跳过}
+    property IgnoreRootFont: Boolean read FIgnoreRootFont write FIgnoreRootFont;
+    {* 是否不生成窗体字体}
+    property NoNameProcessType: TCnNoNameProcessType read FNoNameProcessType write FNoNameProcessType;
+    {* 无组件名时的引用方法，默认使用组件索引值}
+    property OnAllowItem: TCnLangAllowItemEvent read FOnAllowItem write FOnAllowItem;
+    {* 遍历某条目时触发的事件，事件处理程序中给 Allow 赋值 False 代表忽略该条目}
   end;
 
 {$IFDEF SUPPORT_CROSS_PLATFORM}
@@ -332,7 +363,38 @@ end;
 
 constructor TCnLangStringExtractor.Create;
 begin
+  FSkipEmptyComponentName := True;
   SetFilterOptions([]);
+end;
+
+function TCnLangStringExtractor.GetComponentNameForLang(Comp: TComponent): string;
+begin
+  if Comp.Name = '' then
+  begin
+    if FNoNameProcessType = cnptIndex then
+      Result := '[' + IntToStr(Comp.ComponentIndex) + ']'
+    else
+      Result := DefClassPrefix + Comp.ClassName;
+  end
+  else
+    Result := Comp.Name;
+end;
+
+function TCnLangStringExtractor.CRLFStringToBRString(
+  const CRLFStr: string): string;
+begin
+  if Pos(SCnCRLF, CRLFStr) > 0 then
+    Result := StringReplace(Trim(CRLFStr), SCnCRLF, SCnBR, [rfReplaceAll, rfIgnoreCase])
+  else
+    Result := CRLFStr;
+end;
+
+function TCnLangStringExtractor.DoAllowItem(AObject: TObject;
+  const PropName: string): Boolean;
+begin
+  Result := True;
+  if Assigned(FOnAllowItem) and (AObject <> nil) then
+    FOnAllowItem(AObject, PropName, Result);
 end;
 
 procedure TCnLangStringExtractor.GetComponentStrings(AComponent: TComponent;
@@ -390,10 +452,31 @@ var
 begin
   if (AComponent <> nil) and (AList <> nil) and (AList.IndexOf(AComponent) = -1) then
   begin
+    // 组件也增加过滤，虽然可能和 GetRecurObjectStrings 内的重复但不要紧
+    if not DoAllowItem(AComponent) then
+      Exit;
+
     GetRecurObjectStrings(AOwner, AComponent, AList, Strings, BaseName, SkipEmptyStr);
     for I := 0 to AComponent.ComponentCount - 1 do
     begin
       T := AComponent.Components[I];
+
+      // 子组件也增加过滤，虽然可能和 GetRecurObjectStrings 内的重复但不要紧
+      if not DoAllowItem(T) then
+        Continue;
+
+      // 在不跳过空的情况下，RadioGroup 内部的 RadioButton 等也得强行跳过，否则会和 Items 等重复
+      if not FSkipEmptyComponentName then
+      begin
+        if (AComponent is TCustomRadioGroup) and (T is TRadioButton) then
+          Exit;
+      end;
+
+{$IFDEF DEBUG_MULTILANG}
+      CnDebugger.LogFmt('GetRecurComponentStrings for %s #%d Sub Components %s %s.',
+        [BaseName, I, GetComponentNameForLang(T), CnDebugger.ObjectAddressToString(T)]);
+{$ENDIF}
+
       if (AComponent is TCustomForm) // 是顶层 VCL Form 或 顶层 Frame
 {$IFDEF SUPPORT_FMX}
         or CnFmxIsInheritedFromCommonCustomForm(AComponent) // 还要加上 FMX 的顶层 FORM 判断
@@ -402,7 +485,7 @@ begin
         or ((AComponent is TCustomFrame) and IsTopDesignFrame(AComponent as TCustomFrame)) {$ENDIF} then
         GetRecurComponentStrings(AOwner, T, AList, Strings, BaseName, SkipEmptyStr)
       else
-        GetRecurComponentStrings(AOwner, T, AList, Strings, BaseName + DefDelimeter + AComponent.Name, SkipEmptyStr);
+        GetRecurComponentStrings(AOwner, T, AList, Strings, BaseName + DefDelimeter + GetComponentNameForLang(AComponent), SkipEmptyStr);
     end;
   end;
 end;
@@ -428,6 +511,12 @@ var
   NeedIgnoreAction: Boolean;
   ActionCaption, ActionHint: string;
   Info: PPropInfo;
+
+  procedure AddToStrings(const Str: string);
+  begin
+    Strings.Add(Str);
+  end;
+
 begin
   if (AObject <> nil) and (AList <> nil) and (AList.IndexOf(AObject) = -1) then
   begin
@@ -444,11 +533,19 @@ begin
       Exit;
     end;
 
-    if (AObject is TCnCustomLangStorage) or (AObject is TCnCustomLangStorage)
-      or ((AObject is TComponent) and ((AObject as TComponent).Name = '')) then
-        Exit;
+    // Name 为空的原先不处理，现在也要处理过去
+    if (AObject is TCnCustomLangStorage) or (AObject is TCnCustomLangStorage) then
+      Exit;
 
-    if (AObject is TStrings) then  // Strings 的对象直接加入其 Text 属性。
+    // 跳过空的组件名的情况下，碰到空就跳过
+    if FSkipEmptyComponentName and ((AObject is TComponent) and (TComponent(AObject).Name = '')) then
+      Exit;
+
+    // 调用事件允许外部针对对象过滤
+    if not DoAllowItem(AObject) then
+      Exit;
+
+    if AObject is TStrings then  // Strings 的对象直接加入其 Text 属性。
     begin
       if not (tfText in FFilterOptions) then
         Exit;
@@ -461,15 +558,14 @@ begin
         // 可能获取异常，原因在于某些组件需要创建并 Set 好 Parent 后才能获取到
         // 如设计期取 TOpenTextFileDialog 里头的 ComboBox 的 Items 的值时
         if not SkipEmptyStr or ((AObject as TStrings).Text <> '') then
-          Strings.Add(AStr + DefEqual + StringReplace((AObject as TStrings).Text,
-            SCnCRLF, SCnBR, [rfReplaceAll, rfIgnoreCase]));
+          AddToStrings(AStr + DefEqual + CRLFStringToBRString((AObject as TStrings).Text));
       except
         if not SkipEmptyStr then // 获取异常就塞空串
-          Strings.Add(AStr + DefEqual);
+          AddToStrings(AStr + DefEqual);
       end;
       Exit;
     end
-    else if (AObject is TCollection) then // TCollection 对象遍历其 Item
+    else if AObject is TCollection then // TCollection 对象遍历其 Item
     begin
       for I := 0 to (AObject as TCollection).Count - 1 do
       begin
@@ -489,10 +585,10 @@ begin
         AListItem := (AObject as TListView).Items[I];
         if BaseName <> '' then
           GetRecurObjectStrings(AOwner, AListItem, AList, Strings, BaseName + DefDelimeter
-            + TComponent(AObject).Name + DefDelimeter + 'ListItem' + InttoStr(I), SkipEmptyStr)
+            + GetComponentNameForLang(TComponent(AObject)) + DefDelimeter + 'ListItem' + InttoStr(I), SkipEmptyStr)
         else
           GetRecurObjectStrings(AOwner, AListItem, AList, Strings,
-            TComponent(AObject).Name + DefDelimeter + 'ListItem' + InttoStr(I), SkipEmptyStr);
+            GetComponentNameForLang(TComponent(AObject)) + DefDelimeter + 'ListItem' + InttoStr(I), SkipEmptyStr);
       end;
     end
 {$IFDEF MSWINDOWS}
@@ -506,7 +602,7 @@ begin
           AStr := BaseName + DefDelimeter + AStr;
 
         if not SkipEmptyStr or ((AObject as TListItem).Caption <> '') then
-          Strings.Add(AStr + DefEqual + (AObject as TListItem).Caption);
+          AddToStrings(AStr + DefEqual + CRLFStringToBRString((AObject as TListItem).Caption));
       end;
 
       if (tfSubItemsText in FFilterOptions) then
@@ -516,7 +612,7 @@ begin
           AStr := BaseName + DefDelimeter + AStr;
 
         if not SkipEmptyStr or ((AObject as TListItem).SubItems.Text <> '') then
-          Strings.Add(AStr + DefEqual + (AObject as TListItem).SubItems.Text);
+          AddToStrings(AStr + DefEqual + CRLFStringToBRString((AObject as TListItem).SubItems.Text));
       end;
       Exit;
     end
@@ -528,10 +624,10 @@ begin
         ATreeNode := (AObject as TTreeView).Items[I];
         if BaseName <> '' then
           GetRecurObjectStrings(AOwner, ATreeNode, AList, Strings, BaseName + DefDelimeter
-            + TComponent(AObject).Name + DefDelimeter + 'TreeNode' + InttoStr(I), SkipEmptyStr)
+            + GetComponentNameForLang(TComponent(AObject)) + DefDelimeter + 'TreeNode' + InttoStr(I), SkipEmptyStr)
         else
           GetRecurObjectStrings(AOwner, ATreeNode, AList, Strings,
-            TComponent(AObject).Name + DefDelimeter + 'TreeNode' + InttoStr(I), SkipEmptyStr);
+            GetComponentNameForLang(TComponent(AObject)) + DefDelimeter + 'TreeNode' + InttoStr(I), SkipEmptyStr);
       end;
     end
     // 是 TreeNode 时处理其 Text 属性
@@ -545,7 +641,7 @@ begin
         AStr := BaseName + DefDelimeter + AStr;
 
       if not SkipEmptyStr or ((AObject as TTreeNode).Text <> '') then
-        Strings.Add(AStr + DefEqual + (AObject as TTreeNode).Text);
+        AddToStrings(AStr + DefEqual + CRLFStringToBRString((AObject as TTreeNode).Text));
       Exit;
     end;
 {$ELSE}
@@ -559,7 +655,7 @@ begin
           AStr := BaseName + DefDelimeter + AStr;
 
         if not SkipEmptyStr or ((AObject as TListViewItem).Text <> '') then
-          Strings.Add(AStr + DefEqual + (AObject as TListViewItem).Text);
+          AddToStrings(AStr + DefEqual + CRLFStringToBRString(AObject as TListViewItem).Text));
       end;
       Exit;
     end
@@ -571,10 +667,10 @@ begin
         ATreeNode := (AObject as TTreeView).Items[I];
         if BaseName <> '' then
           GetRecurObjectStrings(AOwner, ATreeNode, AList, Strings, BaseName + DefDelimeter
-            + TComponent(AObject).Name + DefDelimeter + 'TreeNode' + InttoStr(I), SkipEmptyStr)
+            + GetComponentNameForLang(TComponent(AObject)) + DefDelimeter + 'TreeNode' + InttoStr(I), SkipEmptyStr)
         else
           GetRecurObjectStrings(AOwner, ATreeNode, AList, Strings,
-            TComponent(AObject).Name + DefDelimeter + 'TreeNode' + InttoStr(I), SkipEmptyStr);
+            GetComponentNameForLang(TComponent(AObject)) + DefDelimeter + 'TreeNode' + InttoStr(I), SkipEmptyStr);
       end;
     end
     // 是 TreeNode 时处理其 Text 属性
@@ -588,7 +684,7 @@ begin
         AStr := BaseName + DefDelimeter + AStr;
 
       if not SkipEmptyStr or ((AObject as TTreeViewItem).Text <> '') then
-        Strings.Add(AStr + DefEqual + (AObject as TTreeViewItem).Text);
+        AddToStrings(AStr + DefEqual + CRLFStringToBRString(AObject as TTreeViewItem).Text));
       Exit;
     end;
 {$ENDIF}
@@ -664,78 +760,64 @@ begin
           Continue;
 
         // 处理过滤条件
-        if (APropName = 'Caption') then
+        if APropName = 'Caption' then
         begin
           if not (tfCaption in FFilterOptions) then
-          begin
             Continue;
-          end;
         end
-        else if (APropName = 'Category') then
+        else if APropName = 'Category' then
         begin
           if not (tfCategory in FFilterOptions) then
-          begin
             Continue;
-          end;
         end
-        else if (APropName = 'HelpKeyword') then
+        else if APropName = 'HelpKeyword' then
         begin
           if not (tfHelpKeyword in FFilterOptions) then
-          begin
             Continue;
-          end;
         end
-        else if (APropName = 'Hint') then
+        else if APropName = 'Hint' then
         begin
           if not (tfHint in FFilterOptions) then
-          begin
             Continue;
-          end;
         end
-        else if (APropName = 'ImeName') then
+        else if APropName = 'ImeName' then
         begin
           if not (tfImeName in FFilterOptions) then
-          begin
             Continue;
-          end;
         end
-        else if (APropName = 'Title') then
+        else if APropName = 'Title' then
         begin
           if not (tfTitle in FFilterOptions) then
-          begin
             Continue;
-          end;
         end
-        else if (APropName = 'DefaultExt') then
+        else if APropName = 'DefaultExt' then
         begin
           if not (tfDefaultExt in FFilterOptions) then
-          begin
             Continue;
-          end;
         end
-        else if (APropName = 'Filter') then
+        else if APropName = 'Filter' then
         begin
           if not (tfFilter in FFilterOptions) then
-          begin
             Continue;
-          end;
         end
-        else if (APropName = 'InitialDir') then
+        else if APropName = 'InitialDir' then
         begin
           if not (tfInitialDir in FFilterOptions) then
-          begin
             Continue;
-          end;
         end
         else if not (tfOthers in FFilterOptions) then
         begin
           Continue;
         end;
 
+        // 调用事件允许外部再次过滤
+        if not DoAllowItem(AObject, APropName) then
+          Continue;
+
         if IsForm then
           AStr := AObject.ClassName + DefDelimeter + APropName
         else if AObject is TComponent then
-          AStr := TComponent(AObject).Name + DefDelimeter + APropName
+          AStr := GetComponentNameForLang(TComponent(AObject)) + DefDelimeter + APropName
         else
           AStr := APropName;
 
@@ -743,11 +825,17 @@ begin
           AStr := BaseName + DefDelimeter + AStr;
 
         if not SkipEmptyStr or (APropValue <> '') then
-          Strings.Add(AStr + DefEqual + APropValue);
+          AddToStrings(AStr + DefEqual + CRLFStringToBRString(APropValue));
       end
       else if APropType = tkClass then
       begin
         SubObj := GetObjectProp(AObject, APropName);
+        if SubObj = nil then
+          Continue;
+
+        if not DoAllowItem(AObject, APropName) then // 类似于 ComboBox1.Items 属性，先行判断
+          Continue;
+
         if (SubObj is TComponent) and (AOwner <> nil) and
           ((SubObj as TComponent).Owner = AOwner) then
         begin
@@ -757,6 +845,10 @@ begin
         begin
           if AList.IndexOf(SubObj) = -1 then
           begin
+            // 调用事件允许外部针对子对象本身过滤
+            if not DoAllowItem(SubObj) then
+              Continue;
+
             if (AObject is TControl) and (SubObj is TFont) and (APropName = 'Font') then
             begin
               if (tfFont in FFilterOptions) then
@@ -769,7 +861,7 @@ begin
                 if not B then // 不使用 ParentFont 时存字体
                 begin
                   if not IsForm then
-                    AStr := TComponent(AObject).Name + DefDelimeter + SCnControlFont
+                    AStr := GetComponentNameForLang(TComponent(AObject)) + DefDelimeter + SCnControlFont
                   else
                     AStr := SCnControlFont;
 
@@ -777,22 +869,25 @@ begin
                     AStr := BaseName + DefDelimeter + AStr;
 
                   AList.Add(SubObj);
+                  if not IsForm or not FIgnoreRootFont then
+                  begin
 {$IFDEF MSWINDOWS}
-                  Strings.Add(AStr + DefEqual + FontToStringEx(SubObj as TFont,
-                    GetParentFont(AObject as TComponent)));
+                    AddToStrings(AStr + DefEqual + FontToStringEx(SubObj as TFont,
+                      GetParentFont(AObject as TComponent)));
 {$ELSE}
-                  Strings.Add(AStr + DefEqual + FontToStringEx(SubObj as TFont,
-                    CnFmxGetControlParentFont(AObject as TComponent)));
+                    AddToStrings(AStr + DefEqual + FontToStringEx(SubObj as TFont,
+                      CnFmxGetControlParentFont(AObject as TComponent)));
 {$ENDIF}
+                  end;
                 end;
               end;
-            end // 不按常规处理 TControl的字体
+            end // 不按常规处理 TControl 的字体
             else if CnLanguageManager.TranslateOtherFont and (SubObj is TFont) then
             begin
               if (tfFont in FFilterOptions) then
                 begin
                   if not IsForm then
-                    AStr := TComponent(AObject).Name + DefDelimeter +
+                    AStr := GetComponentNameForLang(TComponent(AObject)) + DefDelimeter +
                       SystemNamePrefix + APropName
                   else
                     AStr := SystemNamePrefix + APropName;
@@ -802,10 +897,10 @@ begin
 
                   AList.Add(SubObj);
 {$IFDEF MSWINDOWS}
-                  Strings.Add(AStr + DefEqual + FontToStringEx(SubObj as TFont,
+                  AddToStrings(AStr + DefEqual + FontToStringEx(SubObj as TFont,
                     GetParentFont(AObject as TComponent)));
 {$ELSE}
-                  Strings.Add(AStr + DefEqual + FontToStringEx(SubObj as TFont,
+                  AddToStrings(AStr + DefEqual + FontToStringEx(SubObj as TFont,
                     CnFmxGetControlParentFont(AObject as TComponent)));
 {$ENDIF}
                 end;                    
@@ -820,12 +915,16 @@ begin
                 // 不获取 TNotebook/TTabbedNotebook 的 Pages 属性，以免出现翻译后页面内容丢失。
               else
                 GetRecurObjectStrings(AOwner, SubObj, AList, Strings, BaseName +
-                  DefDelimeter + TComponent(AObject).Name + DefDelimeter + APropName, SkipEmptyStr);
+                  DefDelimeter + GetComponentNameForLang(TComponent(AObject)) + DefDelimeter + APropName, SkipEmptyStr);
             end;
           end;
         end
         else
         begin
+          // 调用事件允许外部针对子对象过滤
+          if not DoAllowItem(SubObj) then
+            Continue;
+
           GetRecurObjectStrings(AOwner, SubObj, AList, Strings,
             BaseName + DefDelimeter + APropName, SkipEmptyStr);
         end;

@@ -799,7 +799,7 @@ begin
             end
             else
             begin
-              raise Exception.Create(SCnErrorMapViewOfFile + IntToStr(GetLastError));
+              raise ECnNativeException.Create(SCnErrorMapViewOfFile + IntToStr(GetLastError));
             end;
           finally
             CloseHandle(MapHandle);
@@ -808,7 +808,7 @@ begin
         else
         begin
           if not FileIsZeroSize then
-            raise Exception.Create(SCnErrorCreateFileMapping + IntToStr(GetLastError));
+            raise ECnNativeException.Create(SCnErrorCreateFileMapping + IntToStr(GetLastError));
         end;
       finally
         CloseHandle(FileHandle);
@@ -832,7 +832,7 @@ end;
 
 function SM3Match(const D1, D2: TCnSM3Digest): Boolean;
 begin
-  Result := CompareMem(@D1[0], @D2[0], SizeOf(TCnSM3Digest));
+  Result := ConstTimeCompareMem(@D1[0], @D2[0], SizeOf(TCnSM3Digest));
 end;
 
 function SM3DigestToStr(const Digest: TCnSM3Digest): string;

@@ -1974,13 +1974,22 @@ type
     }
 
     // 辅助过程
-    function ObjectFromInterface(const AIntf: IUnknown): TObject;
+    class function ObjectFromInterface(const AIntf: IUnknown): TObject;
     {* 从接口实例查找对应实现它的具体对象实例。
 
        参数：
          const AIntf: IUnknown            - 待查找的接口实例
 
        返回值：TObject                    - 返回查找到的对象实例
+    }
+
+    class function ObjectAddressToString(const AObj: TObject): string;
+    {* 将对象的地址转换为十六进制字符串。
+
+       参数：
+         const AObj: TObject              - 待转换的对象实例
+
+       返回值：string                     - 返回对象地址的十六进制字符串
     }
 
     procedure FindComponent;
@@ -5244,7 +5253,7 @@ begin
 end;
 
 // 移植自 A.Bouchez 的实现
-function TCnDebugger.ObjectFromInterface(const AIntf: IUnknown): TObject;
+class function TCnDebugger.ObjectFromInterface(const AIntf: IUnknown): TObject;
 begin
   Result := nil;
   if AIntf = nil then
@@ -5260,6 +5269,15 @@ begin
     $04244481: Result := Pointer(Integer(AIntf) + LongJmp);
     else       Result := nil;
   end;
+{$ENDIF}
+end;
+
+class function TCnDebugger.ObjectAddressToString(const AObj: TObject): string;
+begin
+{$IFDEF CPUX64}
+  Result := Format('%16.16x', [TCnNativeInt(AObj)]);
+{$ELSE}
+  Result := Format('%8.8x', [TCnNativeInt(AObj)]);
 {$ENDIF}
 end;
 
@@ -6342,7 +6360,7 @@ begin
       List := TCnManualStackInfoList.Create(nil, RunAddr)
     else
     begin
-{$IFDEF WIN64}
+{$IFDEF CPUX64}
       Context.Rsp := DWORD64(StackAddr);
       Context.Rbp := DWORD64(FrameAddr);
 {$ELSE}

@@ -1906,16 +1906,6 @@ function ConstTimeEqual64(A: TUInt64; B: TUInt64): Boolean;
    返回值：Boolean                        - 返回是否相等
 }
 
-function ConstTimeBytesEqual(const A: TBytes; const B: TBytes): Boolean;
-{* 针对俩相同长度的字节数组的执行时间固定的比较，内容相同时返回 True。
-
-   参数：
-     const A: TBytes                      - 待比较的字节数组一
-     const B: TBytes                      - 待比较的字节数组二
-
-   返回值：Boolean                        - 返回是否相等
-}
-
 function ConstTimeCompareMem(P1, P2: Pointer; ByteLength: Integer): Boolean;
 {* 针对俩相同长度的内存块的执行时间固定的比较，内容相同时返回 True。
 
@@ -1925,6 +1915,16 @@ function ConstTimeCompareMem(P1, P2: Pointer; ByteLength: Integer): Boolean;
      ByteLength: Integer                  - 待比较的字节长度
 
    返回值：Boolean                        - 返回是否相等
+}
+
+function ConstTimeCompareBytes(const A, B: TBytes): Boolean;
+{* 执行长度相同时两个字节数组的恒定时间的比较，如长度不同直接返回 False，长度与内容均相同则返回 True。
+
+   参数：
+     const A: TBytes                      - 待比较的字节数组一
+     const B: TBytes                      - 待比较的字节数组二
+
+   返回值：Boolean                        - 是否相同
 }
 
 function ConstTimeExpandBoolean8(V: Boolean): Byte;
@@ -3846,35 +3846,29 @@ begin
     and ConstTimeEqual32(Cardinal(A and $FFFFFFFF), Cardinal(B and $FFFFFFFF));
 end;
 
-function ConstTimeBytesEqual(const A, B: TBytes): Boolean;
-var
-  I: Integer;
-begin
-  Result := False;
-  if Length(A) <> Length(B) then
-    Exit;
-
-  Result := True;
-  for I := 0 to Length(A) - 1 do // 每个字节都比较，而不是碰到不同就退出
-    Result := Result and (ConstTimeEqual8(A[I], B[I]));
-end;
-
 function ConstTimeCompareMem(P1, P2: Pointer; ByteLength: Integer): Boolean;
 var
   B1, B2: PByte;
-  Res: Byte;
   I: Integer;
 begin
-  Res := 0;
+  Result := True;
   B1 := PByte(P1);
   B2 := PByte(P2);
+
   for I := 0 to ByteLength - 1 do
   begin
-    Res := Res or (B1^ xor B2^);
+    Result := Result and ConstTimeEqual8(B1^, B2^);
     Inc(B1);
     Inc(B2);
   end;
-  Result := Res = 0;
+end;
+
+function ConstTimeCompareBytes(const A, B: TBytes): Boolean;
+begin
+  if Length(A) <> Length(B) then
+    Result := False
+  else
+    Result := ConstTimeCompareMem(@A[0], @B[0], Length(A));
 end;
 
 function ConstTimeExpandBoolean8(V: Boolean): Byte;
@@ -5240,9 +5234,11 @@ end;
 
 function UInt64NonNegativeRoot(N: TUInt64; Exp: Integer): TUInt64;
 var
-  I: Integer;
-  X: TUInt64;
-  XN, X0, X1: Extended;
+  Bits: Integer;
+  L, H, M, B, P: TUInt64;
+  Cmp: Integer;
+  Overflow: Boolean;
+  E: Integer;
 begin
   if Exp < 0 then
     raise ERangeError.Create(SRangeError)
@@ -5250,30 +5246,83 @@ begin
     raise EDivByZero.Create(SDivByZero)
   else if (N = 0) or (N = 1) then
     Result := N
+  else if Exp = 1 then
+    Result := N
   else if Exp = 2 then
     Result := UInt64Sqrt(N)
   else
   begin
-    // 牛顿迭代法求根
-    I := GetUInt64HighBits(N) + 1; // 得到大约 Log2 N 的值
-    I := (I div Exp) + 1;
-    X := 1 shl I;                  // 得到一个较大的 X0 值作为起始值
+    // 整数二分查找 根值区间；
+    // 用 整数快速幂 + 溢出前判断 比较 M^Exp 与 N ；
+    // 最终返回 floor(N^(1/Exp))
 
-    X0 := UInt64ToExtended(X);
-    XN := UInt64ToExtended(N);
-    X1 := X0 - (Power(X0, Exp) - XN) / (Exp * Power(X0, Exp - 1));
+    Bits := GetUInt64HighBits(N) + 1; // 得到大约 Log2 N 的值
+    H := TUInt64(1) shl ((Bits + Exp - 1) div Exp);
+    if H = 0 then
+      H := N
+    else if H > N then
+      H := N;
+    L := 1;
+    Cmp := -1;
 
-    while True do
+    while L <= H do
     begin
-      if (ExtendedToUInt64(X0) = ExtendedToUInt64(X1)) and (Abs(X0 - X1) < 0.001) then
+      M := L + ((H - L) shr 1);
+      B := M;
+      P := 1;
+      E := Exp;
+      Overflow := False;
+      while E > 0 do
       begin
-        Result := ExtendedToUInt64(X1);
-        Exit;
+        if (E and 1) <> 0 then
+        begin
+          if (B <> 0) and (P > N div B) then
+          begin
+            Overflow := True;
+            Break;
+          end;
+          P := P * B;
+        end;
+        E := E shr 1;
+        if E > 0 then
+        begin
+          if (B <> 0) and (B > N div B) then
+          begin
+            Overflow := True;
+            Break;
+          end;
+          B := B * B;
+        end;
       end;
 
-      X0 := X1;
-      X1 := X0 - (Power(X0, Exp) - XN) / (Exp * Power(X0, Exp - 1));
+      if Overflow then
+        Cmp := 1
+      else if P > N then
+        Cmp := 1
+      else if P < N then
+        Cmp := -1
+      else
+        Cmp := 0;
+
+      if Cmp = 0 then
+      begin
+        Result := M;
+        Exit;
+      end
+      else if Cmp < 0 then
+        L := M + 1
+      else
+      begin
+        if M = 0 then
+          Break;
+        H := M - 1;
+      end;
     end;
+
+    if Cmp > 0 then
+      Result := H
+    else
+      Result := L - 1;
   end;
 end;
 

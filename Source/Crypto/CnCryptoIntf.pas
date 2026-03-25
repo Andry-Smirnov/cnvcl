@@ -166,6 +166,7 @@ const
   CN_ECC_KEY_PKCS8           = 2;
   CN_SM2_SEQ_C1C3C2          = 1;
   CN_SM2_SEQ_C1C2C3          = 2;
+  CN_SM2_C1_COMPRESS         = 4;
   CN_HASH_SHAKE128           = 40;
   CN_HASH_SHAKE256           = 41;
   CN_MLKEM_TYPE_512          = 5101;
@@ -174,7 +175,6 @@ const
   CN_MLDSA_TYPE_44           = 5201;
   CN_MLDSA_TYPE_65           = 5202;
   CN_MLDSA_TYPE_87           = 5203;
-
 
 function cn_get_version(var out_major, out_minor, out_patch: TUInt32): TCnResult; cdecl;
 {* 获取库版本号（主/次/修订）。
@@ -935,13 +935,13 @@ function cn_sm2_generate_keys(var out_priv: TCnCryptoHandle; var out_pub:
    返回值：TCnResult                        - 错误码，CN_OK 表示成功
 }
 
-function cn_sm2_encrypt(seq_type_id: TInt32; include_prefix: TBool32; pub:
+function cn_sm2_encrypt(seq_type_flag: TInt32; include_prefix: TBool32; pub:
   TCnCryptoHandle; in_ptr: PByte; in_len: TCnSize; out_ptr: PByte; cap: TCnSize;
   var out_len: TCnSize): TCnResult; cdecl;
 {* 使用 SM2 公钥加密（支持 C1C3C2/C1C2C3 序列）。
 
    参数：
-     seq_type_id: TInt32                    - 输出序列类型（CN_SM2_SEQ_*）
+     seq_type_flag: TInt32                  - 输出序列类型（CN_SM2_SEQ_*）及允许 or 上 C1 压缩标识 CN_SM2_C1_COMPRESS
      include_prefix: TBool32                - 是否包含未压缩前缀
      pub: TCnCryptoHandle                   - SM2 公钥对象标识
      in_ptr: PByte                          - 明文输入指针

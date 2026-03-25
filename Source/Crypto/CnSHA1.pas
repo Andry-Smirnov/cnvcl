@@ -187,14 +187,14 @@ procedure SHA1Init(var Context: TCnSHA1Context);
    返回值：（无）
 }
 
-procedure SHA1Update(var Context: TCnSHA1Context; Input: PAnsiChar; ByteLength: Integer);
+procedure SHA1Update(var Context: TCnSHA1Context; Input: PAnsiChar; ByteLength: Cardinal);
 {* 以初始化后的上下文对一块数据进行 SHA1 计算。
    可多次调用以连续计算不同的数据块，无需将不同的数据块拼凑在连续的内存中。
 
    参数：
      var Context: TCnSHA1Context          - SHA1 上下文
      Input: PAnsiChar                     - 待计算的数据块地址
-     ByteLength: Integer                  - 待计算的数据块的字节长度
+     ByteLength: Cardinal                 - 待计算的数据块的字节长度
 
    返回值：（无）
 }
@@ -384,7 +384,7 @@ begin
   end;
 end;
 
-procedure SHA1Update(var Context: TCnSHA1Context; Input: PAnsiChar; ByteLength: Integer);
+procedure SHA1Update(var Context: TCnSHA1Context; Input: PAnsiChar; ByteLength: Cardinal);
 var
   B: Integer;
 begin
@@ -654,7 +654,7 @@ begin
             end
             else
             begin
-              raise Exception.Create(SCnErrorMapViewOfFile + IntToStr(GetLastError));
+              raise ECnNativeException.Create(SCnErrorMapViewOfFile + IntToStr(GetLastError));
             end;
           finally
             CloseHandle(MapHandle);
@@ -663,7 +663,7 @@ begin
         else
         begin
           if not FileIsZeroSize then
-            raise Exception.Create(SCnErrorCreateFileMapping + IntToStr(GetLastError));
+            raise ECnNativeException.Create(SCnErrorCreateFileMapping + IntToStr(GetLastError));
         end;
       finally
         CloseHandle(FileHandle);
@@ -682,16 +682,8 @@ end;
 
 // 比较两个 SHA1 杂凑值是否相等
 function SHA1Match(const D1, D2: TCnSHA1Digest): Boolean;
-var
-  I: Integer;
 begin
-  I := 0;
-  Result := True;
-  while Result and (I < 20) do
-  begin
-    Result := D1[I] = D2[I];
-    Inc(I);
-  end;
+  Result := ConstTimeCompareMem(@D1[0], @D2[0], SizeOf(TCnSHA1Digest));
 end;
 
 // SHA1 杂凑值转 string

@@ -42,7 +42,8 @@ interface
 {$I CnPack.inc}
 
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Forms, FileCtrl, CnCommon,
+  {$IFDEF MSWINDOWS} Windows, Messages, FileCtrl, {$ENDIF}
+  SysUtils, Classes, Graphics, Forms, CnCommon,
   CnConsts, CnClasses, CnLangCollection, CnLangConsts, CnIniStrUtils;
 
 {$IFDEF Linux}
@@ -52,6 +53,7 @@ uses
 const
   DefDelimeter        = '.';
   DefEqual            = '=';
+  DefClassPrefix      = '@';
   
   SystemNamePrefix    = '!';
   SCnLanguageID       = 'LanguageID';
@@ -125,7 +127,12 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    
+
+    procedure AddString(const Key: TCnLangString; const Value: TCnLangString); virtual; abstract;
+    {* 手动添加一个语言条目}
+    procedure DeleteString(const Key: TCnLangString); virtual; abstract;
+    {* 手动删除一个语言条目}
+
     procedure AddLanguage(ALanguageID: LongWord);
     {* 增加一种语言 }
     function GetString(Name: TCnLangString; var Value: TCnLangString): Boolean; virtual;
@@ -137,6 +144,7 @@ type
     {* 抽象方法，删除当前语言的所有翻译条目列表 }
     function LoadCurrentLanguage: Boolean; virtual; abstract;
     {* 抽象方法，可以是从存储介质中载入当前语言条目，为翻译字串做准备 }
+
     procedure SaveCurrentLanguage; virtual; abstract;
     {* 抽象方法，可以是保存当前语言条目到存储介质中 }
     procedure SetString(Name, Value: TCnLangString); virtual; abstract;
@@ -190,12 +198,14 @@ type
     procedure InternalInit; override;
     procedure Loaded; override;
     procedure InitFromAFile(const AFileName: TCnLangString); virtual;
-
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    procedure SetDesignLangPath(const aPath: TCnLangString);
-    procedure SetDesignLangFile(const aFile: TCnLangString);
+    procedure SetDesignLangPath(const APath: TCnLangString);
+    procedure SetDesignLangFile(const AFile: TCnLangString);
+
+    procedure AddExtraItemsFromFile(const AFileName: TCnLangString); virtual;
+    {* 额外的方法，允许手工从外部文件中添加语言条目，基类为空实现}
 
     function GetCurrentLanguageFileName: TCnLangString; virtual;
    {* 获得当前语言的语言文件名，包括扩展名 }
@@ -225,6 +235,15 @@ implementation
 uses
   CnLangMgr;
 
+function GetProgramFullName: string;
+begin
+{$IFDEF MSWINDOWS}
+  Result := Application.ExeName;
+{$ELSE}
+  Result := ParamStr(0);
+{$ENDIF}
+end;
+
 //==============================================================================
 // TCustomLanguageStorage
 //==============================================================================
@@ -232,9 +251,11 @@ uses
 constructor TCnCustomLangStorage.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  FDefaultLanguageID := GetSystemDefaultLCID;
   FDefaultFont := TFont.Create;
+{$IFDEF MSWINDOWS}
   FDefaultFont.Handle := GetStockObject(DEFAULT_GUI_FONT);
+  FDefaultLanguageID := GetSystemDefaultLCID;
+{$ENDIF}
   FCurrentLanguageIndex := -1;
   FLanguages := TCnLanguageCollection.Create(Self);
 
@@ -331,7 +352,9 @@ begin
       FCurrentLanguageIndex := Value;
       if LoadCurrentLanguage then
       begin
+{$IFDEF MSWINDOWS}
         FDefaultFont.Handle := GetStockObject(DEFAULT_GUI_FONT);
+{$ENDIF}
         GetDefaultFont(FDefaultFont);
         FontInited := True;
         DoLanguageChanged(Value);
@@ -343,6 +366,17 @@ end;
 procedure TCnCustomLangStorage.SetLanguages(Value: TCnLanguageCollection);
 begin
   FLanguages.Assign(Value);
+end;
+
+function TCnCustomLangStorage.CreateIterator: ICnLangStringIterator;
+begin
+  Result := nil;
+end;
+
+procedure TCnCustomLangStorage.GetComponentInfo(var AName, Author, Email,
+  Comment: string);
+begin
+  // 基类无信息
 end;
 
 //==============================================================================
@@ -357,7 +391,7 @@ begin
     if not (csDesigning in ComponentState) then
     begin
       // 运行期，只有采用可执行文件的所在目录
-      FDesignLangPath := IncludeTrailingBackslash(_CnExtractFilePath(Application.ExeName));
+      FDesignLangPath := IncludeTrailingBackslash(_CnExtractFilePath(GetProgramFullName));
     end;
   end;
 end;
@@ -370,7 +404,7 @@ begin
     if not (csDesigning in ComponentState) then
     begin
       // 运行期，只有采用可执行文件的文件名加自己的扩展名
-      FFileName := _CnChangeFileExt(_CnExtractFileName(Application.ExeName), GetLanguageFileExt);
+      FFileName := _CnChangeFileExt(_CnExtractFileName(GetProgramFullName), GetLanguageFileExt);
     end;
   end;
 end;
@@ -458,7 +492,7 @@ begin
       end;
     end
     else if ActualPath = '' then
-      ActualPath := _CnExtractFileDir(Application.ExeName);
+      ActualPath := _CnExtractFileDir(GetProgramFullName);
 
     if ActualPath = '' then
       Exit;
@@ -512,10 +546,10 @@ begin
   if csDesigning in ComponentState then Exit;
 
   if Self.FLanguagePath = '' then
-    Self.FLanguagePath := _CnExtractFilePath(Application.ExeName);
+    Self.FLanguagePath := _CnExtractFilePath(GetProgramFullName);
   AdjustLangPath;
   if Self.FFileName = '' then
-    Self.FFileName := _CnChangeFileExt(_CnExtractFileName(Application.ExeName), '');
+    Self.FFileName := _CnChangeFileExt(_CnExtractFileName(GetProgramFullName), '');
   AdjustLangFile;
 end;
 
@@ -559,20 +593,19 @@ begin
   end;
 end;
 
-procedure TCnCustomLangFileStorage.SetDesignLangPath(const aPath: TCnLangString);
+procedure TCnCustomLangFileStorage.SetDesignLangPath(const APath: TCnLangString);
 begin
   if csDesigning in ComponentState then
-    FDesignLangPath := aPath;
+    FDesignLangPath := APath;
 end;
 
-procedure TCnCustomLangFileStorage.SetDesignLangFile(const aFile: TCnLangString);
+procedure TCnCustomLangFileStorage.SetDesignLangFile(const AFile: TCnLangString);
 begin
   if csDesigning in ComponentState then
-    FDesignLangFile := aFile;
+    FDesignLangFile := AFile;
 end;
 
-procedure TCnCustomLangFileStorage.SetStorageMode(
-  const Value: TCnStorageMode);
+procedure TCnCustomLangFileStorage.SetStorageMode(const Value: TCnStorageMode);
 begin
   if (FStorageMode <> Value) or (csLoading in ComponentState) then
   begin
@@ -583,15 +616,10 @@ begin
   end;
 end;
 
-function TCnCustomLangStorage.CreateIterator: ICnLangStringIterator;
+procedure TCnCustomLangFileStorage.AddExtraItemsFromFile(
+  const AFileName: TCnLangString);
 begin
-  Result := nil;
-end;
 
-procedure TCnCustomLangStorage.GetComponentInfo(var AName, Author, Email,
-  Comment: string);
-begin
-// 基类无信息
 end;
 
 end.

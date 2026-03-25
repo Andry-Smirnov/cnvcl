@@ -41,7 +41,7 @@ interface
 {$I CnPack.inc}
 
 uses
-  SysUtils, Classes, Windows, Graphics, CnIniStrUtils;
+  SysUtils, Classes, Graphics, CnIniStrUtils;
 
 type
 {$IFDEF UNICODE}
@@ -77,14 +77,25 @@ type
     procedure SetLanguageID(Value: LongWord);
     procedure SetLanguageName(Value: TCnLangString);
     procedure DoLanguageIDChanged; virtual;
+
+    procedure ReadDefaultFontCharset(Reader: TReader);
+    procedure ReadDefaultFontColor(Reader: TReader);
+    procedure ReadDefaultFontHeight(Reader: TReader);
+    procedure ReadDefaultFontName(Reader: TReader);
+    procedure ReadDefaultFontStyle(Reader: TReader);
+    procedure DefineProperties(Filer: TFiler); override;
   public
     constructor Create(Collection: TCollection); override;
     destructor Destroy; override;
 
     procedure Assign(Source: TPersistent); override;
     {* 赋值过程}
+
+{$IFDEF MSWINDOWS}
     function IsValidLanguageID(ALanguageID: LongWord): Boolean;
     {* 判断一 ID 是否是合法的语言 ID }
+{$ENDIF}
+
     property OnLanguageIDChanged: TNotifyEvent read FOnLanguageIDChanged
       write FOnLanguageIDChanged;
     {* 当语言 ID 发生改变时触发 }
@@ -107,8 +118,10 @@ type
     property LanguageDirName: TCnLangString read GetLanguageDirName
       write SetLanguageDirName;
     {* 返回可用的保存多语的目录名，以目录方式存储时其结果有效 }
+{$IFDEF MSWINDOWS}
     property DefaultFont: TFont read FDefaultFont write SetDefaultFont;
     {* 该语言的默认 Font，内部使用 FontStr 存储 }
+{$ENDIF}
   end;
 
   TCnLanguageCollection = class (TOwnedCollection)
@@ -157,6 +170,8 @@ begin
   Result := FLanguageName;
 end;
 
+{$IFDEF MSWINDOWS}
+
 function TCnLanguageItem.IsValidLanguageID(ALanguageID: LongWord): Boolean;
 begin
   try
@@ -165,6 +180,8 @@ begin
     raise ELanguageStorageError.Create(SCnErrorInCheckingLanguage);
   end;
 end;
+
+{$ENDIF}
 
 procedure TCnLanguageItem.SetAbbreviation(Value: TCnLangString);
 begin
@@ -209,11 +226,13 @@ begin
       LanguageDirName := '';
       DoLanguageIDChanged;
     end
-    else if IsValidLanguageID(Value) then
+    else if {$IFDEF MSWINDOWS}IsValidLanguageID(Value) {$ELSE} True {$ENDIF} then
     begin
       FLanguageID := Value;
+{$IFDEF MSWINDOWS}
       LanguageName := CnLanguages.NameFromLocaleID[Value];
       Abbreviation := CnLanguages.Ext[CnLanguages.IndexOf(Value)];
+{$ENDIF}
       if LanguageFileName = '' then
         LanguageFileName := Abbreviation;
 
@@ -230,7 +249,6 @@ begin
   if FLanguageName <> Value then
   begin
     FLanguageName := Value;
-
   end;
 end;
 
@@ -243,6 +261,62 @@ constructor TCnLanguageItem.Create(Collection: TCollection);
 begin
   inherited;
   FDefaultFont := TFont.Create;
+end;
+
+// 读取并丢弃 VCL 特有的 Charset 属性
+procedure TCnLanguageItem.ReadDefaultFontCharset(Reader: TReader);
+begin
+  Reader.ReadIdent; // 直接读取并丢弃
+end;
+
+// 读取并丢弃 Color 属性
+procedure TCnLanguageItem.ReadDefaultFontColor(Reader: TReader);
+begin
+  Reader.ReadIdent;
+end;
+
+// 读取并跳过 Height 属性
+procedure TCnLanguageItem.ReadDefaultFontHeight(Reader: TReader);
+begin
+  Reader.ReadInteger;
+end;
+
+// 读取 Name 属性，FMX 对应的是 Family [citation:1]
+procedure TCnLanguageItem.ReadDefaultFontName(Reader: TReader);
+var
+  FontName: string;
+begin
+  FontName := Reader.ReadString;
+{$IFNDEF MSWINDOWS}
+  FDefaultFont.Family := FontName;
+{$ENDIF}
+end;
+
+{$IFDEF COMPILER5}
+type
+  TReaderAccess = class(TReader);
+{$ENDIF}
+
+// 读取并跳过 Style 属性
+procedure TCnLanguageItem.ReadDefaultFontStyle(Reader: TReader);
+begin
+{$IFDEF COMPILER5}
+  TReaderAccess(Reader).SkipValue;
+{$ELSE}
+  Reader.SkipValue;
+{$ENDIF}
+end;
+
+procedure TCnLanguageItem.DefineProperties(Filer: TFiler);
+begin
+  inherited;
+{$IFNDEF MSWINDOWS}
+  Filer.DefineProperty('DefaultFont.Charset', ReadDefaultFontCharset, nil, False);
+  Filer.DefineProperty('DefaultFont.Color', ReadDefaultFontColor, nil, False);
+  Filer.DefineProperty('DefaultFont.Height', ReadDefaultFontHeight, nil, False);
+  Filer.DefineProperty('DefaultFont.Name', ReadDefaultFontName, nil, False);
+  Filer.DefineProperty('DefaultFont.Style', ReadDefaultFontStyle, nil, False);
+{$ENDIF}
 end;
 
 destructor TCnLanguageItem.Destroy;

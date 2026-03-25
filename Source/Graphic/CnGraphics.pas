@@ -28,7 +28,9 @@ unit CnGraphics;
 * ¿ª·¢Æ½Ì¨£ºPWin98SE + Delphi 5.0
 * ¼æÈÝ²âÊÔ£ºPWin9X/2000/XP + Delphi 5/6
 * ±¾ µØ »¯£º¸Ãµ¥ÔªÖÐµÄ×Ö·û´®¾ù·ûºÏ±¾µØ»¯´¦Àí·½Ê½
-* ÐÞ¸Ä¼ÇÂ¼£º2022.09.25 V0.12
+* ÐÞ¸Ä¼ÇÂ¼£º2026.02.13 V0.13
+*               Ôö¼Ó TCnCOlorSpaceConverter£¬ÔÝÎ´ÍêÕû²âÊÔ
+*           2022.09.25 V0.12
 *               Ôö¼Ó Win64 Î»µÄÖ§³Ö
 *           2002.03.14 V0.11Alpha
 *               Ô­Í¼Ïñ´¦Àí¿â×îºó°æ±¾
@@ -42,7 +44,7 @@ interface
 
 uses
   Windows, SysUtils, Classes, Graphics, ExtCtrls, Math, Controls, Messages,
-  CnNative, CnClasses, CnCommon, CnGraphConsts;
+  CnNative, CnClasses, CnCommon, CnGraphConsts, CnMatrix;
 
 type
 
@@ -51,7 +53,7 @@ type
 //--------------------------------------------------------//
 
   PCnColor = ^TCnColor;
-  {* Ö¸ÏòTCnColorµÄÖ¸ÕëÀàÐÍ}
+  {* Ö¸Ïò TCnColor µÄÖ¸ÕëÀàÐÍ}
   TCnColor = packed record
   {* 24Î»ÑÕÉ«Öµ¼ÇÂ¼}
     b, g, r: Byte;
@@ -73,6 +75,7 @@ type
   {* ¸¡µãÊý×ø±ê¼ÇÂ¼ÀàÐÍ}
     x, y: Single;
   end;
+
   TPointFArray = array of TPointF;
   {* TPointF ¸¡µãÊý×ø±ê¶¯Ì¬Êý×é£¬Ò»°ãÓÃÓÚÍ¼ÐÎ»æÖÆ²ÎÊý´«µÝ}
 
@@ -820,7 +823,7 @@ type
 
     // ½¥±äÉ«»æÖÆ
     procedure DrawGradient(GradColor: TCnGradientColor);
-    {* ÔÚµ±Ç°Í¼ÏñÖÐ²úÉú½¥±äÑÕÉ«Ð§¹û
+    {* ÔÚµ±Ç°Í¼ÏñÖÐ²úú½¥±äÑÕÉ«Ð§¹û
      |<BR>
      |<BR> GradColor: TCnGradientColor    ½¥±äÐ§¹û²ÎÊý}
     procedure DrawGradientEx(GradColor: TCnGradientColor; Rect: TRect; Alpha:
@@ -1201,6 +1204,66 @@ type
      |<BR> µ±ÖµÎª clDefault Ê±£¬Ê¹ÓÃÍ¼Ïñ×óÏÂ½ÇÏñËØÑÕÉ«ÖµÀ´´úÌæ¡£}
   end;
 
+  TCnColorSpaceConverter = class
+  {* ÑÕÉ«¿Õ¼ä×ª»»Æ÷Àà£¬¸ºÔð RGB Óë YCbCr ÑÕÉ«¿Õ¼äµÄÏà»¥×ª»»}
+  private
+    function ClipByte(Value: Double): Byte;
+  public
+    constructor Create;
+    {* ¹¹Ôìº¯Êý}
+    destructor Destroy; override;
+    {* Îö¹¹º¯Êý}
+
+    procedure RGBToYCbCr(const R, G, B: Byte; out Y, Cb, Cr: Byte);
+    {* RGB ×ª YCbCr£¨ITU-R BT.601 ±ê×¼£©¡£
+
+       R ºìÉ«·ÖÁ¿£¨0-255£©
+       G ÂÌÉ«·ÖÁ¿£¨0-255£©
+       B À¶É«·ÖÁ¿£¨0-255£©
+       Y Êä³öÁÁ¶È·ÖÁ¿£¨0-255£©
+       Cb Êä³öÀ¶É«É«¶È·ÖÁ¿£¨0-255£©
+       Cr Êä³öºìÉ«É«¶È·ÖÁ¿£¨0-255£©
+    }
+
+    procedure YCbCrToRGB(const Y, Cb, Cr: Byte; out R, G, B: Byte);
+    {* YCbCr ×ª RGB¡£
+
+       Y ÁÁ¶È·ÖÁ¿£¨0-255£©
+       Cb À¶É«É«¶È·ÖÁ¿£¨0-255£©
+       Cr ºìÉ«É«¶È·ÖÁ¿£¨0-255£©
+       R Êä³öºìÉ«·ÖÁ¿£¨0-255£©
+       G Êä³öÂÌÉ«·ÖÁ¿£¨0-255£©
+       B Êä³öÀ¶É«·ÖÁ¿£¨0-255£©
+    }
+
+    procedure ConvertBitmapToYCbCr(Source: TBitmap;
+      YPlane, CbPlane, CrPlane: TCnFloatMatrix);
+    {* ÅúÁ¿×ª»»Õû¸öÎ»Í¼µ½ YCbCr ÑÕÉ«¿Õ¼ä¡£
+
+       Source Ô´Î»Í¼£¨24 Î» RGB£©
+       YPlane Êä³ö Y Í¨µÀ¾ØÕó
+       CbPlane Êä³ö Cb Í¨µÀ¾ØÕó
+       CrPlane Êä³ö Cr Í¨µÀ¾ØÕó
+    }
+
+    procedure ConvertYCbCrToBitmap(YPlane, CbPlane, CrPlane: TCnFloatMatrix;
+      Dest: TBitmap);
+    {* ÅúÁ¿×ª»» YCbCr Êý¾Ýµ½Î»Í¼¡£
+
+       YPlane Y Í¨µÀ¾ØÕó
+       CbPlane Cb Í¨µÀ¾ØÕó
+       CrPlane Cr Í¨µÀ¾ØÕó
+       Dest Êä³öÎ»Í¼£¨24 Î» RGB£©
+    }
+
+    procedure ExtractYChannel(Source: TBitmap; YPlane: TCnFloatMatrix);
+    {* ÌáÈ¡Î»Í¼µÄ Y Í¨µÀ£¨ÁÁ¶ÈÍ¨µÀ£©¡£
+
+       Source Ô´Î»Í¼£¨24 Î» RGB£©
+       YPlane Êä³ö Y Í¨µÀ¾ØÕó
+    }
+  end;
+
 procedure FreeBmpDC;
 {* ÊÍ·Å³ÌÐòÖÐËùÓÐÎ»Í¼ÒÑ·ÖÅäµÄ DC ¾ä±ú}
 procedure FreeBmpHandle(All: Boolean);
@@ -1321,9 +1384,9 @@ type
 var
   BitmapList: TThreadList;    // TCnBitmap Î»Í¼ÁÐ±í
   CnCanvasList: TThreadList;  // TCnCanvas ÁÐ±í
-  GdiActTimer: TTimer;        // GDI×ÊÔ´ÊÍ·Å¶¨Ê±Æ÷
-  DefGdiAllocStyle: TGdiAllocStyle = gsNormal; // Ä¬ÈÏGDIÊÍ·Å·½Ê½
-  FreeGdiWaitTime: Cardinal = 3000; // ×Ô¶¯ÊÍ·ÅGDI×ÊÔ´µÈ´ýÊ±¼ä
+  GdiActTimer: TTimer;        // GDI ×ÊÔ´ÊÍ·Å¶¨Ê±Æ÷
+  DefGdiAllocStyle: TGdiAllocStyle = gsNormal; // Ä¬ÈÏ GDI ÊÍ·Å·½Ê½
+  FreeGdiWaitTime: Cardinal = 3000; // ×Ô¶¯ÊÍ·Å GDI ×ÊÔ´µÈ´ýÊ±¼ä
 
 const
   FreeGdiInterval: Cardinal = 1000; // ×Ô¶¯ÊÍ·ÅGDI×ÊÔ´¶¨Ê±¼ä¸ô
@@ -1771,7 +1834,8 @@ begin
   case Index of
     0: Result := 'Color';
     1: Result := 'Position';
-  else Result := inherited GetAttr(Index);
+  else
+    Result := inherited GetAttr(Index);
   end;
 end;
 
@@ -3175,7 +3239,7 @@ end;
 
 {$WARNINGS ON}
 
-//--------------------------------------------------------//
+//-------------------------------------------------------//
 // ÏñËØ·ÃÎÊÓÃ´úÂë                                         //
 // Ëã·¨Éè¼Æ£ºÖÜ¾¢Óð                                       //
 //--------------------------------------------------------//
@@ -7424,6 +7488,220 @@ begin
   finally
     with AControl.Parent do
       ControlState := ControlState - [csPaintCopy];
+  end;
+end;
+
+{ TCnColorSpaceConverter }
+
+constructor TCnColorSpaceConverter.Create;
+begin
+  inherited Create;
+end;
+
+destructor TCnColorSpaceConverter.Destroy;
+begin
+  inherited Destroy;
+end;
+
+function TCnColorSpaceConverter.ClipByte(Value: Double): Byte;
+begin
+  if Value < 0 then
+    Result := 0
+  else if Value > 255 then
+    Result := 255
+  else
+    Result := Round(Value);
+end;
+
+procedure TCnColorSpaceConverter.RGBToYCbCr(const R, G, B: Byte;
+  out Y, Cb, Cr: Byte);
+var
+  YVal, CbVal, CrVal: Double;
+begin
+  // ITU-R BT.601 ±ê×¼×ª»»¹«Ê½
+  // Y  =  0.299*R + 0.587*G + 0.114*B
+  // Cb = -0.169*R - 0.331*G + 0.500*B + 128
+  // Cr =  0.500*R - 0.419*G - 0.081*B + 128
+
+  YVal := 0.299 * R + 0.587 * G + 0.114 * B;
+  CbVal := -0.169 * R - 0.331 * G + 0.500 * B + 128;
+  CrVal := 0.500 * R - 0.419 * G - 0.081 * B + 128;
+
+  Y := ClipByte(YVal);
+  Cb := ClipByte(CbVal);
+  Cr := ClipByte(CrVal);
+end;
+
+procedure TCnColorSpaceConverter.YCbCrToRGB(const Y, Cb, Cr: Byte;
+  out R, G, B: Byte);
+var
+  RVal, GVal, BVal: Double;
+  CbAdj, CrAdj: Double;
+begin
+  // ITU-R BT.601 Äæ×ª»»¹«Ê½
+  // R = Y + 1.402 * (Cr - 128)
+  // G = Y - 0.344 * (Cb - 128) - 0.714 * (Cr - 128)
+  // B = Y + 1.772 * (Cb - 128)
+
+  CbAdj := Cb - 128;
+  CrAdj := Cr - 128;
+
+  RVal := Y + 1.402 * CrAdj;
+  GVal := Y - 0.344 * CbAdj - 0.714 * CrAdj;
+  BVal := Y + 1.772 * CbAdj;
+
+  R := ClipByte(RVal);
+  G := ClipByte(GVal);
+  B := ClipByte(BVal);
+end;
+
+procedure TCnColorSpaceConverter.ConvertBitmapToYCbCr(Source: TBitmap;
+  YPlane, CbPlane, CrPlane: TCnFloatMatrix);
+var
+  X, Y: Integer;
+  P: PByte;
+  R, G, B: Byte;
+  YVal, CbVal, CrVal: Byte;
+  W, H: Integer;
+begin
+  if (Source = nil) or Source.Empty then
+    Exit;
+
+  // È·±£Î»Í¼¸ñÊ½Îª 24 Î»
+  if Source.PixelFormat <> pf24bit then
+    Source.PixelFormat := pf24bit;
+
+  W := Source.Width;
+  H := Source.Height;
+
+  // µ÷Õû¾ØÕó´óÐ¡
+  YPlane.RowCount := H;
+  YPlane.ColCount := W;
+  CbPlane.RowCount := H;
+  CbPlane.ColCount := W;
+  CrPlane.RowCount := H;
+  CrPlane.ColCount := W;
+
+  // ÖðÏñËØ×ª»»
+  for Y := 0 to H - 1 do
+  begin
+    P := Source.ScanLine[Y];
+    for X := 0 to W - 1 do
+    begin
+      // ¶ÁÈ¡ BGR Ë³Ðò£¨Windows Î»Í¼¸ñÊ½£©
+      B := P^;
+      Inc(P);
+      G := P^;
+      Inc(P);
+      R := P^;
+      Inc(P);
+
+      // ×ª»»µ½ YCbCr
+      RGBToYCbCr(R, G, B, YVal, CbVal, CrVal);
+
+      // ´æ´¢µ½¾ØÕó£¨×¢Òâ£º¾ØÕóË÷ÒýÊÇ [Col, Row]£©
+      YPlane[X, Y] := YVal;
+      CbPlane[X, Y] := CbVal;
+      CrPlane[X, Y] := CrVal;
+    end;
+  end;
+end;
+
+procedure TCnColorSpaceConverter.ConvertYCbCrToBitmap(YPlane, CbPlane,
+  CrPlane: TCnFloatMatrix; Dest: TBitmap);
+var
+  X, Y: Integer;
+  P: PByte;
+  R, G, B: Byte;
+  YVal, CbVal, CrVal: Byte;
+  W, H: Integer;
+begin
+  if (YPlane = nil) or (CbPlane = nil) or (CrPlane = nil) or (Dest = nil) then
+    Exit;
+
+  // ¼ì²é¾ØÕó³ß´çÒ»ÖÂÐÔ
+  if (YPlane.RowCount <> CbPlane.RowCount) or
+     (YPlane.RowCount <> CrPlane.RowCount) or
+     (YPlane.ColCount <> CbPlane.ColCount) or
+     (YPlane.ColCount <> CrPlane.ColCount) then
+    raise Exception.Create('YCbCr planes must have the same dimensions');
+
+  W := YPlane.ColCount;
+  H := YPlane.RowCount;
+
+  // ÉèÖÃÎ»Í¼´óÐ¡ºÍ¸ñÊ½
+  Dest.PixelFormat := pf24bit;
+  Dest.Width := W;
+  Dest.Height := H;
+
+  // ÖðÏñËØ×ª»»
+  for Y := 0 to H - 1 do
+  begin
+    P := Dest.ScanLine[Y];
+    for X := 0 to W - 1 do
+    begin
+      // ´Ó¾ØÕó¶ÁÈ¡ YCbCr Öµ
+      YVal := ClipByte(YPlane[X, Y]);
+      CbVal := ClipByte(CbPlane[X, Y]);
+      CrVal := ClipByte(CrPlane[X, Y]);
+
+      // ×ª»»µ½ RGB
+      YCbCrToRGB(YVal, CbVal, CrVal, R, G, B);
+
+      // Ð´Èë BGR Ë³Ðò£¨Windows Î»Í¼¸ñÊ½£©
+      P^ := B;
+      Inc(P);
+      P^ := G;
+      Inc(P);
+      P^ := R;
+      Inc(P);
+    end;
+  end;
+end;
+
+procedure TCnColorSpaceConverter.ExtractYChannel(Source: TBitmap;
+  YPlane: TCnFloatMatrix);
+var
+  X, Y: Integer;
+  P: PByte;
+  R, G, B: Byte;
+  YVal, CbVal, CrVal: Byte;
+  W, H: Integer;
+begin
+  if (Source = nil) or Source.Empty then
+    Exit;
+
+  // È·±£Î»Í¼¸ñÊ½Îª 24 Î»
+  if Source.PixelFormat <> pf24bit then
+    Source.PixelFormat := pf24bit;
+
+  W := Source.Width;
+  H := Source.Height;
+
+  // µ÷Õû¾ØÕó´óÐ¡
+  YPlane.RowCount := H;
+  YPlane.ColCount := W;
+
+  // ÖðÏñËØÌáÈ¡ Y Í¨µÀ
+  for Y := 0 to H - 1 do
+  begin
+    P := Source.ScanLine[Y];
+    for X := 0 to W - 1 do
+    begin
+      // ¶ÁÈ¡ BGR Ë³Ðò
+      B := P^;
+      Inc(P);
+      G := P^;
+      Inc(P);
+      R := P^;
+      Inc(P);
+
+      // Ö»¼ÆËã Y ·ÖÁ¿£¨²»ÐèÒª Cb ºÍ Cr£©
+      RGBToYCbCr(R, G, B, YVal, CbVal, CrVal);
+
+      // ´æ´¢ Y Öµµ½¾ØÕó
+      YPlane[X, Y] := YVal;
+    end;
   end;
 end;
 

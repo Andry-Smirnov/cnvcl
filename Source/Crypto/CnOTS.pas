@@ -1458,7 +1458,7 @@ begin
   begin
     // 检查掩码索引是否有效
     if I > High(Masks) then
-      raise Exception.Create(SCnErrorOTSInvalidParam);
+      raise ECnOTSException.Create(SCnErrorOTSInvalidParam);
 
     // WOTS+ 核心：KeyHash(k, x) = Hash(k ⊕ x)
     // 注意：这里使用掩码作为密钥，与当前值异或
@@ -1601,7 +1601,7 @@ begin
         C[I], Mask, CN_WOTS_PLUS_W - 1 - C[I]);
 
     // 比较计算出的公钥和提供的公钥
-    Result := CompareMem(@ComputedPublicKey[0], @PublicKey[0],
+    Result := ConstTimeCompareMem(@ComputedPublicKey[0], @PublicKey[0],
       SizeOf(TCnWOTSPlusSM3PublicKey));
   except
     Result := False;
@@ -1650,7 +1650,7 @@ begin
   begin
     // 检查掩码索引是否有效
     if I > High(Masks) then
-      raise Exception.Create(SCnErrorOTSInvalidParam);
+      raise ECnOTSException.Create(SCnErrorOTSInvalidParam);
 
     // WOTS+ 核心：KeyHash(k, x) = Hash(k ⊕ x)
     // 注意：这里使用掩码作为密钥，与当前值异或
@@ -1793,7 +1793,7 @@ begin
         C[I], Mask, CN_WOTS_PLUS_W - 1 - C[I]);
 
     // 比较计算出的公钥和提供的公钥
-    Result := CompareMem(@ComputedPublicKey[0], @PublicKey[0],
+    Result := ConstTimeCompareMem(@ComputedPublicKey[0], @PublicKey[0],
       SizeOf(TCnWOTSPlusSHA256PublicKey));
   except
     Result := False;

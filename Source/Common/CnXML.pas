@@ -33,7 +33,9 @@ unit CnXML;
 * 开发平台：PWin7Pro + Delphi 5.01
 * 兼容测试：PWin7/10+ Delphi 5~最新、FPC
 * 本 地 化：该单元中的字符串均符合本地化处理方式
-* 修改记录：2026.01.15 V1.0
+* 修改记录：2026.02.25 V1.1
+*                躲过 Delphi 5 关于 Set 的转换 Bug
+*           2026.01.15 V1.0
 *                创建单元，在 AI 的帮助下实现功能
 ================================================================================
 |</PRE>}
@@ -1023,6 +1025,10 @@ end;
 //==============================================================================
 
 constructor TCnXMLLexer.Create(const ASource: string);
+{$IFDEF UNICODE}
+var
+  I: Integer;
+{$ENDIF}
 begin
   inherited Create;
   FSource := ASource;
@@ -1035,10 +1041,16 @@ begin
 {$IFDEF UNICODE}
   // In Unicode Delphi, string is UnicodeString (UTF-16)
   // Check for UTF-16 BOM (FEFF/FFFE for LE/BE) or UTF-8 BOM that wasn't stripped
-  if (FLength >= 1) and ((FSource[1] = #$FEFF) or (FSource[1] = #$FFFE)) then
+  if (FLength >= 1) and (FSource[1] = #$FEFF) then
     FPosition := 1
+  else if (FLength >= 1) and (FSource[1] = #$FFFE) then
+  begin
+    // UTF-16 BE, Exchange each WideChar
+    for I := 2 to FLength do
+      FSource[I] := Char(Swap(Ord(FSource[I])));
+  end
   else if (FLength >= 3) and
-          (FSource[1] = #$EF) and (FSource[2] = #$BB) and (FSource[3] = #$BF) then
+    (FSource[1] = #$EF) and (FSource[2] = #$BB) and (FSource[3] = #$BF) then
     FPosition := 3;
 {$ELSE}
   // In non-Unicode Delphi/FPC, string is AnsiString
@@ -3114,6 +3126,9 @@ var
   PropObj: TObject;
   PropValue: string;
   ChildNode: TCnXMLElement;
+{$IFDEF COMPILER5}
+  S: TIntegerSet;
+{$ENDIF}
 begin
   PropCount := GetTypeData(Obj.ClassInfo)^.PropCount;
   if PropCount = 0 then
@@ -3158,7 +3173,13 @@ begin
 
         tkSet:
           begin
-            PropValue := GetSetProp(Obj, string(PropInfo.Name));
+{$IFDEF COMPILER5}
+            // Delphi 5 has Bug to Get [] String Value with some [[True], seXXXX], using Integer
+            Integer(S) := GetOrdProp(Obj, string(PropInfo.Name));
+            PropValue := IntToStr(Integer(S));
+{$ELSE}
+            PropValue := GetSetProp(Obj, string(PropInfo.Name), True); // with []
+{$ENDIF}
             // Store as child element for compatibility
             ChildNode := FDocument.CreateElement(string(PropInfo.Name));
             ChildNode.AppendChild(FDocument.CreateTextNode(PropValue));
@@ -3314,6 +3335,7 @@ procedure TCnXMLReader.SetPropertyValue(Obj: TPersistent; const PropName, PropVa
 var
   ConvertedValue: string;
   B: Boolean;
+  S: Integer;
 begin
   case PProp.PropType^.Kind of
     tkEnumeration:
@@ -3338,8 +3360,20 @@ begin
           SetEnumProp(Obj, PropName, PropValue);
       end;
     tkSet:
-      SetSetProp(Obj, PropName, PropValue);
-    else
+      begin
+{$IFDEF COMPILER5}
+        if PropValue = '' then // Empty will cause AV under D5, using []
+        begin
+          SetSetProp(Obj, PropName, '[]');
+          Exit;
+        end;
+{$ENDIF}
+        if CnXMLStrToInt(PropValue, Integer(S)) then // We may store Set as Integer under D5 for its bug
+          SetOrdProp(Obj, PropName, S)
+        else
+          SetSetProp(Obj, PropName, PropValue);
+      end;
+  else
       SetPropValue(Obj, PropName, PropValue);
   end;
 end;

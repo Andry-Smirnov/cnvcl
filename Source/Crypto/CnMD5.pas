@@ -798,7 +798,7 @@ begin
             end
             else
             begin
-              raise Exception.Create(SCnErrorMapViewOfFile + IntToStr(GetLastError));
+              raise ECnNativeException.Create(SCnErrorMapViewOfFile + IntToStr(GetLastError));
             end;
           finally
             CloseHandle(MapHandle);
@@ -807,7 +807,7 @@ begin
         else
         begin
           if not FileIsZeroSize then
-            raise Exception.Create(SCnErrorCreateFileMapping + IntToStr(GetLastError));
+            raise ECnNativeException.Create(SCnErrorCreateFileMapping + IntToStr(GetLastError));
         end;
       finally
         CloseHandle(FileHandle);
@@ -834,7 +834,7 @@ end;
 // 比较两个 MD5 杂凑值是否相等
 function MD5Match(const D1, D2: TCnMD5Digest): Boolean;
 begin
-  Result := CompareMem(@D1[0], @D2[0], SizeOf(TCnMD5Digest));
+  Result := ConstTimeCompareMem(@D1[0], @D2[0], SizeOf(TCnMD5Digest));
 end;
 
 // MD5 杂凑值转 string

@@ -28,6 +28,14 @@ unit CnFmxUtils;
 *           本单元不使用 VCL 的 TControl 框架，只使用 FMX 的。
 *           其他单元均只使用 VCL 的 TControl 框架，如需进行 FMX 的相关操作，
 *           便需要跳入此单元，以实现俩框架隔离的目的。
+*
+*           注意，由于 FMX 框架一直在升级，部分兼容代码较为复杂，比如字体相关：
+*
+*   XE2/3，继承于 FMX.Controls 里的 TTextControl 的组件有 Font属性，没 ParentFont 控制。
+*   XE4/5，继承于 FMX.Controls 里的 TTextControl 的组件有 Font属性，有 StyledSettings 可模拟 ParentFont，StyledSettings 类型 ss 开头
+*   XE6/7，继承于 FMX.Controls 里的 TTextControl 的组件有 TextSettings.Font 属性，有 StyledSettings 可模拟 ParentFont，StyledSettings 类型不用 ss 开头
+*   XE8/~，继承于 FMX.StdCtrls 里的 TPresentedTextControl 的组件有 TextSettings.Font 属性，有 StyledSettings 可模拟 ParentFont，之后走上正规没变了。
+*
 * 开发平台：WinXP + Delphi XE2
 * 兼容测试：PWin9X/2000/XP + Delphi 5/6/7 + C++Builder 5/6
 * 本 地 化：该单元中的字符串均符合本地化处理方式
@@ -43,7 +51,8 @@ interface
 uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.Variants,
   FMX.Types, {$IFDEF FMX_HAS_GRAPHICS} FMX.Graphics, {$ENDIF} FMX.Controls, FMX.Forms,
-  FMX.Dialogs, FMX.Grid, FMX.Platform.Win;
+  FMX.Dialogs, FMX.Grid {$IFDEF DELPHIXE8_UP}, FMX.StdCtrls {$ENDIF}
+  {$IFDEF MSWINDOWS}, FMX.Platform.Win {$ENDIF} {$IFDEF MACOS}, FMX.Platform.Mac {$ENDIF};
 
 type
   TCnFmxPosType = (fptLeft, fptTop, fptRight, fptBottom, fptWidth, fptHeight);
@@ -146,6 +155,9 @@ procedure CnFmxGetScreenFormsWithClassName(const ClsName: string; OutForms: TLis
 function CnFmxGetFmxApplication: TComponent;
 {* 返回 FMX 框架里的 Application 实例}
 
+function CnFmxGetFmxScreen: TComponent;
+{* 返回 FMX 框架里的 Screen 实例}
+
 function CnFmxGetWindowPlatformHandle(AComp: TComponent): THandle;
 {* 返回 FMX 框架里的封装的 Window Handle，如 AComp 不是相关类则返回 0}
 
@@ -166,6 +178,22 @@ function CnFmxGetScreenFormCount: Integer;
 
 function CnFmxGetScreenForms(Index: Integer): TCommonCustomForm;
 {* 获取 Screen 的第 Index 个 Form}
+
+function CnFmxGetControlIsParentFont(AControl: TComponent): Boolean;
+{* 获取 FMX Control 是否 ParentFont，封装 StyledSettings 的处理，
+  注意不支持文字会返回 True，表示自身不处理}
+
+procedure CnFmxSetControlIsParentFont(AControl: TComponent; AParentFont: Boolean);
+{* 设置 FMX Control 是否 ParentFont，封装 StyledSettings 的处理}
+
+function CnFmxGetControlFont(AControl: TComponent): TFont;
+{* 获取 FMX Control 的 Font}
+
+procedure CnFmxSetControlFont(AControl: TComponent; AFont: TFont);
+{* 设置 FMX Control 的 Font}
+
+function CnFmxGetControlParentFont(AControl: TComponent): TFont;
+{* 获取 FMX Control 的 Parent 的 Font}
 
 implementation
 
@@ -677,12 +705,21 @@ begin
   Result := Application;
 end;
 
+function CnFmxGetFmxScreen: TComponent;
+begin
+  Result := Screen;
+end;
+
 function CnFmxGetWindowPlatformHandle(AComp: TComponent): THandle;
 begin
   if AComp is TCommonCustomForm then
   begin
 {$IFDEF DELPHIXE4_UP}
+  {$IFDEF MACOS}
+    Result := THandle(WindowHandleToPlatform(TCommonCustomForm(AComp).Handle).Wnd);
+  {$ELSE}
     Result := WindowHandleToPlatform(TCommonCustomForm(AComp).Handle).Wnd;
+  {$ENDIF}
 {$ELSE}
     Result := FmxHandleToHWND(TCommonCustomForm(AComp).Handle);
 {$ENDIF}
@@ -751,6 +788,94 @@ end;
 function CnFmxGetScreenForms(Index: Integer): TCommonCustomForm;
 begin
   Result := Screen.Forms[Index];
+end;
+
+type
+{$IFDEF DELPHIXE8_UP}
+  TCnFmxControlHasFont = TPresentedTextControl;
+{$ELSE}
+  TCnFmxControlHasFont = TTextControl;
+{$ENDIF}
+
+function CnFmxGetControlIsParentFont(AControl: TComponent): Boolean;
+begin
+  if AControl.InheritsFrom(TCnFmxControlHasFont) then
+  begin
+{$IFDEF DELPHIXE4_UP}
+  {$IFDEF DELPHIXE6_UP}
+    Result := [TStyledSetting.Family, TStyledSetting.Size, TStyledSetting.Style,
+      TStyledSetting.FontColor] >= TCnFmxControlHasFont(AControl).StyledSettings;
+  {$ELSE}
+    Result := [TStyledSetting.ssFamily, TStyledSetting.ssSize, TStyledSetting.ssStyle,
+      TStyledSetting.ssFontColor] >= TCnFmxControlHasFont(AControl).StyledSettings;
+  {$ENDIF}
+{$ELSE}
+    Result := True;
+{$ENDIF}
+  end
+  else
+    Result := True;
+end;
+
+procedure CnFmxSetControlIsParentFont(AControl: TComponent; AParentFont: Boolean);
+begin
+  if AControl.InheritsFrom(TCnFmxControlHasFont) then
+  begin
+{$IFDEF DELPHIXE4_UP}
+  {$IFDEF DELPHIXE6_UP}
+    TCnFmxControlHasFont(AControl).StyledSettings := TCnFmxControlHasFont(AControl).StyledSettings +
+     [TStyledSetting.Family, TStyledSetting.Size, TStyledSetting.Style, TStyledSetting.FontColor];
+  {$ELSE}
+    TCnFmxControlHasFont(AControl).StyledSettings := TCnFmxControlHasFont(AControl).StyledSettings +
+     [TStyledSetting.ssFamily, TStyledSetting.ssSize, TStyledSetting.ssStyle, TStyledSetting.ssFontColor];
+  {$ENDIF}
+{$ENDIF}
+  end;
+end;
+
+function CnFmxGetControlFont(AControl: TComponent): TFont;
+begin
+  if AControl.InheritsFrom(TCnFmxControlHasFont) then
+  begin
+{$IFDEF DELPHIXE6_UP}
+    Result := TCnFmxControlHasFont(AControl).TextSettings.Font;
+{$ELSE}
+    Result := TCnFmxControlHasFont(AControl).Font;
+{$ENDIF}
+  end
+  else
+    Result := nil;
+end;
+
+procedure CnFmxSetControlFont(AControl: TComponent; AFont: TFont);
+begin
+  if AControl.InheritsFrom(TCnFmxControlHasFont) then
+  begin
+{$IFDEF DELPHIXE6_UP}
+    TCnFmxControlHasFont(AControl).TextSettings.Font := AFont;
+{$ELSE}
+    TCnFmxControlHasFont(AControl).Font := AFont;
+{$ENDIF}
+  end;
+end;
+
+function CnFmxGetControlParentFont(AControl: TComponent): TFont;
+var
+  P: TFmxObject;
+begin
+  Result := nil;
+  if AControl.InheritsFrom(TControl) then
+  begin
+    P := TControl(AControl).Parent;
+    if (P <> nil) and P.InheritsFrom(TCnFmxControlHasFont) then
+    begin
+{$IFDEF DELPHIXE6_UP}
+      Result := TCnFmxControlHasFont(P).TextSettings.Font;
+{$ELSE}
+      Result := TCnFmxControlHasFont(P).Font;
+{$ENDIF}
+    end;
+  end;
 end;
 
 procedure CreateFmxSetFixArray;

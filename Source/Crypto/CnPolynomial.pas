@@ -99,7 +99,7 @@ type
     destructor Destroy; override;
     {* 析构函数}
 
-    procedure SetCoefficents(LowToHighCoefficients: array of const);
+    procedure SetCoefficients(LowToHighCoefficients: array of const);
     {* 一次批量设置从低到高的系数。
 
        参数：
@@ -387,7 +387,7 @@ type
     destructor Destroy; override;
     {* 析构函数}
 
-    procedure SetCoefficents(LowToHighCoefficients: array of const);
+    procedure SetCoefficients(LowToHighCoefficients: array of const);
     {* 一次批量设置从低到高的系数。
 
        参数：
@@ -474,6 +474,51 @@ type
 
     property MaxDegree: Integer read GetMaxDegree write SetMaxDegree;
     {* 最高次数，0 开始}
+  end;
+
+  TCnBigNumberPolynomialList = class(TObjectList)
+  {* 容纳一元大整系数多项式的对象列表，同时拥有一元大整系数多项式对象们}
+  private
+
+  protected
+    function GetItem(Index: Integer): TCnBigNumberPolynomial;
+    procedure SetItem(Index: Integer; APoly: TCnBigNumberPolynomial);
+  public
+    constructor Create; reintroduce;
+    {* 构造函数}
+    destructor Destroy; override;
+    {* 析构函数}
+
+    function Add: TCnBigNumberPolynomial; overload;
+    {* 新增一个一元大整系数多项式对象，返回该对象。
+       注意添加后返回的对象已由列表纳入管理，无需也不应手动释放。
+
+       参数：
+         （无）
+
+       返回值：TCnBigNumberPolynomial  - 内部新增的多项式对象
+    }
+
+    function Add(APoly: TCnBigNumberPolynomial): Integer; overload;
+    {* 添加外部的一元大整系数多项式对象。注意添加后该对象由列表纳入管理，无需也不应手动释放。
+
+       参数：
+         APoly: TCnBigNumberPolynomial   - 待添加的一元大整系数多项式对象
+
+       返回值：Integer                   - 新增的该一元大整系数多项式对象的索引值
+    }
+
+    function ToString: string; {$IFDEF OBJECT_HAS_TOSTRING} override; {$ENDIF}
+    {* 将一元大整系数多项式列表转成字符串。
+
+       参数：
+         （无）
+
+       返回值：string                     - 返回字符串
+    }
+
+    property Items[Index: Integer]: TCnBigNumberPolynomial read GetItem write SetItem; default;
+    {* 一元大整系数多项式列表项}
   end;
 
   TCnBigNumberPolynomialPool = class(TCnMathObjectPool)
@@ -624,7 +669,7 @@ type
     destructor Destroy; override;
     {* 析构函数}
 
-    procedure SetCoefficents(LowToHighCoefficients: array of const);
+    procedure SetCoefficients(LowToHighCoefficients: array of const);
     {* 一次批量设置从低到高的系数。
 
        参数：
@@ -749,7 +794,7 @@ type
     destructor Destroy; override;
     {* 析构函数}
 
-    procedure SetCoefficents(LowToHighCoefficients: array of const);
+    procedure SetCoefficients(LowToHighCoefficients: array of const);
     {* 一次性设置所有从低到高的系数
 
        参数：
@@ -2844,6 +2889,45 @@ function BigNumberPolynomialMod(Res: TCnBigNumberPolynomial; P: TCnBigNumberPoly
    返回值：Boolean                        - 返回是否计算成功
 }
 
+function BigNumberPolynomialMulTrunc(Res: TCnBigNumberPolynomial;
+  P1, P2: TCnBigNumberPolynomial; MaxDegree: Integer): Boolean;
+{* 计算大整数系数多项式的截断乘法，也即结果保留最高到 MaxDegree 次幂。
+
+   参数：
+     Res: TCnBigNumberPolynomial          - 返回计算出的大整数系数多项式
+     P1, P2: TCnBigNumberPolynomial       - 乘数多项式
+     MaxDegree: Integer                   - 截断最大次数
+
+   返回值：Boolean                        - 计算是否成功
+}
+
+function BigNumberPolynomialPowerTrunc(Res: TCnBigNumberPolynomial; P: TCnBigNumberPolynomial;
+  Exponent: TCnBigNumber; MaxDegree: Integer): Boolean;
+{* 计算大整数系数多项式的截断幂运算，也即结果保留最高到 MaxDegree 次幂。
+
+   参数：
+     Res: TCnBigNumberPolynomial          - 返回计算出的大整数系数多项式
+     P: TCnBigNumberPolynomial            - 底数多项式
+     Exponent: TCnBigNumber               - 指数
+     MaxDegree: Integer                   - 截断最大次数
+
+   返回值：Boolean                        - 计算是否成功
+}
+
+function BigNumberPolynomialInverseTrunc(Res: TCnBigNumberPolynomial;
+  P: TCnBigNumberPolynomial; MaxDegree: Integer): Boolean;
+{* 计算一元大数系数多项式对于多项式 x^(MaxDegree+1) 的模逆多项式的截断。
+   也即结果保留最高到 MaxDegree 次幂，内部使用前向代入递推法。
+   注意：目前只支持常数项 P[0] 为 1 或 -1 的情况
+
+   参数：
+     Res: TCnBigNumberPolynomial          - 返回计算出的一元大数系数多项式
+     P: TCnBigNumberPolynomial            - 原多项式
+     MaxDegree: Integer                   - 截断次数
+
+   返回值：Boolean                        - 计算是否成功
+}
+
 function BigNumberPolynomialPower(Res: TCnBigNumberPolynomial;
   P: TCnBigNumberPolynomial; Exponent: TCnBigNumber): Boolean;
 {* 计算一元大整系数多项式的 Exponent 次幂，返回是否计算成功，Res 可以是 P。
@@ -3337,6 +3421,35 @@ procedure BigNumberPolynomialGaloisReduce2(P1: TCnBigNumberPolynomial;
    参数：
      P1: TCnBigNumberPolynomial           - 待约分的一元大整系数多项式一
      P2: TCnBigNumberPolynomial           - 待约分的一元大整系数多项式二
+     Prime: TCnBigNumber                  - 有限域上界
+
+   返回值：（无）
+}
+
+procedure BigNumberPolynomialDerivative(Res: TCnBigNumberPolynomial;
+  P: TCnBigNumberPolynomial);
+{* 计算一元大整系数多项式的形式导数 dP/dX。
+   若 P(x) = a_n*x^n + ... + a_1*x + a_0，则 P'(x) = n*a_n*x^(n-1) + ... + a_1。
+   零多项式和常数多项式的导数为零多项式。
+   Res 可以是 P（原地计算）。
+
+   参数：
+     Res: TCnBigNumberPolynomial          - 用来容纳结果的一元大整系数多项式
+     P: TCnBigNumberPolynomial            - 待求导的一元大整系数多项式
+
+   返回值：（无）
+}
+
+procedure BigNumberPolynomialGaloisDerivative(Res: TCnBigNumberPolynomial;
+  P: TCnBigNumberPolynomial; Prime: TCnBigNumber);
+{* 计算一元大整系数多项式在 Prime 次方阶有限域上的形式导数 dP/dX。
+   若 P(x) = a_n*x^n + ... + a_1*x + a_0，则 P'(x) = n*a_n*x^(n-1) + ... + a_1。
+   各系数结果自动取 mod Prime。零多项式和常数多项式的导数为零多项式。
+   Res 可以是 P（原地计算）。
+
+   参数：
+     Res: TCnBigNumberPolynomial          - 用来容纳结果的一元大整系数多项式
+     P: TCnBigNumberPolynomial            - 待求导的一元大整系数多项式
      Prime: TCnBigNumber                  - 有限域上界
 
    返回值：（无）
@@ -4626,8 +4739,6 @@ type
        返回值：Boolean                    - 返回是否全 0
     }
 
-    property YFactorsList[Index: Integer]: TCnSparseBigNumberList read GetYFactorsList;
-    {* 封装的对 X 的 Index 次项的 Y 系数列表，FXs[Index] 为 nil 时会自动创建出来，FXs.Count 不够时会自动扩容}
     procedure Clear;
     {* 内部清空所有数据，只给 FXs[0] 留一个 List，一般不对外使用}
   public
@@ -4762,6 +4873,9 @@ type
       设置后能保证新增的每个 XDegree，其对应的 SparseBigNumberList 都存在}
     property MaxYDegree: Integer read GetMaxYDegree write SetMaxYDegree;
     {* X 元的最高次数，0 开始，基于 Count 所以只能是 Integer}
+
+    property YFactorsList[Index: Integer]: TCnSparseBigNumberList read GetYFactorsList;
+    {* 封装的对 X 的 Index 次项的 Y 系数列表，FXs[Index] 为 nil 时会自动创建出来，FXs.Count 不够时会自动扩容}
 
     property SafeValue[XDegree, YDegree: Integer]: TCnBigNumber read GetSafeValue write SetSafeValue;
     {* 安全的读写系数方法，读不存在时返回 0。写不存在时自动扩展并内部复制大数值}
@@ -5600,7 +5714,7 @@ end;
 constructor TCnInt64Polynomial.Create(LowToHighCoefficients: array of const);
 begin
   inherited Create;
-  SetCoefficents(LowToHighCoefficients);
+  SetCoefficients(LowToHighCoefficients);
 end;
 
 destructor TCnInt64Polynomial.Destroy;
@@ -5654,7 +5768,7 @@ begin
   Items[Degree] := Coefficient;
 end;
 
-procedure TCnInt64Polynomial.SetCoefficents(LowToHighCoefficients: array of const);
+procedure TCnInt64Polynomial.SetCoefficients(LowToHighCoefficients: array of const);
 var
   I: Integer;
 begin
@@ -6130,13 +6244,15 @@ begin
     M := 1 shl M; // 得到比 M 大的最小的 2 的整数次幂
   end;
 
-  M1 := GetMemory(M * SizeOf(TCnComplexNumber));
-  M2 := GetMemory(M * SizeOf(TCnComplexNumber));
-
-  C1 := PCnComplexArray(M1);
-  C2 := PCnComplexArray(M2);
-
+  M1 := nil;
+  M2 := nil;
   try
+    GetMem(M1, M * SizeOf(TCnComplexNumber));
+    GetMem(M2, M * SizeOf(TCnComplexNumber));
+
+    C1 := PCnComplexArray(M1);
+    C2 := PCnComplexArray(M2);
+
     for I := 0 to M - 1 do
     begin
       ComplexNumberSetZero(C1^[I]);
@@ -6169,8 +6285,8 @@ begin
 
     Res.CorrectTop;
   finally
-    FreeMemory(M1);
-    FreeMemory(M2);
+    if M1 <> nil then FreeMem(M1);
+    if M2 <> nil then FreeMem(M2);
   end;
 end;
 
@@ -6215,13 +6331,15 @@ begin
     M := 1 shl M; // 得到比 M 大的最小的 2 的整数次幂
   end;
 
-  M1 := GetMemory(M * SizeOf(Int64));
-  M2 := GetMemory(M * SizeOf(Int64));
-
-  C1 := PInt64Array(M1);
-  C2 := PInt64Array(M2);
-
+  M1 := nil;
+  M2 := nil;
   try
+    GetMem(M1, M * SizeOf(Int64));
+    GetMem(M2, M * SizeOf(Int64));
+
+    C1 := PInt64Array(M1);
+    C2 := PInt64Array(M2);
+
     for I := 0 to M - 1 do
     begin
       C1^[I] := 0;
@@ -6249,8 +6367,8 @@ begin
 
     Res.CorrectTop;
   finally
-    FreeMemory(M1);
-    FreeMemory(M2);
+    if M1 <> nil then FreeMem(M1);
+    if M2 <> nil then FreeMem(M2);
   end;
 end;
 
@@ -6342,7 +6460,7 @@ var
 begin
   if Exponent = 0 then
   begin
-    Res.SetCoefficents([1]);
+    Res.SetCoefficients([1]);
     Result := True;
     Exit;
   end
@@ -6361,7 +6479,7 @@ begin
 
   try
     // 二进制形式快速计算 T 的次方，值给 Res
-    Res.SetCoefficents([1]);
+    Res.SetCoefficients([1]);
     while Exponent > 0 do
     begin
       if (Exponent and 1) <> 0 then
@@ -6459,7 +6577,7 @@ begin
     if (A.MaxDegree = 0) and (B.MaxDegree = 0) then
     begin
       GcdValue := CnInt64GreatestCommonDivisor(A[0], B[0]);
-      Res.SetCoefficents([GcdValue]);
+      Res.SetCoefficients([GcdValue]);
       Result := True;
       Exit;
     end;
@@ -6838,7 +6956,7 @@ var
 begin
   if Exponent128IsZero(Exponent, ExponentHi) then
   begin
-    Res.SetCoefficents([1]);
+    Res.SetCoefficients([1]);
     Result := True;
     Exit;
   end
@@ -6855,7 +6973,7 @@ begin
 
   try
     // 二进制形式快速计算 T 的次方，值给 Res
-    Res.SetCoefficents([1]);
+    Res.SetCoefficients([1]);
     while not Exponent128IsZero(Exponent, ExponentHi) do
     begin
       if (Exponent and 1) <> 0 then
@@ -7274,17 +7392,17 @@ begin
     raise ECnPolynomialException.Create(SCnErrorPolynomialGaloisInvalidDegree)
   else if Degree = 0 then
   begin
-    OutDivisionPolynomial.SetCoefficents([0]);  // f0(X) = 0
+    OutDivisionPolynomial.SetCoefficients([0]);  // f0(X) = 0
     Result := True;
   end
   else if Degree = 1 then
   begin
-    OutDivisionPolynomial.SetCoefficents([1]);  // f1(X) = 1
+    OutDivisionPolynomial.SetCoefficients([1]);  // f1(X) = 1
     Result := True;
   end
   else if Degree = 2 then
   begin
-    OutDivisionPolynomial.SetCoefficents([2]);  // f2(X) = 2
+    OutDivisionPolynomial.SetCoefficients([2]);  // f2(X) = 2
     Result := True;
   end
   else if Degree = 3 then   // f3(X) = 3 X4 + 6 a X2 + 12 b X - a^2
@@ -7351,7 +7469,7 @@ begin
       else // Degree 是奇数
       begin
         Y4 := FLocalInt64PolynomialPool.Obtain;
-        Y4.SetCoefficents([B, A, 0, 1]);
+        Y4.SetCoefficients([B, A, 0, 1]);
         Int64PolynomialGaloisMul(Y4, Y4, Y4, Prime);
 
         D1 := FLocalInt64PolynomialPool.Obtain;
@@ -8285,7 +8403,7 @@ end;
 constructor TCnBigNumberPolynomial.Create(LowToHighCoefficients: array of const);
 begin
   inherited Create;
-  SetCoefficents(LowToHighCoefficients);
+  SetCoefficients(LowToHighCoefficients);
 end;
 
 destructor TCnBigNumberPolynomial.Destroy;
@@ -8340,7 +8458,7 @@ begin
   BigNumberCopy(Items[Degree], Coefficient);
 end;
 
-procedure TCnBigNumberPolynomial.SetCoefficents(LowToHighCoefficients: array of const);
+procedure TCnBigNumberPolynomial.SetCoefficients(LowToHighCoefficients: array of const);
 var
   I: Integer;
 begin
@@ -9127,6 +9245,156 @@ function BigNumberPolynomialMod(Res: TCnBigNumberPolynomial; P: TCnBigNumberPoly
   Divisor: TCnBigNumberPolynomial; ErrMulFactor: TCnBigNumber): Boolean;
 begin
   Result := BigNumberPolynomialDiv(nil, Res, P, Divisor, ErrMulFactor);
+end;
+
+function BigNumberPolynomialMulTrunc(Res: TCnBigNumberPolynomial;
+  P1, P2: TCnBigNumberPolynomial; MaxDegree: Integer): Boolean;
+var
+  I, J: Integer;
+  P2Max, Limit: Integer;
+  R: TCnBigNumberPolynomial;
+  T: TCnBigNumber;
+begin
+  Result := False;
+  if (Res = nil) or (P1 = nil) or (P2 = nil) then Exit;
+  if P1.IsZero or P2.IsZero then
+  begin
+    Res.SetZero;
+    Result := True;
+    Exit;
+  end;
+
+  R := FLocalBigNumberPolynomialPool.Obtain;
+  T := FLocalBigNumberPool.Obtain;
+  try
+    R.Clear;
+
+    P2Max := P2.MaxDegree;
+    if P2Max > MaxDegree then P2Max := MaxDegree;
+
+    // The max possible degree in the result is Min(P1.MaxDegree + P2Max, MaxDegree)
+    Limit := P1.MaxDegree + P2Max;
+    if Limit > MaxDegree then Limit := MaxDegree;
+    R.MaxDegree := Limit;
+
+    for I := 0 to P1.MaxDegree do
+    begin
+      if I > MaxDegree then Break;
+      if P1[I].IsZero then Continue;
+
+      Limit := MaxDegree - I;
+      if Limit > P2Max then Limit := P2Max;
+
+      for J := 0 to Limit do
+      begin
+        if P2[J].IsZero then Continue;
+        BigNumberMul(T, P1[I], P2[J]);
+        BigNumberAdd(R[I + J], R[I + J], T);
+      end;
+    end;
+
+    R.CorrectTop;
+    BigNumberPolynomialCopy(Res, R);
+    Result := True;
+  finally
+    FLocalBigNumberPolynomialPool.Recycle(R);
+    FLocalBigNumberPool.Recycle(T);
+  end;
+end;
+
+function BigNumberPolynomialPowerTrunc(Res: TCnBigNumberPolynomial;
+  P: TCnBigNumberPolynomial; Exponent: TCnBigNumber; MaxDegree: Integer): Boolean;
+var
+  T, Base: TCnBigNumberPolynomial;
+  E: TCnBigNumber;
+begin
+  Result := False;
+  if (Res = nil) or (P = nil) or (Exponent = nil) then Exit;
+
+  if Exponent.IsZero then
+  begin
+    Res.SetOne;
+    Result := True;
+    Exit;
+  end;
+
+  T := FLocalBigNumberPolynomialPool.Obtain;
+  Base := FLocalBigNumberPolynomialPool.Obtain;
+  E := FLocalBigNumberPool.Obtain;
+  try
+    BigNumberPolynomialCopy(Base, P);
+    BigNumberCopy(E, Exponent);
+    T.SetOne;
+
+    while not E.IsZero do
+    begin
+      if E.IsOdd then
+      begin
+        if not BigNumberPolynomialMulTrunc(T, T, Base, MaxDegree) then
+		  Exit;
+      end;
+      E.ShiftRight(1);
+      if not E.IsZero then
+      begin
+        if not BigNumberPolynomialMulTrunc(Base, Base, Base, MaxDegree) then
+		  Exit;
+      end;
+    end;
+
+    BigNumberPolynomialCopy(Res, T);
+    Result := True;
+  finally
+    FLocalBigNumberPolynomialPool.Recycle(T);
+    FLocalBigNumberPolynomialPool.Recycle(Base);
+    FLocalBigNumberPool.Recycle(E);
+  end;
+end;
+
+function BigNumberPolynomialInverseTrunc(Res: TCnBigNumberPolynomial;
+  P: TCnBigNumberPolynomial; MaxDegree: Integer): Boolean;
+var
+  I, J: Integer;
+  T, Sum: TCnBigNumber;
+  B: TCnBigNumberPolynomial;
+begin
+  Result := False;
+  if (Res = nil) or (P = nil) or P.IsZero then Exit;
+  if not (P[0].IsOne or P[0].IsNegOne) then Exit; // 目前只支持常数项为 1 或 -1
+
+  B := FLocalBigNumberPolynomialPool.Obtain;
+  T := FLocalBigNumberPool.Obtain;
+  Sum := FLocalBigNumberPool.Obtain;
+
+  try
+    B.Clear;
+    B.MaxDegree := MaxDegree;
+    BigNumberCopy(B[0], P[0]); // B[0] = P[0]
+
+    for I := 1 to MaxDegree do
+    begin
+      Sum.SetZero;
+      for J := 1 to I do
+      begin
+        if J > P.MaxDegree then Continue;
+        if P[J].IsZero or B[I - J].IsZero then Continue;
+        BigNumberMul(T, P[J], B[I - J]);
+        BigNumberAdd(Sum, Sum, T);
+      end;
+
+      // B[I] = -Sum * P[0]
+      BigNumberCopy(B[I], Sum);
+      if P[0].IsOne then
+        B[I].Negate;
+    end;
+
+    B.CorrectTop;
+    BigNumberPolynomialCopy(Res, B);
+    Result := True;
+  finally
+    FLocalBigNumberPool.Recycle(Sum);
+    FLocalBigNumberPool.Recycle(T);
+    FLocalBigNumberPolynomialPool.Recycle(B);
+  end;
 end;
 
 function BigNumberPolynomialPower(Res: TCnBigNumberPolynomial;
@@ -10221,17 +10489,17 @@ begin
     raise ECnPolynomialException.Create('Galois Division Polynomial Invalid Degree')
   else if Degree = 0 then
   begin
-    OutDivisionPolynomial.SetCoefficents([0]);  // f0(X) = 0
+    OutDivisionPolynomial.SetCoefficients([0]);  // f0(X) = 0
     Result := True;
   end
   else if Degree = 1 then
   begin
-    OutDivisionPolynomial.SetCoefficents([1]);  // f1(X) = 1
+    OutDivisionPolynomial.SetCoefficients([1]);  // f1(X) = 1
     Result := True;
   end
   else if Degree = 2 then
   begin
-    OutDivisionPolynomial.SetCoefficents([2]);  // f2(X) = 2
+    OutDivisionPolynomial.SetCoefficients([2]);  // f2(X) = 2
     Result := True;
   end
   else if Degree = 3 then   // f3(X) = 3 X4 + 6 a X2 + 12 b X - a^2
@@ -10398,6 +10666,89 @@ begin
   end;
 end;
 
+procedure BigNumberPolynomialDerivative(Res: TCnBigNumberPolynomial;
+  P: TCnBigNumberPolynomial);
+var
+  I: Integer;
+  T: TCnBigNumber;
+  Tmp: TCnBigNumberPolynomial;
+begin
+  // 常数多项式时导数为 0
+  if P.MaxDegree = 0 then
+  begin
+    Res.SetZero;
+    Exit;
+  end;
+
+  // Res 与 P 相同时，先用临时多项式计算，再复制回来
+  if Res = P then
+  begin
+    Tmp := FLocalBigNumberPolynomialPool.Obtain;
+    try
+      BigNumberPolynomialDerivative(Tmp, P);
+      BigNumberPolynomialCopy(Res, Tmp);
+    finally
+      FLocalBigNumberPolynomialPool.Recycle(Tmp);
+    end;
+    Exit;
+  end;
+
+  T := FLocalBigNumberPool.Obtain;
+  try
+    Res.MaxDegree := P.MaxDegree - 1;
+    for I := 1 to P.MaxDegree do
+    begin
+      BigNumberSetWord(T, I);
+      BigNumberMul(Res[I - 1], P[I], T);
+    end;
+    Res.CorrectTop;
+  finally
+    FLocalBigNumberPool.Recycle(T);
+  end;
+end;
+
+procedure BigNumberPolynomialGaloisDerivative(Res: TCnBigNumberPolynomial;
+  P: TCnBigNumberPolynomial; Prime: TCnBigNumber);
+var
+  I: Integer;
+  T: TCnBigNumber;
+  Tmp: TCnBigNumberPolynomial;
+begin
+  // 常数多项式时导数为 0
+  if P.MaxDegree = 0 then
+  begin
+    Res.SetZero;
+    Exit;
+  end;
+
+  // Res 与 P 相同时，先用临时多项式计算，再复制回来
+  if Res = P then
+  begin
+    Tmp := FLocalBigNumberPolynomialPool.Obtain;
+    try
+      BigNumberPolynomialGaloisDerivative(Tmp, P, Prime);
+      BigNumberPolynomialCopy(Res, Tmp);
+    finally
+      FLocalBigNumberPolynomialPool.Recycle(Tmp);
+    end;
+    Exit;
+  end;
+
+  T := FLocalBigNumberPool.Obtain;
+  try
+    Res.MaxDegree := P.MaxDegree - 1;
+    for I := 1 to P.MaxDegree do
+    begin
+      BigNumberSetWord(T, I);
+      BigNumberMul(Res[I - 1], P[I], T);
+      BigNumberNonNegativeMod(Res[I - 1], Res[I - 1], Prime);
+    end;
+    Res.CorrectTop;
+  finally
+    FLocalBigNumberPool.Recycle(T);
+  end;
+end;
+
 { TCnBigNumberRationalPolynomialPool }
 
 function TCnBigNumberRationalPolynomialPool.CreateObject: TObject;
@@ -10434,7 +10785,7 @@ end;
 constructor TCnBigComplexPolynomial.Create(LowToHighCoefficients: array of const);
 begin
   inherited Create;
-  SetCoefficents(LowToHighCoefficients);
+  SetCoefficients(LowToHighCoefficients);
 end;
 
 destructor TCnBigComplexPolynomial.Destroy;
@@ -10489,7 +10840,7 @@ begin
   BigComplexCopy(Items[Degree], Coefficient);
 end;
 
-procedure TCnBigComplexPolynomial.SetCoefficents(LowToHighCoefficients: array of const);
+procedure TCnBigComplexPolynomial.SetCoefficients(LowToHighCoefficients: array of const);
 var
   I: Integer;
 begin
@@ -10592,7 +10943,7 @@ end;
 constructor TCnBigComplexDecimalPolynomial.Create(LowToHighCoefficients: array of const);
 begin
   inherited Create;
-  SetCoefficents(LowToHighCoefficients);
+  SetCoefficients(LowToHighCoefficients);
 end;
 
 destructor TCnBigComplexDecimalPolynomial.Destroy;
@@ -10629,7 +10980,7 @@ begin
   end;
 end;
 
-procedure TCnBigComplexDecimalPolynomial.SetCoefficents(LowToHighCoefficients: array of const);
+procedure TCnBigComplexDecimalPolynomial.SetCoefficients(LowToHighCoefficients: array of const);
 var
   I: Integer;
 begin
@@ -10850,6 +11201,7 @@ begin
     Exit;
   end;
 
+  Result := '';
   for I := P.Count - 1 downto 0 do
   begin
     if not P[I].IsZero then
@@ -15210,6 +15562,55 @@ begin
   end;
 end;
 
+{ TCnBigNumberPolynomialList }
+
+function TCnBigNumberPolynomialList.Add: TCnBigNumberPolynomial;
+begin
+  Result := TCnBigNumberPolynomial.Create;
+  Add(Result);
+end;
+
+function TCnBigNumberPolynomialList.Add(APoly: TCnBigNumberPolynomial): Integer;
+begin
+  Result := inherited Add(APoly);
+end;
+
+constructor TCnBigNumberPolynomialList.Create;
+begin
+  inherited Create(True);
+end;
+
+destructor TCnBigNumberPolynomialList.Destroy;
+begin
+
+  inherited;
+end;
+
+function TCnBigNumberPolynomialList.GetItem(Index: Integer): TCnBigNumberPolynomial;
+begin
+  Result := TCnBigNumberPolynomial(inherited GetItem(Index));
+end;
+
+procedure TCnBigNumberPolynomialList.SetItem(Index: Integer;
+  APoly: TCnBigNumberPolynomial);
+begin
+  inherited SetItem(Index, APoly);
+end;
+
+function TCnBigNumberPolynomialList.ToString: string;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 0 to Count - 1 do
+  begin
+    if I = 0 then
+      Result := Items[I].ToString
+    else
+      Result := Result + ',' + Items[I].ToString;
+  end;
+end;
+
 // ================= 一元大浮点复数多项式独立函数实现 ========================
 
 function BigComplexDecimalPolynomialNew: TCnBigComplexDecimalPolynomial;
@@ -15298,6 +15699,7 @@ begin
     Exit;
   end;
 
+  Result := '';
   for I := P.Count - 1 downto 0 do
   begin
     if not P[I].IsZero then

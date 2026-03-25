@@ -84,6 +84,26 @@ function CnCeil(F: Extended): Integer; {$IFDEF SUPPORT_INLINE} inline; {$ENDIF}
    返回值：Integer                        - 返回的取整值
 }
 
+function CnIntPower(X: Extended; I: Integer): Extended;
+{* 浮点数求整数次幂。
+
+   参数：
+     Base: Extended                       - 待求幂的底数
+     I: Integer                           - 幂指数
+
+   返回值：Extended                       - 返回的幂值
+}
+
+function CnPower(Base, Exponent: Extended): Extended;
+{* 浮点数求幂。
+
+   参数：
+     Base: Extended                       - 待求幂的底数
+     Exponent: Extended                   - 幂指数
+
+   返回值：Extended                       - 返回的幂值
+}
+
 {
   计算连分数：
                   A1
@@ -295,6 +315,24 @@ function CnInt64Abs(N: Int64): Int64;
    返回值：Integer                        - 返回绝对值
 }
 
+function CnInt64IsPerfectSquare(N: Int64): Boolean;
+{* 判断整数 N 是否是完全平方数，也就是是否是某整数的平方。
+
+   参数：
+     N: Int64                             - 待判断的 64 位有符号整数
+
+   返回值：Boolean                        - 返回是否完全平方数
+}
+
+function CnInt64IsPerfectPower(N: Int64): Boolean;
+{* 判断整数 N 是否是完全幂，也就是是否是某整数的整数次幂，要求 N >= 0。
+
+   参数：
+     N: Int64                             - 待判断的 64 位有符号整数
+
+   返回值：Boolean                        - 返回是否完全幂
+}
+
 function FastInverseSqrt(X: Single): Single;
 {* 快速计算开根号的倒数。
 
@@ -493,6 +531,7 @@ resourcestring
   SCnErrorMathSqrtRange = 'Sqrt Range Error.';
   SCnErrorMathLogRange = 'Log Range Error.';
   SCnErrorMathFractionError = 'Error Length for Continue Fraction';
+  SCnErrorMathHexCharFmt = 'Error: not a Hex PChar: %c';
 
 var
   FLocalBigDecimalPool: TCnBigDecimalPool = nil;
@@ -517,6 +556,39 @@ begin
   Result := Trunc(F);
   if Frac(F) > 0 then
     Inc(Result);
+end;
+
+function CnIntPower(X: Extended; I: Integer): Extended;
+var
+  Y: Integer;
+begin
+  Y := CnIntAbs(I);
+  Result := 1.0;
+  while Y > 0 do
+  begin
+    while not Odd(Y) do
+    begin
+      Y := Y shr 1;
+      X := X * X
+    end;
+    Dec(Y);
+    Result := Result * X
+  end;
+
+  if I < 0 then
+    Result := 1.0 / Result
+end;
+
+function CnPower(Base, Exponent: Extended): Extended;
+begin
+  if Exponent = 0.0 then
+    Result := 1.0               { n**0 = 1 }
+  else if (Base = 0.0) and (Exponent > 0.0) then
+    Result := 0.0               { 0**n = 0, n > 0 }
+  else if (Frac(Exponent) = 0.0) and (CnAbs(Exponent) <= MaxInt) then
+    Result := CnIntPower(Base, Integer(Trunc(Exponent)))
+  else
+    Result := Exp(Exponent * Ln(Base))
 end;
 
 function Int64ContinuedFraction(A, B: TInt64s): Extended;
@@ -979,7 +1051,7 @@ var
       else if (C >= 'a') and (C <= 'f') then
         Result := Result * 16 + Ord(C) - Ord('a') + 10
       else
-        raise Exception.CreateFmt('Error: not a Hex PChar: %c', [C]);
+        raise ECnMathException.CreateFmt(SCnErrorMathHexCharFmt, [C]);
     end;
   end;
 
@@ -1002,7 +1074,7 @@ var
       else if (C >= 'a') and (C <= 'f') then
         Result := Result + (Ord(C) - Ord('a') + 10) * R
       else
-        raise Exception.CreateFmt('Error: not a Hex PChar: %c', [C]);
+        raise ECnMathException.CreateFmt(SCnErrorMathHexCharFmt, [C]);
     end;
   end;
 
@@ -1049,6 +1121,71 @@ begin
     Result := -N
   else
     Result := N;
+end;
+
+function CnInt64IsPerfectSquare(N: Int64): Boolean;
+var
+  X, Y: Int64;
+begin
+  Result := False;
+  if N < 0 then Exit;
+  if N <= 1 then
+  begin
+    Result := True;
+    Exit; // 0 和 1 特殊处理
+  end;
+
+  X := N;
+  repeat
+    Y := (X + N div X) shr 1;
+    if Y >= X then
+      Break;
+    X := Y;
+  until False;
+
+  Result := (X * X = N);
+end;
+
+function CnInt64IsPerfectPower(N: Int64): Boolean;
+var
+  LG2, I: Integer;
+  A, M: Int64;
+begin
+  Result := False;
+  if (N < 0) or (N = 2) or (N = 3) then
+    Exit;
+
+  if (N = 0) or (N = 1) then
+  begin
+    Result := True;
+    Exit;
+  end;
+
+  LG2 := GetUInt64HighBits(N); // 比 LOG2(N) 略大
+  for I := 2 to LG2 do
+  begin
+    // 求 N 的 I 次方根的整数部分
+    A := Trunc(CnPower(N, 1.0 / I));
+    // 整数部分再求幂
+    M := Int64NonNegativPower(A, I);
+
+    // 判断是否相等
+    if M = N then
+    begin
+      Result := True;
+      Exit;
+    end
+    else // 如果整数部分偏小，譬如 9682651996416 的 1/8 次方，Power 函数可能返回 41.999 这种，Trunc 会判断错误，再加一再幂一下
+    begin
+      Inc(A);
+      M := Int64NonNegativPower(A, I);
+      if M = N then
+      begin
+        Result := True;
+        Exit;
+      end;
+    end;
+  end;
 end;
 
 // 快速计算开根号的倒数

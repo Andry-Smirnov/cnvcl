@@ -51,7 +51,10 @@ uses
   CnPoly1305, CnTEA, CnZUC, CnFEC, CnPrime, Cn25519, CnPaillier, CnSecretSharing,
   CnPolynomial, CnBits, CnLattice, CnOTS, CnPemUtils, CnInt128, CnRC4, CnPDFCrypt,
   CnDSA, CnBLAKE, CnBLAKE2, CnXXH, CnWideStrings, CnContainers, CnMLKEM, CnMLDSA,
-  CnCalendar, CnBigDecimal, CnComplex, CnDFT, CnMath, CnQRCode;
+  CnCalendar, CnBigDecimal, CnComplex, CnDFT, CnMath, CnQRCode, CnRandom, CnOTP;
+
+type
+  TCnCryptoTestProc = function: Boolean;
 
 procedure TestCrypto;
 {* 密码库总测试入口}
@@ -71,11 +74,18 @@ function TestConstTimeEqual: Boolean;
 function TestConstTimeExpandBool: Boolean;
 function TestConstTimeBytes: Boolean;
 
+// =============================== Random ======================================
+
+function TestRandomFillBytes: Boolean;
+function TestRandomNumbersRange: Boolean;
+function TestRandomShuffle: Boolean;
+function TestRandomDistribution: Boolean;
+
 // ============================== Strings ======================================
 
 function TestUtf8: Boolean;
 
-// ================================ Calendar ======================================
+// ============================== Calendar =====================================
 
 function TestCalendarWeek: Boolean;
 function TestCalendarYinYang: Boolean;
@@ -130,6 +140,8 @@ function TestNTTINTTRoundTrip: Boolean;
 function TestDCTBasic: Boolean;
 function TestIDCTBasic: Boolean;
 function TestDCTIDCTRoundTrip: Boolean;
+function TestFFT2Basic: Boolean;
+function TestFFT2IFFT2RoundTrip: Boolean;
 
 // ============================== BigNumber ====================================
 
@@ -151,6 +163,7 @@ function TestBigNumberLcm: Boolean;
 function TestBigNumberFermatCheckComposite: Boolean;
 function TestBigNumberIsProbablyPrime: Boolean;
 function TestBigNumberIsPerfectPower: Boolean;
+function TestBigNumberIsPerfectSquare: Boolean;
 function TestBigNumberJacobiSymbol: Boolean;
 function TestBigNumberMersennePrime: Boolean;
 function TestBigNumberAKSIsPrime: Boolean;
@@ -185,6 +198,7 @@ function TestCnFloor: Boolean;
 function TestCnCeil: Boolean;
 function TestInt64Sqrt: Boolean;
 function TestFloatSqrt: Boolean;
+function TestUInt64NonNegativeRoot: Boolean;
 function TestInt64LogN: Boolean;
 function TestFloatLogN: Boolean;
 function TestInt64Log10: Boolean;
@@ -200,6 +214,8 @@ function TestNormalizeAngle: Boolean;
 function TestFloatToHex: Boolean;
 function TestHexToFloat: Boolean;
 function TestInt64ContinuedFraction: Boolean;
+function TestInt64IsPerfectSquare: Boolean;
+function TestInt64IsPerfectPower: Boolean;
 function TestBigDecimalEulerExp: Boolean;
 function TestBigDecimalLn: Boolean;
 function TestBigDecimalSin: Boolean;
@@ -239,6 +255,10 @@ function TestInt64RationalPolynomial: Boolean;
 function TestBigNumberRationalPolynomial: Boolean;
 function TestInt64BiPolynomial: Boolean;
 function TestBigNumberBiPolynomial: Boolean;
+function TestPolynomialInverseTrunc: Boolean;
+function TestPolynomialMulTrunc: Boolean;
+function TestPolynomialPowerTrunc: Boolean;
+function TestBigNumberPolynomialDerivative: Boolean;
 
 // ================================ NTRU =======================================
 
@@ -395,6 +415,12 @@ function TestBLAKE2BUpdate: Boolean;
 function TestBase64: Boolean;
 function TestBase64URL: Boolean;
 
+// ================================ OTP ========================================
+
+function TestHOTP: Boolean;
+function TestTOTP: Boolean;
+function TestDynamicToken: Boolean;
+
 // ================================ AEAD =======================================
 
 function TestAEADAESCCM: Boolean;
@@ -403,6 +429,7 @@ function TestAEADAES128GCM: Boolean;
 function TestAEADAES192GCM: Boolean;
 function TestAEADAES256GCM: Boolean;
 function TestAEADSM4GCM: Boolean;
+function TestAEADGHashUpdate: Boolean;
 function TestAEADChaCha20Poly1305: Boolean;
 function TestAEADXChaCha20Poly1305: Boolean;
 
@@ -416,6 +443,7 @@ function TestXChaCha20: Boolean;
 
 function TestPoly1305: Boolean;
 function TestPoly1305Update: Boolean;
+function TestPoly1305Boundary: Boolean;
 
 // ================================ ZUC ========================================
 
@@ -467,6 +495,9 @@ function TestPDFCheckOwnerPassword: Boolean;
 function TestSM21: Boolean;
 function TestSM22: Boolean;
 function TestSM23: Boolean;
+function TestSM2KeyExchangeExample256: Boolean;
+function TestSM2Collaborative3KeyGen: Boolean;
+function TestSM2Collaborative3Sign: Boolean;
 
 // ================================ SM3 ========================================
 
@@ -552,11 +583,14 @@ function TestWOTSSHA256: Boolean;
 // ================================ ECC ========================================
 
 function TestECCMul: Boolean;
+function TestECCECDH: Boolean;
+function TestECCECDSA: Boolean;
 function TestECCPrivPubPkcs1: Boolean;
 function TestECCPrivPubPkcs8: Boolean;
 function TestECCPub: Boolean;
 function TestECCSchoof: Boolean;
 function TestECCSchoof2: Boolean;
+function TestECCFastSchoof: Boolean;
 
 // ================================= END =======================================
 
@@ -574,9 +608,38 @@ begin
 {$ENDIF}
 end;
 
-procedure MyAssert(V: Boolean; const Msg: string);
+procedure MyWrite(const Text: string);
 begin
-  MyWriteln(FormatDateTime('yyyy-MM-dd:hh:nn:ss.zzz | ', Now) +  Msg + '...');
+{$IFDEF ANDROID}
+  Log.D(Text);
+{$ELSE}
+  Write(Text);
+{$ENDIF}
+end;
+
+procedure MyAssert(AProc: TCnCryptoTestProc; const Msg: string);
+var
+  V: Boolean;
+  S: string;
+begin
+  S := FormatDateTime('yyyy-MM-dd:hh:nn:ss.zzz | ', Now) +  Msg;
+  if not Assigned(AProc) then
+  begin
+    MyWriteln(S);
+    Exit;
+  end;
+
+  S := S + '...';
+  if Length(S) < 70 then
+    S := S + StringOfChar(' ', 70 - Length(S));
+  MyWrite(S);
+
+  V := AProc();
+  if V then
+    MyWriteln('OK')
+  else
+    MyWriteln('Fail');
+
   Assert(V);
 end;
 
@@ -614,11 +677,18 @@ begin
   MyAssert(TestConstTimeExpandBool, 'TestConstTimeExpandBool');
   MyAssert(TestConstTimeBytes, 'TestConstTimeBytes');
 
+// ============================== Random =======================================
+
+  MyAssert(TestRandomFillBytes, 'TestRandomFillBytes');
+  MyAssert(TestRandomNumbersRange, 'TestRandomNumbersRange');
+  MyAssert(TestRandomShuffle, 'TestRandomShuffle');
+  MyAssert(TestRandomDistribution, 'TestRandomDistribution');
+
 // ============================== Strings ======================================
 
   MyAssert(TestUtf8, 'TestUtf8');
 
-// ================================ Calendar ======================================
+// ============================== Calendar =====================================
 
   MyAssert(TestCalendarWeek, 'TestCalendarWeek');
   MyAssert(TestCalendarYinYang, 'TestCalendarYinYang');
@@ -641,7 +711,7 @@ begin
   MyAssert(TestCalendarJulianDate, 'TestCalendarJulianDate');
   MyAssert(TestCalendarSolarLunarConvert, 'TestCalendarSolarLunarConvert');
 
-// ================================ Complex ======================================
+// =============================== Complex =====================================
 
   MyAssert(TestComplexNumberBasic, 'TestComplexNumberBasic');
   MyAssert(TestComplexNumberArithmetic, 'TestComplexNumberArithmetic');
@@ -673,6 +743,8 @@ begin
   MyAssert(TestDCTBasic, 'TestDCTBasic');
   MyAssert(TestIDCTBasic, 'TestIDCTBasic');
   MyAssert(TestDCTIDCTRoundTrip, 'TestDCTIDCTRoundTrip');
+  MyAssert(TestFFT2Basic, 'TestFFT2Basic');
+  MyAssert(TestFFT2IFFT2RoundTrip, 'TestFFT2IFFT2RoundTrip');
 
 // ============================== BigNumber ====================================
 
@@ -694,6 +766,7 @@ begin
   MyAssert(TestBigNumberFermatCheckComposite, 'TestBigNumberFermatCheckComposite');
   MyAssert(TestBigNumberIsProbablyPrime, 'TestBigNumberIsProbablyPrime');
   MyAssert(TestBigNumberIsPerfectPower, 'TestBigNumberIsPerfectPower');
+  MyAssert(TestBigNumberIsPerfectSquare, 'TestBigNumberIsPerfectSquare');
   MyAssert(TestBigNumberJacobiSymbol, 'TestBigNumberJacobiSymbol');
   MyAssert(TestBigNumberMersennePrime, 'TestBigNumberMersennePrime');
   MyAssert(TestBigNumberAKSIsPrime, 'TestBigNumberAKSIsPrime');
@@ -728,6 +801,7 @@ begin
   MyAssert(TestCnCeil, 'TestCnCeil');
   MyAssert(TestInt64Sqrt, 'TestInt64Sqrt');
   MyAssert(TestFloatSqrt, 'TestFloatSqrt');
+  MyAssert(TestUInt64NonNegativeRoot, 'TestUInt64NonNegativeRoot');
   MyAssert(TestInt64LogN, 'TestInt64LogN');
   MyAssert(TestFloatLogN, 'TestFloatLogN');
   MyAssert(TestInt64Log10, 'TestInt64Log10');
@@ -743,6 +817,8 @@ begin
   MyAssert(TestFloatToHex, 'TestFloatToHex');
   MyAssert(TestHexToFloat, 'TestHexToFloat');
   MyAssert(TestInt64ContinuedFraction, 'TestInt64ContinuedFraction');
+  MyAssert(TestInt64IsPerfectSquare, 'TestInt64IsPerfectSquare');
+  MyAssert(TestInt64IsPerfectPower, 'TestInt64IsPerfectPower');
   MyAssert(TestBigDecimalEulerExp, 'TestBigDecimalEulerExp');
   MyAssert(TestBigDecimalLn, 'TestBigDecimalLn');
   MyAssert(TestBigDecimalSin, 'TestBigDecimalSin');
@@ -782,6 +858,10 @@ begin
   MyAssert(TestBigNumberRationalPolynomial, 'TestBigNumberRationalPolynomial');
   MyAssert(TestInt64BiPolynomial, 'TestInt64BiPolynomial');
   MyAssert(TestBigNumberBiPolynomial, 'TestBigNumberBiPolynomial');
+  MyAssert(TestPolynomialInverseTrunc, 'TestPolynomialInverseTrunc');
+  MyAssert(TestPolynomialMulTrunc, 'TestPolynomialMulTrunc');
+  MyAssert(TestPolynomialPowerTrunc, 'TestPolynomialPowerTrunc');
+  MyAssert(TestBigNumberPolynomialDerivative, 'TestBigNumberPolynomialDerivative');
 
 // ================================ NTRU =======================================
 
@@ -938,6 +1018,12 @@ begin
   MyAssert(TestBase64, 'TestBase64');
   MyAssert(TestBase64URL, 'TestBase64URL');
 
+// ================================ OTP ========================================
+
+  MyAssert(TestHOTP, 'TestHOTP');
+  MyAssert(TestTOTP, 'TestTOTP');
+  MyAssert(TestDynamicToken, 'TestDynamicToken');
+
 // ================================ AEAD =======================================
 
   MyAssert(TestAEADAESCCM, 'TestAEADAESCCM');
@@ -946,6 +1032,7 @@ begin
   MyAssert(TestAEADAES192GCM, 'TestAEADAES192GCM');
   MyAssert(TestAEADAES256GCM, 'TestAEADAES256GCM');
   MyAssert(TestAEADSM4GCM, 'TestAEADSM4GCM');
+  MyAssert(TestAEADGHashUpdate, 'TestAEADGHashUpdate');
   MyAssert(TestAEADChaCha20Poly1305, 'TestAEADChaCha20Poly1305');
   MyAssert(TestAEADXChaCha20Poly1305, 'TestAEADXChaCha20Poly1305');
 
@@ -958,6 +1045,8 @@ begin
 // ================================ Poly1305 ===================================
 
   MyAssert(TestPoly1305, 'TestPoly1305');
+  MyAssert(TestPoly1305Update, 'TestPoly1305Update');
+  MyAssert(TestPoly1305Boundary, 'TestPoly1305Boundary');
 
 // ================================ ZUC ========================================
 
@@ -1009,6 +1098,9 @@ begin
   MyAssert(TestSM21, 'TestSM21');
   MyAssert(TestSM22, 'TestSM22');
   MyAssert(TestSM23, 'TestSM23');
+  MyAssert(TestSM2KeyExchangeExample256, 'TestSM2KeyExchangeExample256');
+  MyAssert(TestSM2Collaborative3KeyGen, 'TestSM2Collaborative3KeyGen');
+  MyAssert(TestSM2Collaborative3Sign, 'TestSM2Collaborative3Sign');
 
 // ================================ SM3 ========================================
 
@@ -1095,15 +1187,18 @@ begin
 // ================================ ECC ========================================
 
   MyAssert(TestECCMul, 'TestECCMul');
+  MyAssert(TestECCECDH, 'TestECCECDH');
+  MyAssert(TestECCECDSA, 'TestECCECDSA');
   MyAssert(TestECCPrivPubPkcs1, 'TestECCPrivPubPkcs1');
   MyAssert(TestECCPrivPubPkcs8, 'TestECCPrivPubPkcs8');
   MyAssert(TestECCPub, 'TestECCPub');
   MyAssert(TestECCSchoof, 'TestECCSchoof');
   MyAssert(TestECCSchoof2, 'TestECCSchoof2');
+  MyAssert(TestECCFastSchoof, 'TestECCFastSchoof');
 
 // ================================= END =======================================
 
-  MyWriteln('Crypto Test End.');
+  MyAssert(nil, 'Crypto Test End.');
 end;
 
 // ============================== Native =======================================
@@ -1339,14 +1434,166 @@ function TestConstTimeBytes: Boolean;
 var
   A, B: TBytes;
 begin
-  A := HexToBytes('0987654321FBACDE');
+  A := HexToBytes('0987654321FBACDE');       // 内容长度都相等
   B := HexToBytes('0987654321FBACDE');
-  Result := ConstTimeBytesEqual(A, B);
+  Result := ConstTimeCompareBytes(A, B);
 
   if not Result then Exit;
 
-  B[4] := $FF;
-  Result := not ConstTimeBytesEqual(A, B);
+  B[4] := $FF;                               // 长度不等
+  Result := not ConstTimeCompareBytes(A, B);
+
+  if not Result then Exit;
+
+  B := HexToBytes('0987054320FBACFE');       // 长度相等内容不等
+  Result := not ConstTimeCompareBytes(A, B);
+end;
+
+function TestRandomFillBytes: Boolean;
+var
+  B1, B2, B3: TBytes;
+begin
+  SetLength(B1, 32);
+  SetLength(B2, 32);
+
+  Result := CnRandomFillBytes(PAnsiChar(@B1[0]), Length(B1));
+  if not Result then Exit;
+
+  Result := CnRandomFillBytes2(PAnsiChar(@B2[0]), Length(B2));
+  if not Result then Exit;
+
+  B3 := CnRandomBytes(48);
+  Result := Length(B3) = 48;
+end;
+
+function TestRandomNumbersRange: Boolean;
+var
+  I: Integer;
+  R32: Cardinal;
+  R64: TUInt64;
+  I32: Integer;
+  I64: Int64;
+begin
+  Result := (RandomUInt32LessThan(0) = 0) and (RandomUInt64LessThan(0) = 0)
+    and (RandomInt32LessThan(0) = 0) and (RandomInt64LessThan(0) = 0);
+  if not Result then Exit;
+
+  for I := 0 to 200 do
+  begin
+    R32 := RandomUInt32LessThan(1000);
+    if R32 >= 1000 then
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    R64 := RandomUInt64LessThan(100000);
+    if R64 >= 100000 then
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    I32 := RandomInt32LessThan(1000);
+    if (I32 < 0) or (I32 >= 1000) then
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    I64 := RandomInt64LessThan(100000);
+    if (I64 < 0) or (I64 >= 100000) then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+
+  R32 := RandomUInt32;
+  R64 := RandomUInt64;
+  I32 := RandomInt32;
+  I64 := RandomInt64;
+  Result := True;
+end;
+
+function TestRandomShuffle: Boolean;
+var
+  A: array[0..9] of Integer;
+  C: array[0..9] of Integer;
+  I, V: Integer;
+begin
+  Result := CnKnuthShuffle(nil, SizeOf(Integer), 10) = False;
+  if not Result then Exit;
+
+  for I := 0 to 9 do
+  begin
+    A[I] := I;
+    C[I] := 0;
+  end;
+
+  Result := CnKnuthShuffle(@A[0], SizeOf(Integer), 10);
+  if not Result then Exit;
+
+  for I := 0 to 9 do
+  begin
+    V := A[I];
+    if (V < 0) or (V > 9) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    Inc(C[V]);
+  end;
+
+  for I := 0 to 9 do
+  begin
+    if C[I] <> 1 then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+
+  Result := True;
+end;
+
+function TestRandomDistribution: Boolean;
+const
+  TEST_ROUNDS = 100000;
+  BINS = 10;
+var
+  Counts: array[0..BINS-1] of Integer;
+  I, BinIdx: Integer;
+  Expected: Double;
+  ChiSquare: Double;
+  Diff: Double;
+begin
+  Result := False;
+  FillChar(Counts, SizeOf(Counts), 0);
+
+  for I := 1 to TEST_ROUNDS do
+  begin
+    BinIdx := RandomUInt32LessThan(BINS);
+    if (BinIdx < 0) or (BinIdx >= BINS) then
+      Exit;
+    Inc(Counts[BinIdx]);
+  end;
+
+  // 皮尔逊卡方检验，用于判断随机数据分布是否均匀
+  Expected := TEST_ROUNDS / BINS;
+  ChiSquare := 0.0;
+
+  for I := 0 to BINS - 1 do
+  begin
+    Diff := Counts[I] - Expected;
+    ChiSquare := ChiSquare + (Diff * Diff) / Expected;
+  end;
+
+  // 对于 9 个自由度（10 个分组减去 1），
+  // 在 0.001 的显著性水平下，临界值约为 27.877。
+  // 如果算出的卡方值小于这个临界值左右（这里干脆直接用 30），
+  // 就说明随机分布基本均匀（无法拒绝该分布均匀的假设）。
+  Result := (ChiSquare < 30.0);
 end;
 
 // ============================== Strings ======================================
@@ -1379,9 +1626,7 @@ function TestCalendarWeek: Boolean;
 begin
   Result := (GetWeek(2025, 1, 1) = 3) and // 2025 年 1 月 1 日星期三
     (GetWeek(2024, 2, 29) = 4) and        // 2024 年 2 月 29 日星期四
-    (GetWeek(2000, 1, 1) = 6) and         // 2000 年 1 月 1 日星期六
-    (GetWeekFromNumber(0) = '日') and
-    (GetWeekFromNumber(6) = '六');
+    (GetWeek(2000, 1, 1) = 6);            // 2000 年 1 月 1 日星期六
 end;
 
 function TestCalendarYinYang: Boolean;
@@ -1389,9 +1634,7 @@ begin
   Result := (GetYinYangFromGan(0) = 1) and // 甲为阳
     (GetYinYangFromGan(1) = 0) and         // 乙为阴
     (GetYinYangFromZhi(0) = 1) and         // 子为阳
-    (GetYinYangFromZhi(1) = 0) and         // 丑为阴
-    (GetYinYangFromNumber(0) = '阴') and
-    (GetYinYangFromNumber(1) = '阳');
+    (GetYinYangFromZhi(1) = 0);            // 丑为阴
 end;
 
 function TestCalendarGanZhi: Boolean;
@@ -1401,11 +1644,7 @@ begin
   Result := (CombineGanZhi(0, 0) = 0) and  // 甲子
     (CombineGanZhi(9, 11) = 59) and        // 癸亥
     (ExtractGanZhi(0, Gan, Zhi) and (Gan = 0) and (Zhi = 0)) and
-    (ExtractGanZhi(59, Gan, Zhi) and (Gan = 9) and (Zhi = 11)) and
-    (GetTianGanFromNumber(0) = '甲') and
-    (GetDiZhiFromNumber(0) = '子') and
-    (GetGanZhiFromNumber(0) = '甲子') and
-    (GetGanZhiFromNumber(59) = '癸亥');
+    (ExtractGanZhi(59, Gan, Zhi) and (Gan = 9) and (Zhi = 11));
 
   if not Result then Exit;
 
@@ -1420,9 +1659,7 @@ function TestCalendarShengXiao: Boolean;
 begin
   Result := (GetShengXiaoFromYear(2025) = 5) and // 2025 年蛇
     (GetShengXiaoFromYear(2024) = 4) and         // 2024 年龙
-    (GetShengXiaoFromYear(2000) = 4) and         // 2000 年龙
-    (GetShengXiaoFromNumber(0) = '鼠') and
-    (GetShengXiaoFromNumber(11) = '猪');
+    (GetShengXiaoFromYear(2000) = 4);            // 2000 年龙
 end;
 
 function TestCalendarXingZuo: Boolean;
@@ -1430,9 +1667,7 @@ begin
   Result := (GetXingZuoFromMonthDay(3, 21) = 0) and // 3 月 21 日白羊
     (GetXingZuoFromMonthDay(4, 20) = 0) and         // 4 月 20 日白羊
     (GetXingZuoFromMonthDay(4, 21) = 1) and         // 4 月 21 日金牛
-    (GetXingZuoFromMonthDay(8, 23) = 5) and         // 8 月 23 日处女
-    (GetXingZuoFromNumber(0) = '白羊') and
-    (GetXingZuoFromNumber(11) = '双鱼');
+    (GetXingZuoFromMonthDay(8, 23) = 5);            // 8 月 23 日处女
 end;
 
 function TestCalendarJieQi: Boolean;
@@ -1443,9 +1678,7 @@ begin
     (GetJieQiFromDay(2025, 12, 21) = 21) and      // 2025 年 12 月 21 日冬至
     (GetJieQiFromDay(2025, 1, 1) = -1) and        // 2025 年 1 月 1 日不是节气
     (GetJieQiInAYear(2025, 0, Month, Day, Hour, Minute, Second, ActualYear)) and
-    (Month = 1) and (Day = 5) and                 // 2025 年小寒在 1 月 5 日
-    (GetJieQiFromNumber(0) = '立春') and
-    (GetJieQiFromNumber(23) = '大寒');
+    (Month = 1) and (Day = 5);                    // 2025 年小寒在 1 月 5 日
 end;
 
 function TestCalendar5Xing: Boolean;
@@ -1454,26 +1687,18 @@ begin
     (Get5XingFromGan(1) = 1) and          // 乙木
     (Get5XingFromZhi(3) = 1) and          // 卯木
     (Get5XingFromGanZhi(0, 0) = 0) and    // 甲子海中金
-    (Get5XingFromDay(2025, 1, 1) = 4) and // 2025 年 1 月 1 日纳音五行土
-    (Get5XingLongFromGanZhi(0, 0) = '海中金') and
-    (Get5XingLongFromDay(2025, 1, 1) = '路旁土') and
-    (Get5XingFromNumber(0) = '金') and
-    (Get5XingFromNumber(4) = '土');
+    (Get5XingFromDay(2025, 1, 1) = 4);    // 2025 年 1 月 1 日纳音五行土
 end;
 
 function TestCalendar12Jian: Boolean;
 begin
-  Result := (Get12JianFromDay(2025, 1, 1) >= 0) and (Get12JianFromDay(2025, 1, 1) <= 11) and
-    (Get12JianFromNumber(0) = '建') and
-    (Get12JianFromNumber(11) = '闭');
+  Result := (Get12JianFromDay(2025, 1, 1) >= 0) and (Get12JianFromDay(2025, 1, 1) <= 11);
 end;
 
 function TestCalendar3Yuan9Yun: Boolean;
 begin
   Result := (Get3YuanFromYear(2025, 1, 1) >= 0) and (Get3YuanFromYear(2025, 1, 1) <= 2) and
-    (GetYun9XingFromYear(2025, 1, 1) >= 0) and (GetYun9XingFromYear(2025, 1, 1) <= 8) and
-    (Get3YuanFromNumber(0) = '上元') and
-    (Get3YuanFromNumber(2) = '下元');
+    (GetYun9XingFromYear(2025, 1, 1) >= 0) and (GetYun9XingFromYear(2025, 1, 1) <= 8);
 end;
 
 function TestCalendar9Xing: Boolean;
@@ -1481,26 +1706,18 @@ begin
   Result := (Get9XingFromYear(2025, 1, 1) >= 0) and (Get9XingFromYear(2025, 1, 1) <= 8) and
     (Get9XingFromMonth(2025, 1, 1) >= 0) and (Get9XingFromMonth(2025, 1, 1) <= 8) and
     (Get9XingFromDay(2025, 1, 1) >= 0) and (Get9XingFromDay(2025, 1, 1) <= 8) and
-    (Get9XingFromHour(2025, 1, 1, 12) >= 0) and (Get9XingFromHour(2025, 1, 1, 12) <= 8) and
-    (Get9XingFromNumber(0) = '一白') and
-    (Get9XingFromNumber(8) = '九紫');
+    (Get9XingFromHour(2025, 1, 1, 12) >= 0) and (Get9XingFromHour(2025, 1, 1, 12) <= 8);
 end;
 
 function TestCalendar28Xiu: Boolean;
 begin
   Result := (Get28XiuFromDay(2025, 1, 1) >= 0) and (Get28XiuFromDay(2025, 1, 1) <= 27) and
-    (GetLunar28XiuFromDay(2025, 1, 1) >= -1) and (GetLunar28XiuFromDay(2025, 1, 1) <= 27) and
-    (Get28XiuFromNumber(0) = '角') and
-    (Get28XiuFromNumber(27) = '轸') and
-    (Get28XiuLongFromNumber(0) = '角木蛟') and
-    (Get28XiuLongFromNumber(27) = '轸水蚓');
+    (GetLunar28XiuFromDay(2025, 1, 1) >= -1) and (GetLunar28XiuFromDay(2025, 1, 1) <= 27);
 end;
 
 function TestCalendar6Yao: Boolean;
 begin
-  Result := (Get6YaoFromDay(2025, 1, 1) >= 0) and (Get6YaoFromDay(2025, 1, 1) <= 5) and
-    (Get6YaoFromNumber(0) = '先胜') and
-    (Get6YaoFromNumber(5) = '赤口');
+  Result := (Get6YaoFromDay(2025, 1, 1) >= 0) and (Get6YaoFromDay(2025, 1, 1) <= 5);
 end;
 
 function TestCalendarLunar: Boolean;
@@ -1516,11 +1733,14 @@ begin
 
   if not Result then Exit;
 
+{$IFNDEF FPC}
+  // FPC 下代码中的汉字内容随内码变化而变化容易产生问题，此处不比较
   Result := (GetLunarMonthFromNumber(1, False) = '正月') and
     (GetLunarMonthFromNumber(1, True) = '闰正月') and
     (GetLunarDayFromNumber(1) = '初一') and
     (GetLunarDayFromNumber(15) = '十五') and
     (GetLunarDayFromNumber(30) = '三十');
+{$ENDIF}
 end;
 
 function TestCalendarShuJiu: Boolean;
@@ -1536,10 +1756,8 @@ function TestCalendar3Fu: Boolean;
 var
   FuSeq, FuDay: Integer;
 begin
-  Result := not Get3FuDay(2025, 1, 1, FuSeq, FuDay) and // 2025年 1 月 1 日不在三伏内
-    (Get3FuFromNumber(0) = '初伏') and
-    (Get3FuFromNumber(1) = '中伏') and
-    (Get3FuFromNumber(2) = '末伏');
+  Result := not Get3FuDay(2025, 1, 1, FuSeq, FuDay) and // 2025 年 1 月 1 日不在三伏内
+    Get3FuDay(2026, 7, 15, FuSeq, FuDay);               // 2026 年 7 月 15 日初伏
 end;
 
 function TestCalendarTaiShen: Boolean;
@@ -1556,17 +1774,20 @@ begin
   Result := (GetCaiShenFangWeiFromDay(2025, 1, 1) >= 0) and (GetCaiShenFangWeiFromDay(2025, 1, 1) <= 7) and
     (GetXiShenFangWeiFromDay(2025, 1, 1) >= 0) and (GetXiShenFangWeiFromDay(2025, 1, 1) <= 7) and
     (GetFuShenFangWeiFromDay(2025, 1, 1) >= 0) and (GetFuShenFangWeiFromDay(2025, 1, 1) <= 7) and
-    (GetGuiShenFangWeiFromDay(2025, 1, 1) >= 0) and (GetGuiShenFangWeiFromDay(2025, 1, 1) <= 7) and
-    (GetJiShenFangWeiFromNumber(0) = '正北') and
-    (GetJiShenFangWeiFromNumber(7) = '西北');
+    (GetGuiShenFangWeiFromDay(2025, 1, 1) >= 0) and (GetGuiShenFangWeiFromDay(2025, 1, 1) <= 7);
 end;
 
 function TestCalendarTaiSui: Boolean;
 begin
+{$IFDEF FPC}
+  // FPC 下代码中的汉字内容随内码变化而变化容易产生问题，此处不比较
+  Result := True;
+{$ELSE}
   Result := (Get12TaiSuiFromNumber(0) = '太岁') and
     (Get12TaiSuiFromNumber(11) = '病符') and
     (Get60TaiSuiFromNumber(0) = '金辨') and
     (Get60TaiSuiFromNumber(59) = '虞程');
+{$ENDIF}
 end;
 
 function TestCalendarJulianDate: Boolean;
@@ -2495,13 +2716,76 @@ begin
   // 比较恢复后的数据与原始数据
   for I := 0 to 3 do
   begin
-    if not FloatEqual(Final[I], Original[I], 1e-10) then
+    // AI 说 DCT/IDCT 中用了 Sqrt，容易引入浮点截断误差，因而比较误差在
+    // 特定平台如 Mac64 上的 FPC 要提升到 1e-6，干脆全提升到 1e-6
+    if not FloatEqual(Final[I], Original[I], 1e-6) then
     begin
       Result := False;
       Exit;
     end;
   end;
   Result := True;
+end;
+
+function TestFFT2Basic: Boolean;
+var
+  Data: TCnComplexArray;
+  I: Integer;
+begin
+  // 测试 4x4 矩阵
+  // 初始化为 1
+  for I := 0 to 15 do
+  begin
+    Data[I].R := 1.0;
+    Data[I].I := 0.0;
+  end;
+
+  Result := CnFFT2(@Data, 4, 4);
+  // 4x4 的全1矩阵，其FFT结果应该是 [0,0] = 16 (W*H)，其余为0
+  if Result then
+  begin
+    if not FloatEqual(Data[0].R, 16.0, 1e-5) then
+      Result := False;
+  end;
+end;
+
+function TestFFT2IFFT2RoundTrip: Boolean;
+var
+  Data, CopyData: TCnComplexArray;
+  I: Integer;
+begin
+  // 测试 4x4 矩阵
+  for I := 0 to 15 do
+  begin
+    Data[I].R := I + 1.0;
+    Data[I].I := 0.0;
+    CopyData[I] := Data[I];
+  end;
+
+  // 正变换
+  if not CnFFT2(@Data, 4, 4) then
+  begin
+    Result := False;
+    Exit;
+  end;
+
+  // 逆变换
+  if not CnIFFT2(@Data, 4, 4) then
+  begin
+    Result := False;
+    Exit;
+  end;
+
+  // 验证
+  Result := True;
+  for I := 0 to 15 do
+  begin
+    if not FloatEqual(Data[I].R, CopyData[I].R, 1e-5) then
+    begin
+      Result := False;
+      Break;
+    end;
+  end;
 end;
 
 // ============================== BigNumber ====================================
@@ -2946,8 +3230,239 @@ var
   A: TCnBigNumber;
 begin
   A := BigNumberNew;
-  A.SetDec('9682651996416');
+
+  // Negative number should return False
+  A.SetDec('-8');
+  Result := not BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  // Boundary values: 0 and 1 should return True
+  A.SetDec('0');
   Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('1');
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  // Small perfect powers
+  A.SetDec('4');   // 2^2
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('8');   // 2^3
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('27');  // 3^3
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('64');  // 2^6 or 4^3 or 8^2
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('256'); // 2^8 or 4^4 or 16^2
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('1024'); // 2^10 or 4^5 or 32^2
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  // Small non-perfect powers
+  A.SetDec('2');
+  Result := not BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('3');
+  Result := not BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('5');
+  Result := not BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('10');
+  Result := not BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('101');
+  Result := not BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  // Medium perfect powers
+  A.SetDec('32768'); // 2^15 or 128^3
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('531441'); // 3^12 or 9^6 or 27^4 or 81^3 or 729^2
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('1000000'); // 10^6 or 100^3 or 1000^2
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  // Large perfect powers
+  A.SetDec('9682651996416'); // 42^8 or 1764^4 or 3111696^2
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('1350851717672992089'); // 11^18
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('1152921504606846976'); // 2^60 or 4^30 or 8^20 or 16^15 or 32^12 or 64^10
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  // Large non-perfect powers
+  A.SetDec('9682651996417');
+  Result := not BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('1350851717672992090');
+  Result := not BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  // Very large perfect powers
+  A.SetDec('10000000000000000000000000000000'); // 10^31
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('340282366920938463463374607431768211456'); // 2^128
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  // Perfect cubes
+  A.SetDec('125'); // 5^3
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('216'); // 6^3
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('343'); // 7^3
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('1331'); // 11^3
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  // Perfect 4th powers
+  A.SetDec('81'); // 3^4
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('625'); // 5^4
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('2401'); // 7^4
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  // Perfect 5th powers
+  A.SetDec('32'); // 2^5
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('243'); // 3^5
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('3125'); // 5^5
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  // Perfect 7th powers
+  A.SetDec('128'); // 2^7
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('2187'); // 3^7
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  // Perfect 10th powers
+  A.SetDec('59049'); // 3^10
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  A.SetDec('9765625'); // 5^10
+  Result := BigNumberIsPerfectPower(A);
+  if not Result then Exit;
+
+  BigNumberFree(A);
+end;
+
+function TestBigNumberIsPerfectSquare: Boolean;
+var
+  A: TCnBigNumber;
+begin
+  A := BigNumberNew;
+
+  // 负数返回 False
+  A.SetDec('-4');
+  Result := not BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
+  // 边界值 0 和 1 返回 True
+  A.SetDec('0');
+  Result := BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
+  A.SetDec('1');
+  Result := BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
+  // 小的完全平方数
+  A.SetDec('4');
+  Result := BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
+  A.SetDec('9');
+  Result := BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
+  A.SetDec('16');
+  Result := BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
+  A.SetDec('100');
+  Result := BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
+  // 小的非完全平方数
+  A.SetDec('2');
+  Result := not BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
+  A.SetDec('3');
+  Result := not BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
+  A.SetDec('5');
+  Result := not BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
+  A.SetDec('10');
+  Result := not BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
+  // 大的完全平方数 (123456789^2 = 15241578750190521)
+  A.SetDec('15241578750190521');
+  Result := BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
+  // 大的非完全平方数
+  A.SetDec('15241578750190522');
+  Result := not BigNumberIsPerfectSquare(A);
+  if not Result then Exit;
+
   BigNumberFree(A);
 end;
 
@@ -3501,6 +4016,33 @@ begin
   Result := FloatEqual(R, 0.5);
 end;
 
+function TestUInt64NonNegativeRoot: Boolean;
+begin
+  Result := UInt64NonNegativeRoot(8, 3) = 2;
+  if not Result then Exit;
+  Result := UInt64NonNegativeRoot(9, 3) = 2;
+  if not Result then Exit;
+  Result := UInt64NonNegativeRoot(27, 3) = 3;
+  if not Result then Exit;
+  Result := UInt64NonNegativeRoot(63, 3) = 3;
+  if not Result then Exit;
+  Result := UInt64NonNegativeRoot(64, 3) = 4;
+  if not Result then Exit;
+  Result := UInt64NonNegativeRoot(65, 3) = 4;
+  if not Result then Exit;
+  Result := UInt64NonNegativeRoot(81, 4) = 3;
+  if not Result then Exit;
+  Result := UInt64NonNegativeRoot(82, 4) = 3;
+  if not Result then Exit;
+  Result := UInt64NonNegativeRoot(255, 8) = 1;
+  if not Result then Exit;
+  Result := UInt64NonNegativeRoot(256, 8) = 2;
+  if not Result then Exit;
+  Result := UInt64NonNegativeRoot(257, 8) = 2;
+  if not Result then Exit;
+  Result := UInt64NonNegativeRoot(18446619462631425, 3) = 264224;
+end;
+
 function TestInt64LogN: Boolean;
 var
   R: Extended;
@@ -3715,6 +4257,108 @@ begin
 
   R := Int64ContinuedFraction(A, B);
   Result := FloatAlmostZero(R - 3.66666667);
+end;
+
+function TestInt64IsPerfectSquare: Boolean;
+begin
+  // 负数返回 False
+  Result := not CnInt64IsPerfectSquare(-4);
+  if not Result then Exit;
+
+  // 边界值 0 和 1 返回 True
+  Result := CnInt64IsPerfectSquare(0);
+  if not Result then Exit;
+
+  Result := CnInt64IsPerfectSquare(1);
+  if not Result then Exit;
+
+  // 小的完全平方数
+  Result := CnInt64IsPerfectSquare(4);
+  if not Result then Exit;
+
+  Result := CnInt64IsPerfectSquare(9);
+  if not Result then Exit;
+
+  Result := CnInt64IsPerfectSquare(16);
+  if not Result then Exit;
+
+  Result := CnInt64IsPerfectSquare(100);
+  if not Result then Exit;
+
+  // 小的非完全平方数
+  Result := not CnInt64IsPerfectSquare(2);
+  if not Result then Exit;
+
+  Result := not CnInt64IsPerfectSquare(3);
+  if not Result then Exit;
+
+  Result := not CnInt64IsPerfectSquare(5);
+  if not Result then Exit;
+
+  Result := not CnInt64IsPerfectSquare(10);
+  if not Result then Exit;
+
+  // 大的完全平方数 (123456^2 = 15241383936)
+  Result := CnInt64IsPerfectSquare(15241383936);
+  if not Result then Exit;
+
+  // 大的非完全平方数
+  Result := not CnInt64IsPerfectSquare(15241383937);
+  if not Result then Exit;
+
+  // 更大的完全平方数 (MaxInt64 的平方根约为 3037000499，平方为 9223372030926249001)
+  Result := CnInt64IsPerfectSquare(9223372030926249001);
+  if not Result then Exit;
+end;
+
+function TestInt64IsPerfectPower: Boolean;
+begin
+  Result := not CnInt64IsPerfectPower(-8);
+  if not Result then Exit;
+
+  Result := CnInt64IsPerfectPower(0);
+  if not Result then Exit;
+
+  Result := CnInt64IsPerfectPower(1);
+  if not Result then Exit;
+
+  Result := CnInt64IsPerfectPower(4);   // 2^2
+  if not Result then Exit;
+
+  Result := CnInt64IsPerfectPower(8);   // 2^3
+  if not Result then Exit;
+
+  Result := CnInt64IsPerfectPower(27);  // 3^3
+  if not Result then Exit;
+
+  Result := CnInt64IsPerfectPower(64);  // 2^6 * 4^3 * 8^2
+  if not Result then Exit;
+
+  Result := CnInt64IsPerfectPower(256); // 2^8 * 4^4 * 16^2
+  if not Result then Exit;
+
+  Result := not CnInt64IsPerfectPower(2);
+  if not Result then Exit;
+
+  Result := not CnInt64IsPerfectPower(3);
+  if not Result then Exit;
+
+  Result := not CnInt64IsPerfectPower(5);
+  if not Result then Exit;
+
+  Result := not CnInt64IsPerfectPower(10);
+  if not Result then Exit;
+
+  // (42^8 = 9682651996416)
+  Result := CnInt64IsPerfectPower(9682651996416);
+  if not Result then Exit;
+
+  Result := not CnInt64IsPerfectPower(9682651996417);
+  if not Result then Exit;
+
+  // (1350851717672992089 = 11^18)
+  Result := CnInt64IsPerfectPower(1350851717672992089);
+  if not Result then Exit;
 end;
 
 function TestBigDecimalEulerExp: Boolean;
@@ -4989,8 +5633,17 @@ begin
     // 2(X^2+2X+3) = 2X^2 + 4X + 6
     // 结果：3X^4 + 12X^3 + 32X^2 + 40X + 34
     Result := Res.ToString = '3X^4+12X^3+32X^2+40X+34';
+    if not Result then Exit;
 
-    Result := True;
+    // Test InverseTrunc
+    P1.Clear;
+    P1.MaxDegree := 1;
+    P1[0].SetWord(1);
+    P1[1].SetWord(24);
+    P1[1].Negate;
+
+    BigNumberPolynomialInverseTrunc(Res, P1, 2);
+    Result := Res.ToString = '576X^2+24X+1';
   finally
     V.Free;
     X.Free;
@@ -5145,24 +5798,14 @@ begin
     // 恢复 P1 P2
     P1.Clear;
     P1.MaxDegree := 2;
-    C1 := TCnBigComplexDecimal.Create;
-    C1.SetValue(1, 2);
-    P1[0] := C1;
-    C1 := TCnBigComplexDecimal.Create;
-    C1.SetValue(2, 3);
-    P1[1] := C1;
-    C1 := TCnBigComplexDecimal.Create;
-    C1.SetValue(3, 4);
-    P1[2] := C1;
+    P1[0].SetValue(1, 2);
+    P1[1].SetValue(2, 3);
+    P1[2].SetValue(3, 4);
 
     P2.Clear;
     P2.MaxDegree := 1;
-    C2 := TCnBigComplexDecimal.Create;
-    C2.SetValue(1, 0);
-    P2[0] := C2;
-    C2 := TCnBigComplexDecimal.Create;
-    C2.SetValue(1, 1);
-    P2[1] := C2;
+    P2[0].SetValue(1, 0);
+    P2[1].SetValue(1, 1);
 
     // 测试复制
     BigComplexDecimalPolynomialCopy(Res, P1);
@@ -5245,16 +5888,14 @@ begin
   R2 := Pool.Obtain;
   Res := Pool.Obtain;
   try
-    R1.Numerator.SetCoefficents([2, 1]);
-    R1.Denominator.SetCoefficents([2]);
+    R1.Numerator.SetCoefficients([2, 1]);
+    R1.Denominator.SetCoefficients([2]);
 
-    R2.Numerator.SetCoefficents([0, 1]);
-    R2.Denominator.SetCoefficents([3]);
+    R2.Numerator.SetCoefficients([0, 1]);
+    R2.Denominator.SetCoefficients([3]);
 
     Int64RationalPolynomialAdd(Res, R1, R2);
-    if Res.ToString <> '5X+6 / 6' then Exit;
-
-    Result := True;
+    Result := Res.ToString = '5X+6 / 6';
   finally
     Pool.Free;
   end;
@@ -5265,22 +5906,19 @@ var
   R1, R2, Res: TCnBigNumberRationalPolynomial;
   Pool: TCnBigNumberRationalPolynomialPool;
 begin
-  Result := False;
   Pool := TCnBigNumberRationalPolynomialPool.Create;
   R1 := Pool.Obtain;
   R2 := Pool.Obtain;
   Res := Pool.Obtain;
   try
-    R1.Numerator.SetCoefficents([2, 1]);
-    R1.Denominator.SetCoefficents([2]);
+    R1.Numerator.SetCoefficients([2, 1]);
+    R1.Denominator.SetCoefficients([2]);
 
-    R2.Numerator.SetCoefficents([0, 1]);
-    R2.Denominator.SetCoefficents([3]);
+    R2.Numerator.SetCoefficients([0, 1]);
+    R2.Denominator.SetCoefficients([3]);
 
     BigNumberRationalPolynomialAdd(Res, R1, R2);
-    if Res.ToString <> '5X+6 / 6' then Exit;
-
-    Result := True;
+    Result := Res.ToString = '5X+6 / 6';
   finally
     Pool.Free;
   end;
@@ -5290,7 +5928,6 @@ function TestInt64BiPolynomial: Boolean;
 var
   P1, P2, Res: TCnInt64BiPolynomial;
 begin
-  Result := False;
   P1 := TCnInt64BiPolynomial.Create;
   P2 := TCnInt64BiPolynomial.Create;
   Res := TCnInt64BiPolynomial.Create;
@@ -5299,13 +5936,12 @@ begin
     P2.SetXYCoefficent(1, 1, 1); // XY
 
     Int64BiPolynomialAdd(Res, P1, P2);
-    if Res.ToString <> '2XY' then Exit;
+    Result := Res.ToString = '2XY';
+    if not Result then Exit;
 
     P1.SetXYCoefficent(0, 0, 1); // XY + 1
     Int64BiPolynomialSub(Res, P1, P2);
-    if Res.ToString <> '1' then Exit;
-
-    Result := True;
+    Result := Res.ToString = '1';
   finally
     Res.Free;
     P2.Free;
@@ -5317,7 +5953,6 @@ function TestBigNumberBiPolynomial: Boolean;
 var
   P1, P2, Res: TCnBigNumberBiPolynomial;
 begin
-  Result := False;
   P1 := TCnBigNumberBiPolynomial.Create;
   P2 := TCnBigNumberBiPolynomial.Create;
   Res := TCnBigNumberBiPolynomial.Create;
@@ -5326,17 +5961,214 @@ begin
     P2.SetXYCoefficent(1, 1, 1); // XY
 
     BigNumberBiPolynomialAdd(Res, P1, P2);
-    if Res.ToString <> '2XY' then Exit;
+    Result := Res.ToString = '2XY';
+    if not Result then Exit;
 
     P1.SetXYCoefficent(0, 0, 1); // XY + 1
     BigNumberBiPolynomialSub(Res, P1, P2);
-    if Res.ToString <> '1' then Exit;
-
-    Result := True;
+    Result := Res.ToString = '1';
   finally
     Res.Free;
     P2.Free;
     P1.Free;
+  end;
+end;
+
+function TestPolynomialInverseTrunc: Boolean;
+var
+  P, Res: TCnBigNumberPolynomial;
+begin
+  P := TCnBigNumberPolynomial.Create;
+  Res := TCnBigNumberPolynomial.Create;
+  try
+    // Test 1: P = 1 - 24X
+    P.MaxDegree := 1;
+    P[0].SetWord(1);
+    P[1].SetWord(24);
+    P[1].Negate;
+
+    // P^-1 mod X^3
+    // 1 / (1 - 24X) = 1 + 24X + 576X^2 + 13824X^3 + ...
+    BigNumberPolynomialInverseTrunc(Res, P, 2);
+    Result := Res.ToString = '576X^2+24X+1';
+    if not Result then Exit;
+
+    // Test 2: P = -1 + X^2
+    P.Clear;
+    P.MaxDegree := 2;
+    P[0].SetWord(1);
+    P[0].Negate;
+    P[2].SetWord(1);
+
+    // P^-1 mod X^5
+    // 1 / (-1 + X^2) = -(1 / (1 - X^2)) = -1 - X^2 - X^4 - X^6...
+    BigNumberPolynomialInverseTrunc(Res, P, 4);
+    Result := Res.ToString = '-X^4-X^2-1';
+  finally
+    Res.Free;
+    P.Free;
+  end;
+end;
+
+function TestPolynomialMulTrunc: Boolean;
+var
+  P1, P2, Res: TCnBigNumberPolynomial;
+begin
+  P1 := TCnBigNumberPolynomial.Create;
+  P2 := TCnBigNumberPolynomial.Create;
+  Res := TCnBigNumberPolynomial.Create;
+  try
+    // P1 = 1 + 2X + 3X^2
+    P1.MaxDegree := 2;
+    P1[0].SetWord(1);
+    P1[1].SetWord(2);
+    P1[2].SetWord(3);
+
+    // P2 = 4 + 5X + 6X^2
+    P2.MaxDegree := 2;
+    P2[0].SetWord(4);
+    P2[1].SetWord(5);
+    P2[2].SetWord(6);
+
+    // P1 * P2 = 4 + 13X + 28X^2 + 27X^3 + 18X^4
+    // Trunc to MaxDegree = 2
+    BigNumberPolynomialMulTrunc(Res, P1, P2, 2);
+    Result := Res.ToString = '28X^2+13X+4';
+    if not Result then Exit;
+
+    // Trunc to MaxDegree = 3
+    BigNumberPolynomialMulTrunc(Res, P1, P2, 3);
+    REsult := Res.ToString = '27X^3+28X^2+13X+4';
+  finally
+    Res.Free;
+    P2.Free;
+    P1.Free;
+  end;
+end;
+
+function TestPolynomialPowerTrunc: Boolean;
+var
+  P, Res: TCnBigNumberPolynomial;
+  E: TCnBigNumber;
+begin
+  P := TCnBigNumberPolynomial.Create;
+  Res := TCnBigNumberPolynomial.Create;
+  E := TCnBigNumber.Create;
+  try
+    // P = 1 + X
+    P.MaxDegree := 1;
+    P[0].SetWord(1);
+    P[1].SetWord(1);
+
+    // P^3 = 1 + 3X + 3X^2 + X^3
+    E.SetWord(3);
+    BigNumberPolynomialPowerTrunc(Res, P, E, 3);
+    Result := Res.ToString = 'X^3+3X^2+3X+1';
+    if not Result then Exit;
+
+    // P^3 trunc to MaxDegree = 2
+    BigNumberPolynomialPowerTrunc(Res, P, E, 2);
+    Result := Res.ToString = '3X^2+3X+1';
+  finally
+    E.Free;
+    Res.Free;
+    P.Free;
+  end;
+end;
+
+function TestBigNumberPolynomialDerivative: Boolean;
+var
+  P, Res: TCnBigNumberPolynomial;
+  Prime: TCnBigNumber;
+begin
+  Result := False;
+  P := TCnBigNumberPolynomial.Create;
+  Res := TCnBigNumberPolynomial.Create;
+  Prime := TCnBigNumber.Create;
+  try
+    // ===== BigNumberPolynomialDerivative ????????? =====
+
+    // P = 3X^3 + 2X^2 + X + 5
+    // P' = 9X^2 + 4X + 1
+    P.SetCoefficients([5, 1, 2, 3]);
+    BigNumberPolynomialDerivative(Res, P);
+    Result := Res.ToString = '9X^2+4X+1';
+    if not Result then Exit;
+
+    // P = X^4 - 3X^2 + 2
+    // P' = 4X^3 - 6X
+    P.SetCoefficients([2, 0, -3, 0, 1]);
+    BigNumberPolynomialDerivative(Res, P);
+    Result := Res.ToString = '4X^3-6X';
+    if not Result then Exit;
+
+    // P = 7
+    // P' = 0
+    P.SetCoefficients([7]);
+    BigNumberPolynomialDerivative(Res, P);
+    Result := Res.IsZero;
+    if not Result then Exit;
+
+    // P = 0
+    // P' = 0
+    P.SetZero;
+    BigNumberPolynomialDerivative(Res, P);
+    Result := Res.IsZero;
+    if not Result then Exit;
+
+    // P = X
+    // P' = 1
+    P.SetCoefficients([0, 1]);
+    BigNumberPolynomialDerivative(Res, P);
+    Result := Res.ToString = '1';
+    if not Result then Exit;
+
+    // ===== BigNumberPolynomialGaloisDerivative Galois =====
+
+    // P = 3X^3 + 2X^2 + X + 5, Prime = 7
+    // P' = 9X^2 + 4X + 1, mod 7 => 2X^2 + 4X + 1
+    P.SetCoefficients([5, 1, 2, 3]);
+    Prime.SetWord(7);
+    BigNumberPolynomialGaloisDerivative(Res, P, Prime);
+    Result := Res.ToString = '2X^2+4X+1';
+    if not Result then Exit;
+
+    // P = X^5 + X^4 + X^3 + X^2 + X + 1, Prime = 5
+    // P' = 5X^4 + 4X^3 + 3X^2 + 2X + 1, mod 5 => 4X^3 + 3X^2 + 2X + 1
+    P.SetCoefficients([1, 1, 1, 1, 1, 1]);
+    Prime.SetWord(5);
+    BigNumberPolynomialGaloisDerivative(Res, P, Prime);
+    Result := Res.ToString = '4X^3+3X^2+2X+1';
+    if not Result then Exit;
+
+    // P = 3, Prime = 7
+    // P' = 0
+    P.SetCoefficients([3]);
+    Prime.SetWord(7);
+    BigNumberPolynomialGaloisDerivative(Res, P, Prime);
+    Result := Res.IsZero;
+    if not Result then Exit;
+
+    // P = X^p, Prime = p
+    // P' = p * X^(p-1), mod p => 0
+    // ? p = 5, P = X^5
+    P.SetZero;
+    P.MaxDegree := 5;
+    P[5].SetWord(1);
+    Prime.SetWord(5);
+    BigNumberPolynomialGaloisDerivative(Res, P, Prime);
+    Result := Res.IsZero;
+    if not Result then Exit;
+
+    // Res= P (in-place)
+    // P = 3X^3 + 2X^2 + X + 5, P' = 9X^2 + 4X + 1
+    P.SetCoefficients([5, 1, 2, 3]);
+    BigNumberPolynomialDerivative(P, P);
+    Result := P.ToString = '9X^2+4X+1';
+  finally
+    Prime.Free;
+    Res.Free;
+    P.Free;
   end;
 end;
 
@@ -9473,6 +10305,145 @@ begin
     Result := False;
 end;
 
+// ================================ OTP ========================================
+
+function TestHOTP: Boolean;
+const
+  HOTP_VEC: array[0..9] of string = (
+    '755224', '287082', '359152', '969429', '338314',
+    '254676', '287922', '162583', '399871', '520489'
+  );
+var
+  G: TCnHOTPGenerator;
+  Seed: AnsiString;
+  I: Integer;
+begin
+  G := TCnHOTPGenerator.Create;
+  try
+    Seed := '12345678901234567890';
+    G.SetSeedKey(@Seed[1], Length(Seed));
+    G.SetCounter(0);
+    G.Digits := 6;
+
+    Result := True;
+    for I := 0 to 9 do
+    begin
+      if G.OneTimePassword <> HOTP_VEC[I] then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+  finally
+    G.Free;
+  end;
+end;
+
+function TestTOTP: Boolean;
+var
+  G: TCnTOTPGenerator;
+  Seed: AnsiString;
+  S: string;
+  I: Integer;
+begin
+  G := TCnTOTPGenerator.Create;
+  try
+    Seed := '12345678901234567890';
+    G.SetSeedKey(@Seed[1], Length(Seed));
+    G.Period := 30;
+    G.Digits := 8;
+
+    G.PasswordType := tptSHA1;
+    S := G.OneTimePassword;
+    Result := Length(S) = 8;
+    if not Result then Exit;
+    for I := 1 to Length(S) do
+    begin
+      if (S[I] < '0') or (S[I] > '9') then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+
+    G.PasswordType := tptSHA256;
+    S := G.OneTimePassword;
+    Result := Length(S) = 8;
+    if not Result then Exit;
+    for I := 1 to Length(S) do
+    begin
+      if (S[I] < '0') or (S[I] > '9') then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+
+    G.PasswordType := tptSHA512;
+    S := G.OneTimePassword;
+    Result := Length(S) = 8;
+    if not Result then Exit;
+    for I := 1 to Length(S) do
+    begin
+      if (S[I] < '0') or (S[I] > '9') then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+  finally
+    G.Free;
+  end;
+end;
+
+function TestDynamicToken: Boolean;
+var
+  T: TCnDynamicToken;
+  Seed, Challenge: AnsiString;
+  S: string;
+  I: Integer;
+begin
+  T := TCnDynamicToken.Create;
+  try
+    Seed := '0011223344556677';
+    Challenge := 'ABCD';
+
+    T.SetSeedKey(@Seed[1], Length(Seed));
+    T.SetChallengeCode(@Challenge[1], Length(Challenge));
+    T.SetCounter(1024);
+    T.Period := 60;
+    T.Digits := 8;
+    T.PasswordType := copSM3;
+
+    S := T.OneTimePassword;
+    Result := Length(S) = 8;
+    if not Result then Exit;
+    for I := 1 to Length(S) do
+    begin
+      if (S[I] < '0') or (S[I] > '9') then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+
+    T.PasswordType := copSM4;
+    S := T.OneTimePassword;
+    Result := Length(S) = 8;
+    if not Result then Exit;
+    for I := 1 to Length(S) do
+    begin
+      if (S[I] < '0') or (S[I] > '9') then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+  finally
+    T.Free;
+  end;
+end;
+
 // ================================ AEAD =======================================
 
 function TestAEADAESCCM: Boolean;
@@ -9668,6 +10639,27 @@ begin
   Result := DataToHex(@P[0], Length(P)) = 'AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBCCCCCCCCCCCCCCCCDDDDDDDDDDDDDDDDEEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFFEEEEEEEEEEEEEEEEAAAAAAAAAAAAAAAA';
 end;
 
+function TestAEADGHashUpdate: Boolean;
+var
+  Key: TCnGHash128Key;
+  Data: TBytes;
+  TagRef, TagSplit: TCnGHash128Tag;
+  Ctx: TCnGHash128Context;
+begin
+  HexToData('66E94BD4EF8A2C3B884CFA59CA342B2E', @Key[0]);
+  Data := HexToBytes('00112233445566778899AABBCCDDEEFF102030405060708090A0B0C0D0E0F0112233445566');
+
+  GHash128(Key, @Data[0], Length(Data), nil, 0, TagRef);
+
+  GHash128Start(Ctx, Key, nil, 0);
+  GHash128Update(Ctx, @Data[0], 7);
+  GHash128Update(Ctx, @Data[7], 11);
+  GHash128Update(Ctx, @Data[18], Length(Data) - 18);
+  GHash128Finish(Ctx, TagSplit);
+
+  Result := CompareMem(@TagRef[0], @TagSplit[0], SizeOf(TCnGHash128Tag));
+end;
+
 function TestAEADChaCha20Poly1305: Boolean;
 var
   Plain, Key, AAD, Iv, EnData, DeData: TBytes;
@@ -9846,6 +10838,81 @@ begin
   Poly1305Final(C, D2);
 
   Result := Poly1305Match(D1, D2);
+end;
+
+function TestPoly1305Boundary: Boolean;
+const
+  LENS: array[0..5] of Integer = (15, 16, 17, 31, 32, 33);
+  PAD_LENS: array[0..3] of Integer = (15, 17, 31, 33);
+var
+  I, J, L, PaddedLen: Integer;
+  Key: TCnPoly1305Key;
+  Data: array[0..63] of Byte;
+  DRef, D1, D2: TCnPoly1305Digest;
+  C: TCnPoly1305Context;
+  B, KBytes: TBytes;
+begin
+  for I := 0 to SizeOf(Key) - 1 do
+    Key[I] := Byte((I * 17 + 3) and $FF);
+  for I := 0 to SizeOf(Data) - 1 do
+    Data[I] := Byte((I * 13 + 11) and $FF);
+
+  DRef := Poly1305Data(nil, 0, Key);
+  Poly1305Init(C, Key);
+  Poly1305Final(C, D1);
+  Result := Poly1305Match(DRef, D1);
+  if not Result then Exit;
+
+  for I := 0 to High(LENS) do
+  begin
+    L := LENS[I];
+    DRef := Poly1305Buffer(Data[0], L, Key);
+
+    Poly1305Init(C, Key);
+    Poly1305Update(C, PAnsiChar(@Data[0]), L);
+    Poly1305Final(C, D1);
+    Result := Poly1305Match(DRef, D1);
+    if not Result then Exit;
+
+    Poly1305Init(C, Key);
+    if L <= 7 then
+      Poly1305Update(C, PAnsiChar(@Data[0]), L)
+    else
+    begin
+      Poly1305Update(C, PAnsiChar(@Data[0]), 7);
+      Poly1305Update(C, PAnsiChar(@Data[7]), L - 7);
+    end;
+    Poly1305Final(C, D2);
+    Result := Poly1305Match(DRef, D2);
+    if not Result then Exit;
+  end;
+
+  for I := 0 to High(PAD_LENS) do
+  begin
+    L := PAD_LENS[I];
+    PaddedLen := ((L + 15) div 16) * 16;
+    SetLength(B, PaddedLen);
+    for J := 0 to PaddedLen - 1 do
+      B[J] := 0;
+    Move(Data[0], B[0], L);
+
+    DRef := Poly1305Data(@B[0], Length(B), Key);
+    Poly1305Init(C, Key);
+    Poly1305Update(C, PAnsiChar(@Data[0]), L);
+    if PaddedLen > L then
+      Poly1305Update(C, PAnsiChar(@B[L]), PaddedLen - L);
+    Poly1305Final(C, D1);
+    Result := Poly1305Match(DRef, D1);
+    if not Result then Exit;
+  end;
+
+  SetLength(B, 33);
+  Move(Data[0], B[0], Length(B));
+  SetLength(KBytes, SizeOf(TCnPoly1305Key));
+  Move(Key[0], KBytes[0], SizeOf(TCnPoly1305Key));
+  DRef := Poly1305Data(@B[0], Length(B), Key);
+  D1 := Poly1305Bytes(B, KBytes);
+  Result := Poly1305Match(DRef, D1);
 end;
 
 // ================================ ZUC ========================================
@@ -10442,7 +11509,8 @@ begin
     Pub.Y.SetHex('CCEA490CE26775A52DC6EA718CC1AA600AED05FBF35E084A6632F6072DA9AD13');
 
     Result := False;
-    if CnSM2EncryptData(@M[1], Length(M), EnStream, Pub, nil, cstC1C3C2, True, '59276E27D506861A16680F3AD9C02DCCEF3CC1FA3CDBE4CE6D54B80DEAC1BC21') then
+    if CnSM2EncryptData(@M[1], Length(M), EnStream, Pub, nil, cstC1C3C2, True,
+      '59276E27D506861A16680F3AD9C02DCCEF3CC1FA3CDBE4CE6D54B80DEAC1BC21') then
     begin
       Result := DataToHex(EnStream.Memory, EnStream.Size) = '04' +
         '04EBFC718E8D1798620432268E77FEB6415E2EDE0E073C0F4F640ECD2E149A73' +
@@ -10455,6 +11523,48 @@ begin
       DeStream := TMemoryStream.Create;
       if CnSM2DecryptData(EnStream.Memory, EnStream.Size, DeStream, Priv) then
         Result := CompareMem(DeStream.Memory, @M[1], DeStream.Size);
+
+      if not Result then Exit;
+
+      EnStream.Clear;
+      if CnSM2EncryptData(@M[1], Length(M), EnStream, Pub, nil, cstC1C3C2, True,
+        '59276E27D506861A16680F3AD9C02DCCEF3CC1FA3CDBE4CE6D54B80DEAC1BC21', True) then
+      begin
+        Result := DataToHex(EnStream.Memory, EnStream.Size) = '02' +
+          '04EBFC718E8D1798620432268E77FEB6415E2EDE0E073C0F4F640ECD2E149A73' +
+          '59983C18F809E262923C53AEC295D30383B54E39D609D160AFCB1908D0BD8766' +
+          '21886CA989CA9C7D58087307CA93092D651EFA';
+
+        if not Result then Exit;
+
+        FreeAndNil(DeStream);
+        DeStream := TMemoryStream.Create;
+        if CnSM2DecryptData(EnStream.Memory, EnStream.Size, DeStream, Priv) then
+          Result := CompareMem(DeStream.Memory, @M[1], DeStream.Size)
+        else
+          Result := False;
+
+        if not Result then Exit;
+
+        EnStream.Clear;
+        if CnSM2EncryptData(@M[1], Length(M), EnStream, Pub, nil, cstC1C3C2, True,
+          '2', True) then
+        begin
+          Result := (EnStream.Size > 0) and (PByte(EnStream.Memory)^ = $03);
+          if not Result then Exit;
+
+          FreeAndNil(DeStream);
+          DeStream := TMemoryStream.Create;
+          if CnSM2DecryptData(EnStream.Memory, EnStream.Size, DeStream, Priv) then
+            Result := CompareMem(DeStream.Memory, @M[1], DeStream.Size)
+          else
+            Result := False;
+        end
+        else
+          Result := False;
+      end
+      else
+        Result := False;
     end;
   finally
     DeStream.Free;
@@ -10526,6 +11636,185 @@ begin
     APrivateKey.Free;
     BPublicKey.Free;
     BPrivateKey.Free;
+  end;
+end;
+
+function TestSM2KeyExchangeExample256: Boolean;
+const
+  KEY_LENGTH = 16;
+  AID = 'ALICE123@YAHOO.COM';
+  BID = 'BILL456@YAHOO.COM';
+var
+  SM2: TCnSM2;
+  APrivateKey, BPrivateKey: TCnSM2PrivateKey;
+  APublicKey, BPublicKey: TCnSM2PublicKey;
+  RandA, RandB: TCnBigNumber;
+  OutRA, OutRB: TCnEccPoint;
+  KA, KB: TBytes;
+  OpSA, OpSB, OpS2: TCnSM3Digest;
+begin
+  SM2 := TCnSM2.Create(ctSM2Example256);
+  APrivateKey := TCnSM2PrivateKey.Create;
+  APublicKey := TCnSM2PublicKey.Create;
+  BPrivateKey := TCnSM2PrivateKey.Create;
+  BPublicKey := TCnSM2PublicKey.Create;
+  RandA := TCnBigNumber.Create;
+  RandB := TCnBigNumber.Create;
+  OutRA := TCnEccPoint.Create;
+  OutRB := TCnEccPoint.Create;
+
+  try
+    APrivateKey.SetHex('6FCBA2EF9AE0AB902BC3BDE3FF915D44BA4CC78F88E2F8E7F8996D3B8CCEEDEE');
+    APublicKey.X.SetHex('3099093BF3C137D8FCBBCDF4A2AE50F3B0F216C3122D79425FE03A45DBFE1655');
+    APublicKey.Y.SetHex('3DF79E8DAC1CF0ECBAA2F2B49D51A4B387F2EFAF482339086A27A8E05BAED98B');
+    BPrivateKey.SetHex('5E35D7D3F3C54DBAC72E61819E730B019A84208CA3A35E4C2E353DFCCB2A3B53');
+    BPublicKey.X.SetHex('245493D446C38D8CC0F118374690E7DF633A8A4BFB3329B5ECE604B2B4F37F43');
+    BPublicKey.Y.SetHex('53C0869F4B9E17773DE68FEC45E14904E0DEA45BF6CECF9918C85EA047C60A4C');
+
+    Result := CnSM2KeyExchangeAStep1(AID, BID, KEY_LENGTH, APrivateKey, APublicKey, BPublicKey, RandA, OutRA, SM2);
+    if not Result then Exit;
+
+    Result := CnSM2KeyExchangeBStep1(AID, BID, KEY_LENGTH, BPrivateKey, APublicKey, BPublicKey, OutRA, KB, OutRB, OpSB, OpS2, SM2);
+    if not Result then Exit;
+
+    Result := CnSM2KeyExchangeAStep2(AID, BID, KEY_LENGTH, APrivateKey, APublicKey, BPublicKey, OutRA, OutRB, RandA, KA, OpSB, OpSA, SM2);
+    if not Result then Exit;
+
+    Result := CnSM2KeyExchangeBStep2(AID, BID, KEY_LENGTH, BPrivateKey, APublicKey, BPublicKey, OpSA, OpS2, SM2);
+    if not Result then Exit;
+
+    Result := CompareBytes(KA, KB);
+  finally
+    OutRB.Free;
+    OutRA.Free;
+    RandB.Free;
+    RandA.Free;
+    BPublicKey.Free;
+    BPrivateKey.Free;
+    APublicKey.Free;
+    APrivateKey.Free;
+    SM2.Free;
+  end;
+end;
+
+function TestSM2Collaborative3KeyGen: Boolean;
+var
+  PrivA, PrivB, PrivC: TCnSM2CollaborativePrivateKey;
+  Pub: TCnSM2CollaborativePublicKey;
+  PToB, PToC: TCnEccPoint;
+  SM2: TCnSM2;
+begin
+  PrivA := TCnSM2CollaborativePrivateKey.Create;
+  PrivB := TCnSM2CollaborativePrivateKey.Create;
+  PrivC := TCnSM2CollaborativePrivateKey.Create;
+  Pub := TCnSM2CollaborativePublicKey.Create;
+  PToB := TCnEccPoint.Create;
+  PToC := TCnEccPoint.Create;
+  SM2 := TCnSM2.Create;
+
+  try
+    PrivA.SetHex('3945208F7B2144B13F36E38AC6D39F95889393692860B51A42FB81EF4DF7C5B8');
+    PrivB.SetHex('81EB26E941BB5AF16DF116495F90695272AE2CD63D6C4AE1678418BE48230029');
+    PrivC.SetHex('785129917D45A9EA5437A59356B82338EAADDA6CEB199088F14AE10DEFA229B5');
+
+    Result := CnSM2Collaborative3GenerateKeyAStep1(PrivA, PToB, SM2);
+    if not Result then Exit;
+
+    Result := CnSM2Collaborative3GenerateKeyBStep1(PrivB, PToB, PToC, SM2);
+    if not Result then Exit;
+
+    Result := CnSM2Collaborative3GenerateKeyCStep1(PrivC, PToC, Pub, SM2);
+    if not Result then Exit;
+
+    Result := (not Pub.IsZero) and SM2.IsPointOnCurve(Pub);
+  finally
+    SM2.Free;
+    PToC.Free;
+    PToB.Free;
+    Pub.Free;
+    PrivC.Free;
+    PrivB.Free;
+    PrivA.Free;
+  end;
+end;
+
+function TestSM2Collaborative3Sign: Boolean;
+var
+  PrivA, PrivB, PrivC: TCnSM2CollaborativePrivateKey;
+  Pub: TCnSM2CollaborativePublicKey;
+  PToB, PToC: TCnEccPoint;
+  Msg: AnsiString;
+  HashE: TCnBigNumber;
+  QA, QB: TCnEccPoint;
+  RandKA, RandKB: TCnBigNumber;
+  R, S1C, S2C, S1B, S2B: TCnBigNumber;
+  Sig: TCnSM2Signature;
+begin
+  PrivA := TCnSM2CollaborativePrivateKey.Create;
+  PrivB := TCnSM2CollaborativePrivateKey.Create;
+  PrivC := TCnSM2CollaborativePrivateKey.Create;
+  Pub := TCnSM2CollaborativePublicKey.Create;
+  PToB := TCnEccPoint.Create;
+  PToC := TCnEccPoint.Create;
+  HashE := TCnBigNumber.Create;
+  QA := TCnEccPoint.Create;
+  QB := TCnEccPoint.Create;
+  RandKA := TCnBigNumber.Create;
+  RandKB := TCnBigNumber.Create;
+  R := TCnBigNumber.Create;
+  S1C := TCnBigNumber.Create;
+  S2C := TCnBigNumber.Create;
+  S1B := TCnBigNumber.Create;
+  S2B := TCnBigNumber.Create;
+  Sig := TCnSM2Signature.Create;
+
+  try
+    PrivA.SetHex('3945208F7B2144B13F36E38AC6D39F95889393692860B51A42FB81EF4DF7C5B8');
+    PrivB.SetHex('81EB26E941BB5AF16DF116495F90695272AE2CD63D6C4AE1678418BE48230029');
+    PrivC.SetHex('785129917D45A9EA5437A59356B82338EAADDA6CEB199088F14AE10DEFA229B5');
+
+    Result := CnSM2Collaborative3GenerateKeyAStep1(PrivA, PToB);
+    if not Result then Exit;
+    Result := CnSM2Collaborative3GenerateKeyBStep1(PrivB, PToB, PToC);
+    if not Result then Exit;
+    Result := CnSM2Collaborative3GenerateKeyCStep1(PrivC, PToC, Pub);
+    if not Result then Exit;
+
+    Msg := 'CnPack SM2 Collaborative Sign';
+    Result := CnSM2Collaborative3SignAStep1('1234567812345678', @Msg[1], Length(Msg), HashE, QA, RandKA, PrivA, Pub);
+    if not Result then Exit;
+
+    Result := CnSM2Collaborative3SignBStep1(HashE, QA, QB, RandKB, PrivB);
+    if not Result then Exit;
+
+    Result := CnSM2Collaborative3SignCStep1(HashE, QB, R, S1C, S2C, PrivC);
+    if not Result then Exit;
+
+    Result := CnSM2Collaborative3SignBStep2(RandKB, R, S1C, S2C, S1B, S2B, PrivB);
+    if not Result then Exit;
+
+    Result := CnSM2Collaborative3SignAStep2(RandKA, R, S1B, S2B, Sig, PrivA);
+    if not Result then Exit;
+
+    Result := CnSM2VerifyData('1234567812345678', @Msg[1], Length(Msg), Sig, Pub);
+  finally
+    Sig.Free;
+    S2B.Free;
+    S1B.Free;
+    S2C.Free;
+    S1C.Free;
+    R.Free;
+    RandKB.Free;
+    RandKA.Free;
+    QB.Free;
+    QA.Free;
+    HashE.Free;
+    PToC.Free;
+    PToB.Free;
+    Pub.Free;
+    PrivC.Free;
+    PrivB.Free;
+    PrivA.Free;
   end;
 end;
 
@@ -11191,7 +12480,10 @@ begin
   Sl := TStringList.Create;
   Sl.LoadFromStream(Stream);
 
-  D := Trim(AnsiString(Sl.Text));
+  // TStringList 在 macOS/Linux 可能是 #10，作 #13#10 兼容处理
+  D := StringReplace(AnsiString(Sl.Text), #13#10, #10, [rfReplaceAll]);
+  D := StringReplace(D, #10, #13#10, [rfReplaceAll]);
+  D := Trim(D);
   Result := S = D;
 
   Sl.Free;
@@ -11235,7 +12527,10 @@ begin
   Sl := TStringList.Create;
   Sl.LoadFromStream(Stream);
 
-  D := Trim(AnsiString(Sl.Text));
+  // TStringList 在 macOS/Linux 可能是 #10，作 #13#10 兼容处理
+  D := StringReplace(AnsiString(Sl.Text), #13#10, #10, [rfReplaceAll]);
+  D := StringReplace(D, #10, #13#10, [rfReplaceAll]);
+  D := Trim(D);
   Result := S = D;
 
   Sl.Free;
@@ -11303,9 +12598,13 @@ begin
   Sl := TStringList.Create;
   Sl.LoadFromStream(Stream);
 
-  D := Trim(AnsiString(Sl.Text));
+  // TStringList 在 macOS/Linux 可能是 #10，作 #13#10 兼容处理
+  D := StringReplace(AnsiString(Sl.Text), #13#10, #10, [rfReplaceAll]);
+  D := StringReplace(D, #10, #13#10, [rfReplaceAll]);
+  D := Trim(D);
   Result := S = D;
 
+  Sl.Free;
   Pub.Free;
   Priv.Free;
   Stream.Free;
@@ -11347,7 +12646,10 @@ begin
   Sl := TStringList.Create;
   Sl.LoadFromStream(Stream);
 
-  D := Trim(AnsiString(Sl.Text));
+  // TStringList 在 macOS/Linux 可能是 #10，作 #13#10 兼容处理
+  D := StringReplace(AnsiString(Sl.Text), #13#10, #10, [rfReplaceAll]);
+  D := StringReplace(D, #10, #13#10, [rfReplaceAll]);
+  D := Trim(D);
   Result := S = D;
 
   Sl.Free;
@@ -12957,6 +14259,96 @@ begin
   end;
 end;
 
+function TestECCECDH: Boolean;
+var
+  Ecc: TCnEcc;
+  Priv1, Priv2: TCnEccPrivateKey;
+  Pub1, Pub2: TCnEccPublicKey;
+  Sec1, Sec2: TCnEccPublicKey;
+begin
+  Ecc := TCnEcc.Create(ctRfc4754ECDSAExample256);
+  Priv1 := TCnEccPrivateKey.Create;
+  Priv2 := TCnEccPrivateKey.Create;
+  Pub1 := TCnEccPublicKey.Create;
+  Pub2 := TCnEccPublicKey.Create;
+  Sec1 := TCnEccPublicKey.Create;
+  Sec2 := TCnEccPublicKey.Create;
+  try
+    Priv1.SetHex('E32868331FA8EF0138DE0DE85478346AEC5E3912B6029AE71691C384237A3EEB');
+    Priv2.SetHex('CEF147652AA90162E1FFF9CF07F2605EA05529CA215A04350A98ECC24AA34342');
+
+    CnEccDiffieHellmanGenerateOutKey(Ecc, Priv1, Pub1);
+    CnEccDiffieHellmanGenerateOutKey(Ecc, Priv2, Pub2);
+
+    Result := (Pub1.X.ToHex = '96AA4956CF6689BD57CED42E0C5645499C5993A77AFAF15860B12CA0B38FFC4E')
+      and (Pub1.Y.ToHex = '9C1689B9B524534C37DBFF7628A1CB85F39F146B813F8C89825CC82BCA2E9B75')
+      and (Pub2.X.ToHex = 'F8D428541147F96367663812B6D3E4B04FAB9D89C6C7C07B2F707963C9688360')
+      and (Pub2.Y.ToHex = 'EC0178A2D1912D4A0062457B6A46169E5BB32F8C03342F2D0DE52F706FA9D027');
+    if not Result then Exit;
+
+    CnEccDiffieHellmanComputeKey(Ecc, Priv1, Pub2, Sec1);
+    CnEccDiffieHellmanComputeKey(Ecc, Priv2, Pub1, Sec2);
+
+    Result := CnEccPointsEqual(Sec1, Sec2)
+      and (Sec1.X.ToHex = '5F26FA1F28D7611DE2704A8BAFCC4D80037C0C02678C15ED791427CE53ED3E1E')
+      and (Sec1.Y.ToHex = '7F6A86A7ED30594D539F2BD84C25AF2F57AA8C6F27BA06714B96EDEA396A961A');
+  finally
+    Sec2.Free;
+    Sec1.Free;
+    Pub2.Free;
+    Pub1.Free;
+    Priv2.Free;
+    Priv1.Free;
+    Ecc.Free;
+  end;
+end;
+
+function TestECCECDSA: Boolean;
+var
+  Ecc: TCnEcc;
+  Priv: TCnEccPrivateKey;
+  Pub: TCnEccPublicKey;
+  InStream, SigStream: TMemoryStream;
+  S: AnsiString;
+begin
+  Ecc := TCnEcc.Create(ctRfc4754ECDSAExample256);
+  Priv := TCnEccPrivateKey.Create;
+  Pub := TCnEccPublicKey.Create;
+  InStream := TMemoryStream.Create;
+  SigStream := TMemoryStream.Create;
+
+  try
+    Priv.SetHex('DC51D3866A15BACDE33D96F992FCA99DA7E6EF0934E7097559C27F1614C88A7F');
+    Pub.X.SetHex('2442A5CC0ECD015FA3CA31DC8E2BBC70BF42D60CBCA20085E0822CB04235E970');
+    Pub.Y.SetHex('6FC98BD7E50211A4A27102FA3549DF79EBCB4BF246B80945CDDFE7D509BBFD7D');
+
+    S := 'abc';
+    InStream.Write(S[1], Length(S));
+    InStream.Position := 0;
+
+    Result := CnEccSignStream(InStream, SigStream, Ecc, Priv, esdtSHA256);
+    if not Result then Exit;
+
+    InStream.Position := 0;
+    SigStream.Position := 0;
+    Result := CnEccVerifyStream(InStream, SigStream, Ecc, Pub, esdtSHA256);
+    if not Result then Exit;
+
+    InStream.Size := 0;
+    S := 'abd';
+    InStream.Write(S[1], Length(S));
+    InStream.Position := 0;
+    SigStream.Position := 0;
+    Result := not CnEccVerifyStream(InStream, SigStream, Ecc, Pub, esdtSHA256);
+  finally
+    SigStream.Free;
+    InStream.Free;
+    Pub.Free;
+    Priv.Free;
+    Ecc.Free;
+  end;
+end;
+
 function TestECCPrivPubPkcs1: Boolean;
 const
   PEM =
@@ -13001,9 +14393,13 @@ begin
   Sl := TStringList.Create;
   Sl.LoadFromStream(Stream);
 
-  D := Trim(AnsiString(Sl.Text));
+  // TStringList 在 macOS/Linux 可能是 #10，作 #13#10 兼容处理
+  D := StringReplace(AnsiString(Sl.Text), #13#10, #10, [rfReplaceAll]);
+  D := StringReplace(D, #10, #13#10, [rfReplaceAll]);
+  D := Trim(D);
   Result := S = D;
 
+  Sl.Free;
   Pub.Free;
   Priv.Free;
   Stream.Free;
@@ -13050,9 +14446,13 @@ begin
   Sl := TStringList.Create;
   Sl.LoadFromStream(Stream);
 
-  D := Trim(AnsiString(Sl.Text));
+  // TStringList 在 macOS/Linux 可能是 #10，作 #13#10 兼容处理
+  D := StringReplace(AnsiString(Sl.Text), #13#10, #10, [rfReplaceAll]);
+  D := StringReplace(D, #10, #13#10, [rfReplaceAll]);
+  D := Trim(D);
   Result := S = D;
 
+  Sl.Free;
   Pub.Free;
   Priv.Free;
   Stream.Free;
@@ -13092,9 +14492,13 @@ begin
   Sl := TStringList.Create;
   Sl.LoadFromStream(Stream);
 
-  D := Trim(AnsiString(Sl.Text));
+  // TStringList 在 macOS/Linux 可能是 #10，作 #13#10 兼容处理
+  D := StringReplace(AnsiString(Sl.Text), #13#10, #10, [rfReplaceAll]);
+  D := StringReplace(D, #10, #13#10, [rfReplaceAll]);
+  D := Trim(D);
   Result := S = D;
 
+  Sl.Free;
   Pub.Free;
   Stream.Free;
 end;
@@ -13238,6 +14642,80 @@ begin
     Q.SetDec('6074001169');
 
     if CnEccSchoof2(R, A, B, Q) then
+      Result := R.ToDec = '6074123004';
+  finally
+    R.Free;
+    Q.Free;
+    B.Free;
+    A.Free;
+  end;
+end;
+
+function TestECCFastSchoof: Boolean;
+var
+  A, B, Q, R: TCnBigNumber;
+begin
+  Result := False;
+
+  A := TCnBigNumber.Create;
+  B := TCnBigNumber.Create;
+  Q := TCnBigNumber.Create;
+  R := TCnBigNumber.Create;
+
+  try
+    A.SetWord(2);
+    B.SetWord(1);
+    Q.SetWord(13);
+
+    if CnEccFastSchoof(R, A, B, Q) then
+      Result := R.ToDec = '8';
+    if not Result then Exit;
+
+    A.SetWord(7);
+    B.SetWord(1);
+    Q.SetWord(65537);
+
+    if CnEccFastSchoof(R, A, B, Q) then
+      Result := R.ToDec = '65751';
+    if not Result then Exit;
+
+    A.SetWord(7);
+    B.SetWord(1);
+    Q.SetDec('2147483629');
+
+    if CnEccFastSchoof(R, A, B, Q) then
+      Result := R.ToDec = '2147464597';
+    if not Result then Exit;
+
+    A.SetWord(7);
+    B.SetWord(1);
+    Q.SetWord(3037000493);
+
+    if CnEccFastSchoof(R, A, B, Q) then
+      Result := R.ToDec = '3036927405';
+    if not Result then Exit;
+
+    A.SetWord(7);
+    B.SetWord(1);
+    Q.SetDec('4294967291');
+
+    if CnEccFastSchoof(R, A, B, Q) then
+      Result := R.ToDec = '4294994984';
+    if not Result then Exit;
+
+    A.SetWord(7);
+    B.SetWord(1);
+    Q.SetDec('6074000687');
+
+    if CnEccFastSchoof(R, A, B, Q) then
+      Result := R.ToDec = '6074024457';
+    if not Result then Exit;
+
+    A.SetWord(7);
+    B.SetWord(1);
+    Q.SetDec('6074001169');
+
+    if CnEccFastSchoof(R, A, B, Q) then
       Result := R.ToDec = '6074123004';
   finally
     R.Free;

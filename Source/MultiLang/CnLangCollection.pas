@@ -300,7 +300,7 @@ type
 // 读取并跳过 Style 属性
 procedure TCnLanguageItem.ReadDefaultFontStyle(Reader: TReader);
 begin
-{$IFDEF COMPILER5}
+{$IF DEFINE(COMPILER5) OR DEFINE(FPC)}
   TReaderAccess(Reader).SkipValue;
 {$ELSE}
   Reader.SkipValue;

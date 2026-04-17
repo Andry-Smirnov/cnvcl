@@ -276,6 +276,7 @@ type
     FCollectionItems: TObjectList;
     FMenuItems: TObjectList;
     FHierarchy: string;
+    FErrorMessage: string;
     FOnAfterEvaluateHierarchy: TNotifyEvent;
     FOnAfterEvaluateCollections: TNotifyEvent;
     FOnAfterEvaluateMenuItems: TNotifyEvent;
@@ -359,6 +360,9 @@ type
     property ObjClassName: string read FObjClassName write FObjClassName;
     property Hierarchy: string read FHierarchy write FHierarchy;
 
+    property ErrorMessage: string read FErrorMessage write FErrorMessage;
+    {* 有错误发生时的出错异常字符串}
+
     property OnAfterEvaluateProperties: TNotifyEvent
       read FOnAfterEvaluateProperties write FOnAfterEvaluateProperties;
     property OnAfterEvaluateComponents: TNotifyEvent
@@ -398,6 +402,7 @@ type
 
   TCnPropSheetForm = class(TForm)
     pnlTop: TPanel;
+    pnlRight: TPanel;
     pnlTree: TPanel;
     pnlTreeTab: TPanel;
     TreeView: TTreeView;
@@ -436,6 +441,8 @@ type
     Copy1: TMenuItem;
     CopyAll1: TMenuItem;
     pmTree: TPopupMenu;
+    miCopyItem: TMenuItem;
+    miCopySubTree: TMenuItem;
     miSelectForCompare: TMenuItem;
     miCompareWith: TMenuItem;
     procedure FormCreate(Sender: TObject);
@@ -477,6 +484,8 @@ type
     procedure pmTreePopup(Sender: TObject);
     procedure miSelectForCompareClick(Sender: TObject);
     procedure miCompareWithClick(Sender: TObject);
+    procedure miCopyItemClick(Sender: TObject);
+    procedure miCopySubTreeClick(Sender: TObject);
   private
 {$IFDEF FPC}
     tsSwitch: TTabControl;
@@ -2858,6 +2867,8 @@ var
 {$ENDIF}
 begin
   Result := False;
+  ErrorMessage := '';
+
   if ObjectInstance = nil then
     Exit;
 
@@ -2885,7 +2896,11 @@ begin
                 ValueRec := StringToColor(Value);
                 RttiField.SetValue(ObjectInstance, ValueRec);
               except
-                Exit;
+                on E: Exception do
+                begin
+                  ErrorMessage := E.ClassName + ' ' + E.Message;
+                  Exit;
+                end;
               end;
             end
             else
@@ -2898,7 +2913,11 @@ begin
             ValueRec := StrToInt64(Value);
             RttiField.SetValue(ObjectInstance, ValueRec);
           except
-            Exit;
+            on E: Exception do
+            begin
+              ErrorMessage := E.ClassName + ' ' + E.Message;
+              Exit;
+            end;
           end;
         end;
       tkFloat:
@@ -2907,7 +2926,11 @@ begin
             ValueRec := StrToFloat(Value);
             RttiField.SetValue(ObjectInstance, ValueRec);
           except
-            Exit;
+            on E: Exception do
+            begin
+              ErrorMessage := E.ClassName + ' ' + E.Message;
+              Exit;
+            end;
           end;
         end;
       tkChar,
@@ -2972,6 +2995,7 @@ var
 {$ENDIF}
 begin
   Result := False;
+  ErrorMessage := '';
   if ObjectInstance = nil then
     Exit;
 
@@ -3002,7 +3026,11 @@ begin
                   ValueRec := StringToColor(Value);
                   RttiProperty.SetValue(ObjectInstance, ValueRec);
                 except
-                  Exit;
+                  on E: Exception do
+                  begin
+                    ErrorMessage := E.ClassName + ' ' + E.Message;
+                    Exit;
+                  end;
                 end;
               end
               else
@@ -3015,7 +3043,11 @@ begin
               ValueRec := StrToInt64(Value);
               RttiProperty.SetValue(ObjectInstance, ValueRec);
             except
-              Exit;
+              on E: Exception do
+              begin
+                ErrorMessage := E.ClassName + ' ' + E.Message;
+                Exit;
+              end;
             end;
           end;
         tkFloat:
@@ -3024,7 +3056,11 @@ begin
               ValueRec := StrToFloat(Value);
               RttiProperty.SetValue(ObjectInstance, ValueRec);
             except
-              Exit;
+              on E: Exception do
+              begin
+                ErrorMessage := E.ClassName + ' ' + E.Message;
+                Exit;
+              end;
             end;
           end;
         tkChar,
@@ -3034,7 +3070,11 @@ begin
               ValueRec := TValue.FromOrdinal(RttiProperty.PropertyType.Handle, StrToInt64(Value));
               RttiProperty.SetValue(ObjectInstance, ValueRec);
             except
-              Exit;
+              on E: Exception do
+              begin
+                ErrorMessage := E.ClassName + ' ' + E.Message;
+                Exit;
+              end;
             end;
           end;
         tkLString,
@@ -3095,7 +3135,11 @@ begin
               C := StringToColor(Value);
               SetOrdProp(ObjectInstance, PropName, C);
             except
-              Exit;
+              on E: Exception do
+              begin
+                ErrorMessage := E.ClassName + ' ' + E.Message;
+                Exit;
+              end;
             end;
           end
           else
@@ -3107,7 +3151,11 @@ begin
               C := StringToColor(Value);
               SetOrdProp(ObjectInstance, PropName, C);
             except
-              Exit;
+              on E: Exception do
+              begin
+                ErrorMessage := E.ClassName + ' ' + E.Message;
+                Exit;
+              end;
             end;
           end
           else
@@ -3121,7 +3169,11 @@ begin
           VInt64 := StrToInt(Value);
           SetOrdProp(ObjectInstance, PropName, VInt64);
         except
-          Exit;
+          on E: Exception do
+          begin
+            ErrorMessage := E.ClassName + ' ' + E.Message;
+            Exit;
+          end;
         end;
       end;
     tkFloat:
@@ -3130,13 +3182,20 @@ begin
           VFloat := StrToFloat(Value);
           SetFloatProp(ObjectInstance, PropName, VFloat);
         except
-          Exit;
+          on E: Exception do
+          begin
+            ErrorMessage := E.ClassName + ' ' + E.Message;
+            Exit;
+          end;
         end;
       end;
     tkChar,
     tkWChar,
     tkLString,
     tkWString,
+{$IFDEF UNICODE}
+    tkUString,
+{$ENDIF}
     tkString:
       begin
         SetStrProp(ObjectInstance, PropName, Value);
@@ -3614,22 +3673,47 @@ begin
 end;
 
 procedure TCnPropSheetForm.FormResize(Sender: TObject);
-var
-  FixWidth: Integer;
-begin
-  if Parent <> nil then
-    FixWidth := 16
-  else
-    FixWidth := 24;
 
-  lvProp.Columns[2].Width := Self.ClientWidth - lvProp.Columns[0].Width - lvProp.Columns[1].Width - FixWidth;
-  lvEvent.Columns[2].Width := Self.ClientWidth - lvEvent.Columns[0].Width - lvEvent.Columns[1].Width - FixWidth;
-  lvField.Columns[2].Width := Self.ClientWidth - lvField.Columns[0].Width - lvField.Columns[1].Width - FixWidth;
-  lvMethod.Columns[2].Width := Self.ClientWidth - lvMethod.Columns[0].Width - lvMethod.Columns[1].Width - FixWidth;
-  lvCollectionItem.Columns[1].Width := Self.ClientWidth - lvCollectionItem.Columns[0].Width - FixWidth;
-  lvMenuItem.Columns[1].Width := Self.ClientWidth - lvMenuItem.Columns[0].Width - FixWidth;
-  lvComp.Columns[1].Width := Self.ClientWidth - lvComp.Columns[0].Width - FixWidth;
-  lvControl.Columns[1].Width := Self.ClientWidth - lvControl.Columns[0].Width - FixWidth;
+  function GetListClientWidth(ALV: TListView): Integer;
+  begin
+    Result := ALV.ClientWidth;
+    if Result <= 0 then
+      Result := pnlRight.ClientWidth;
+  end;
+
+  procedure UpdateThreeColumns(ALV: TListView);
+  var
+    W: Integer;
+  begin
+    if ALV.Columns.Count < 3 then
+      Exit;
+    W := GetListClientWidth(ALV) - ALV.Columns[0].Width - ALV.Columns[1].Width;
+    if W < 40 then
+      W := 40;
+    ALV.Columns[2].Width := W;
+  end;
+
+  procedure UpdateTwoColumns(ALV: TListView);
+  var
+    W: Integer;
+  begin
+    if ALV.Columns.Count < 2 then
+      Exit;
+    W := GetListClientWidth(ALV) - ALV.Columns[0].Width;
+    if W < 40 then
+      W := 40;
+    ALV.Columns[1].Width := W;
+  end;
+
+begin
+  UpdateThreeColumns(lvProp);
+  UpdateThreeColumns(lvEvent);
+  UpdateThreeColumns(lvField);
+  UpdateThreeColumns(lvMethod);
+  UpdateTwoColumns(lvCollectionItem);
+  UpdateTwoColumns(lvMenuItem);
+  UpdateTwoColumns(lvComp);
+  UpdateTwoColumns(lvControl);
   UpdatePanelPositions;
 end;
 
@@ -4300,6 +4384,8 @@ begin
       Left := Left + CnPnlTreeWidth;
       btnTree.Caption := '<';
     end;
+
+    FormResize(nil);
   end;
 end;
 
@@ -4835,7 +4921,7 @@ begin
     if FInspector.ChangeFieldValue(Field.FieldName, S, Field) then
       btnRefresh.Click
     else
-      ShowMessage(SCnErrorChangeValue);
+      ShowMessage(SCnErrorChangeValue + ' ' + FInspector.ErrorMessage);
   end;
 {$ENDIF}
 end;
@@ -4918,6 +5004,8 @@ var
   ObjName: string;
 begin
   Node := TreeView.Selected;
+  miCopyItem.Enabled := Node <> nil;
+  miCopySubTree.Enabled := Node <> nil;
   if (Node <> nil) and (Node.Data <> nil) then
   begin
     Obj := TObject(Node.Data);
@@ -4975,6 +5063,49 @@ begin
   begin
     RightObj := TObject(Node.Data);
     CnDebugger.OnCompareObjects(CnCompareLeftObject, RightObj);
+  end;
+end;
+
+procedure TCnPropSheetForm.miCopyItemClick(Sender: TObject);
+var
+  Node: TTreeNode;
+begin
+  Node := TreeView.Selected;
+  if Node <> nil then
+    Clipboard.AsText := Node.Text;
+end;
+
+procedure CollectSubTreeText(Node: TTreeNode; Indent: Integer;
+  Lines: TStrings);
+var
+  Prefix: string;
+  Child: TTreeNode;
+begin
+  Prefix := StringOfChar(' ', Indent * 2);
+  Lines.Add(Prefix + Node.Text);
+  Child := Node.getFirstChild;
+  while Child <> nil do
+  begin
+    CollectSubTreeText(Child, Indent + 1, Lines);
+    Child := Child.getNextSibling;
+  end;
+end;
+
+procedure TCnPropSheetForm.miCopySubTreeClick(Sender: TObject);
+var
+  Node: TTreeNode;
+  Lines: TStringList;
+begin
+  Node := TreeView.Selected;
+  if Node = nil then
+    Exit;
+
+  Lines := TStringList.Create;
+  try
+    CollectSubTreeText(Node, 0, Lines);
+    Clipboard.AsText := Lines.Text;
+  finally
+    Lines.Free;
   end;
 end;
 

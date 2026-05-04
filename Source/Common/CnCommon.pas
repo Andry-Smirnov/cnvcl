@@ -3537,7 +3537,7 @@ end;
 function SetFileDate(const FileName: string; CreationTime, LastWriteTime, LastAccessTime:
   TFileTime): Boolean;
 var
-  FileHandle: Integer;
+  FileHandle: THandle;
 begin
   FileHandle := FileOpen(FileName, fmOpenWrite or fmShareDenyNone);
   if FileHandle > 0 then
@@ -3554,7 +3554,7 @@ end;
 function GetFileDate(const FileName: string; var CreationTime, LastWriteTime, LastAccessTime:
   TFileTime): Boolean;
 var
-  FileHandle: Integer;
+  FileHandle: THandle;
 begin
   FileHandle := FileOpen(FileName, fmOpenRead or fmShareDenyNone);
   if FileHandle > 0 then
@@ -3569,21 +3569,19 @@ end;
 
 // 取得与文件相关的图标
 // FileName: e.g. "e:\hao\a.txt"
-// 成功则返回True
+// 成功则返回 True
 function GetFileIcon(const FileName: string; var Icon: TIcon): Boolean;
 var
   SHFileInfo: TSHFileInfo;
-  h: HWND;
+  H: HWND;
 begin
   if not Assigned(Icon) then
     Icon := TIcon.Create;
-  h := SHGetFileInfo(PChar(FileName),
-    0,
-    SHFileInfo,
-    SizeOf(SHFileInfo),
-    SHGFI_ICON or SHGFI_SYSICONINDEX);
+
+  H := SHGetFileInfo(PChar(FileName), 0, SHFileInfo,
+    SizeOf(SHFileInfo), SHGFI_ICON or SHGFI_SYSICONINDEX);
   Icon.Handle := SHFileInfo.hIcon;
-  Result := (h <> 0);
+  Result := (H <> 0);
 end;
 
 // 文件时间转本地日期时间
@@ -6199,6 +6197,7 @@ begin
 
   Form := TForm.Create(Application);
   with Form do
+  begin
     try
       Scaled := False;
       Font.Handle := GetStockObject(DEFAULT_GUI_FONT);
@@ -6206,7 +6205,7 @@ begin
       DialogUnits := GetAveCharSize(Canvas);
       BorderStyle := bsDialog;
       Caption := ACaption;
-      ClientWidth := MulDiv(180, DialogUnits.X, 4);
+      ClientWidth := MulDiv(200, DialogUnits.X, 4);
       ClientHeight := MulDiv(63, DialogUnits.Y, 8);
       Position := poScreenCenter;
 
@@ -6228,7 +6227,7 @@ begin
           Parent := Form;
           Left := Prompt.Left;
           Top := MulDiv(19, DialogUnits.Y, 8);
-          Width := MulDiv(164, DialogUnits.X, 4);
+          Width := MulDiv(184, DialogUnits.X, 4);
           // MaxLength := 1024;
           ReadStringsFromIni(Ini, Section, ComboBox.Items);
           if (Value = '') and (ComboBox.Items.Count > 0) then
@@ -6246,7 +6245,7 @@ begin
           Parent := Form;
           Left := Prompt.Left;
           Top := MulDiv(19, DialogUnits.Y, 8);
-          Width := MulDiv(164, DialogUnits.X, 4);
+          Width := MulDiv(184, DialogUnits.X, 4);
           // MaxLength := 1024;
           if APassword then
             PasswordChar := '*';
@@ -6265,7 +6264,7 @@ begin
         Caption := SCnMsgDlgOK;
         ModalResult := mrOk;
         Default := True;
-        SetBounds(MulDiv(38, DialogUnits.X, 4), ButtonTop, ButtonWidth,
+        SetBounds(MulDiv(48, DialogUnits.X, 4), ButtonTop, ButtonWidth,
           ButtonHeight);
       end;
 
@@ -6275,7 +6274,7 @@ begin
         Caption := SCnMsgDlgCancel;
         ModalResult := mrCancel;
         Cancel := True;
-        SetBounds(MulDiv(92, DialogUnits.X, 4), ButtonTop, ButtonWidth,
+        SetBounds(MulDiv(102, DialogUnits.X, 4), ButtonTop, ButtonWidth,
           ButtonHeight);
       end;
 
@@ -6311,6 +6310,7 @@ begin
 {$ENDIF}
       Form.Free;
     end;
+  end;
 end;
 
 {$ENDIF}
@@ -8130,7 +8130,7 @@ function AdjustDebugPrivilege(Enable: Boolean): Boolean;
 var
   Token: THandle;
 
-  function InternalEnablePrivilege(Token: Cardinal; PrivName: string; Enable: Boolean): Boolean;
+  function InternalEnablePrivilege(Token: THandle; PrivName: string; Enable: Boolean): Boolean;
   var
     TP {$IFDEF FPC}, Prev {$ENDIF}: TOKEN_PRIVILEGES;
     Dummy: Cardinal;

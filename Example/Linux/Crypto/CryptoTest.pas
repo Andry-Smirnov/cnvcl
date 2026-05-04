@@ -49,9 +49,10 @@ uses
   CnNative, CnBigNumber, CnSM4, CnDES, CnAES, CnAEAD, CnRSA, CnECC, CnSM2, CnSM3,
   CnSM9, CnFNV, CnKDF, CnBase64, CnCRC32, CnMD5, CnSHA1, CnSHA2, CnSHA3, CnChaCha20,
   CnPoly1305, CnTEA, CnZUC, CnFEC, CnPrime, Cn25519, CnPaillier, CnSecretSharing,
-  CnPolynomial, CnBits, CnLattice, CnOTS, CnPemUtils, CnInt128, CnRC4, CnPDFCrypt,
-  CnDSA, CnBLAKE, CnBLAKE2, CnXXH, CnWideStrings, CnContainers, CnMLKEM, CnMLDSA,
-  CnCalendar, CnBigDecimal, CnComplex, CnDFT, CnMath, CnQRCode, CnRandom, CnOTP;
+  CnPolynomial, CnBits, CnBerUtils, CnCertificateAuthority, CnLattice, CnOTS,
+  CnPemUtils, CnInt128, CnRC4, CnPDFCrypt, CnDSA, CnBLAKE, CnBLAKE2, CnBLAKE3,
+  CnXXH, CnWideStrings, CnContainers, CnMLKEM, CnMLDSA, CnCalendar, CnBigDecimal,
+  CnComplex, CnDFT, CnMath, CnQRCode, CnRandom, CnOTP;
 
 type
   TCnCryptoTestProc = function: Boolean;
@@ -178,6 +179,17 @@ function TestBitsDelete: Boolean;
 function TestBitsCopy: Boolean;
 function TestBitsBytes: Boolean;
 function TestBitsTBits: Boolean;
+
+// =============================== BER/DER =====================================
+
+function TestBERInvalidLengthField: Boolean;
+function TestBERTruncatedInput: Boolean;
+function TestBERConstructedChildTruncated: Boolean;
+function TestPEMInvalidHeaderFooter: Boolean;
+function TestPEMCorruptedBase64: Boolean;
+function TestPEMEncryptedMissingDekInfo: Boolean;
+function TestPEMEncryptedCorruptedBase64: Boolean;
+function TestCARejectInvalidCert: Boolean;
 
 // =============================== Int128 ======================================
 
@@ -355,6 +367,7 @@ function TestSHA224Update: Boolean;
 function TestSHA256: Boolean;
 function TestSHA256HMac: Boolean;
 function TestSHA256Update: Boolean;
+function TestSHA256UpdateByteByByte: Boolean;
 function TestSHA384: Boolean;
 function TestSHA384HMac: Boolean;
 function TestSHA384Update: Boolean;
@@ -376,6 +389,7 @@ function TestSHA3_224Update: Boolean;
 function TestSHA3_256: Boolean;
 function TestSHA3_256HMac: Boolean;
 function TestSHA3_256Update: Boolean;
+function TestSHA3_256UpdateByteByByte: Boolean;
 function TestSHA3_384: Boolean;
 function TestSHA3_384HMac: Boolean;
 function TestSHA3_384Update: Boolean;
@@ -411,10 +425,21 @@ function TestBLAKE2BKey: Boolean;
 function TestBLAKE2SUpdate: Boolean;
 function TestBLAKE2BUpdate: Boolean;
 
+// =============================== BLAKE3 ======================================
+
+function TestBLAKE3: Boolean;
+function TestBLAKE3LongInput: Boolean;
+function TestBLAKE3Keyed: Boolean;
+function TestBLAKE3DeriveKey: Boolean;
+function TestBLAKE3XOF: Boolean;
+function TestBLAKE3Update: Boolean;
+
 // =============================== Base64 ======================================
 
 function TestBase64: Boolean;
 function TestBase64URL: Boolean;
+function TestBase64StrictRejectInvalidChar: Boolean;
+function TestBase64StrictRejectInvalidPadding: Boolean;
 
 // ================================ OTP ========================================
 
@@ -433,6 +458,11 @@ function TestAEADSM4GCM: Boolean;
 function TestAEADGHashUpdate: Boolean;
 function TestAEADChaCha20Poly1305: Boolean;
 function TestAEADXChaCha20Poly1305: Boolean;
+function TestAEADAESGCMTamperedCiphertext: Boolean;
+function TestAEADAESGCMTamperedAAD: Boolean;
+function TestAEADAESGCMTamperedTag: Boolean;
+function TestAEADAESGCMInvalidNonceLen: Boolean;
+function TestAEADChaCha20Poly1305TamperedTag: Boolean;
 
 // ================================ ChaCha20 ===================================
 
@@ -499,12 +529,14 @@ function TestSM23: Boolean;
 function TestSM2KeyExchangeExample256: Boolean;
 function TestSM2Collaborative3KeyGen: Boolean;
 function TestSM2Collaborative3Sign: Boolean;
+function TestSM2VerifyCorruptedSignature: Boolean;
 
 // ================================ SM3 ========================================
 
 function TestSM3: Boolean;
 function TestSM3HMac: Boolean;
 function TestSM3Update: Boolean;
+function TestSM3UpdateByteByByte: Boolean;
 
 // ================================ SM9 ========================================
 
@@ -530,13 +562,17 @@ function TestChameleonHash: Boolean;
 function TestRSA2Crypt: Boolean;
 function TestRSALongStream1: Boolean;
 function TestRSALongStream2: Boolean;
+function TestRSAVerifyCorruptedSignature: Boolean;
+function TestRSADecryptInvalidPadding: Boolean;
 
 // ================================ KDF ========================================
 
 function TestKDFPB1: Boolean;
 function TestKDFPB2: Boolean;
+function TestKDFPB2InvalidIteration: Boolean;
 function TestKDFSM2SM9: Boolean;
 function TestHKDF: Boolean;
+function TestHKDFNilSaltEqualsZeroSalt: Boolean;
 
 // ================================ Prime Number ===============================
 
@@ -555,6 +591,7 @@ function Test25519CurveGMul: Boolean;
 function Test25519KeyExchange: Boolean;
 function Test25519CalcKey: Boolean;
 function Test25519Sign: Boolean;
+function Test25519InvalidPublicKeyHandling: Boolean;
 function Test448CurveMul: Boolean;
 function Test448CurveGMul: Boolean;
 function Test448KeyExchange: Boolean;
@@ -586,6 +623,7 @@ function TestWOTSSHA256: Boolean;
 function TestECCMul: Boolean;
 function TestECCECDH: Boolean;
 function TestECCECDSA: Boolean;
+function TestECCVerifyWrongPublicKey: Boolean;
 function TestECCPrivPubPkcs1: Boolean;
 function TestECCPrivPubPkcs8: Boolean;
 function TestECCPub: Boolean;
@@ -783,6 +821,17 @@ begin
   MyAssert(TestBitsBytes, 'TestBitsBytes');
   MyAssert(TestBitsTBits, 'TestBitsTBits');
 
+// =============================== BER/DER =====================================
+
+  MyAssert(TestBERInvalidLengthField, 'TestBERInvalidLengthField');
+  MyAssert(TestBERTruncatedInput, 'TestBERTruncatedInput');
+  MyAssert(TestBERConstructedChildTruncated, 'TestBERConstructedChildTruncated');
+  MyAssert(TestPEMInvalidHeaderFooter, 'TestPEMInvalidHeaderFooter');
+  MyAssert(TestPEMCorruptedBase64, 'TestPEMCorruptedBase64');
+  MyAssert(TestPEMEncryptedMissingDekInfo, 'TestPEMEncryptedMissingDekInfo');
+  MyAssert(TestPEMEncryptedCorruptedBase64, 'TestPEMEncryptedCorruptedBase64');
+  MyAssert(TestCARejectInvalidCert, 'TestCARejectInvalidCert');
+
 // =============================== Int128 ======================================
 
   MyAssert(TestInt128Add, 'TestInt128Add');
@@ -959,6 +1008,7 @@ begin
   MyAssert(TestSHA256, 'TestSHA256');
   MyAssert(TestSHA256HMac, 'TestSHA256HMac');
   MyAssert(TestSHA256Update, 'TestSHA256Update');
+  MyAssert(TestSHA256UpdateByteByByte, 'TestSHA256UpdateByteByByte');
   MyAssert(TestSHA384, 'TestSHA384');
   MyAssert(TestSHA384HMac, 'TestSHA384HMac');
   MyAssert(TestSHA384Update, 'TestSHA384Update');
@@ -980,6 +1030,7 @@ begin
   MyAssert(TestSHA3_256, 'TestSHA3_256');
   MyAssert(TestSHA3_256HMac, 'TestSHA3_256HMac');
   MyAssert(TestSHA3_256Update, 'TestSHA3_256Update');
+  MyAssert(TestSHA3_256UpdateByteByByte, 'TestSHA3_256UpdateByteByByte');
   MyAssert(TestSHA3_384, 'TestSHA3_384');
   MyAssert(TestSHA3_384HMac, 'TestSHA3_384HMac');
   MyAssert(TestSHA3_384Update, 'TestSHA3_384Update');
@@ -1015,10 +1066,21 @@ begin
   MyAssert(TestBLAKE2SUpdate, 'TestBLAKE2SUpdate');
   MyAssert(TestBLAKE2BUpdate, 'TestBLAKE2BUpdate');
 
+// =============================== BLAKE3 ======================================
+
+  MyAssert(TestBLAKE3, 'TestBLAKE3');
+  MyAssert(TestBLAKE3LongInput, 'TestBLAKE3LongInput');
+  MyAssert(TestBLAKE3Keyed, 'TestBLAKE3Keyed');
+  MyAssert(TestBLAKE3DeriveKey, 'TestBLAKE3DeriveKey');
+  MyAssert(TestBLAKE3XOF, 'TestBLAKE3XOF');
+  MyAssert(TestBLAKE3Update, 'TestBLAKE3Update');
+
 // ================================ Base64 =====================================
 
   MyAssert(TestBase64, 'TestBase64');
   MyAssert(TestBase64URL, 'TestBase64URL');
+  MyAssert(TestBase64StrictRejectInvalidChar, 'TestBase64StrictRejectInvalidChar');
+  MyAssert(TestBase64StrictRejectInvalidPadding, 'TestBase64StrictRejectInvalidPadding');
 
 // ================================ OTP ========================================
 
@@ -1037,6 +1099,11 @@ begin
   MyAssert(TestAEADGHashUpdate, 'TestAEADGHashUpdate');
   MyAssert(TestAEADChaCha20Poly1305, 'TestAEADChaCha20Poly1305');
   MyAssert(TestAEADXChaCha20Poly1305, 'TestAEADXChaCha20Poly1305');
+  MyAssert(TestAEADAESGCMTamperedCiphertext, 'TestAEADAESGCMTamperedCiphertext');
+  MyAssert(TestAEADAESGCMTamperedAAD, 'TestAEADAESGCMTamperedAAD');
+  MyAssert(TestAEADAESGCMTamperedTag, 'TestAEADAESGCMTamperedTag');
+  MyAssert(TestAEADAESGCMInvalidNonceLen, 'TestAEADAESGCMInvalidNonceLen');
+  MyAssert(TestAEADChaCha20Poly1305TamperedTag, 'TestAEADChaCha20Poly1305TamperedTag');
 
 // ================================ ChaCha20 ===================================
 
@@ -1103,12 +1170,14 @@ begin
   MyAssert(TestSM2KeyExchangeExample256, 'TestSM2KeyExchangeExample256');
   MyAssert(TestSM2Collaborative3KeyGen, 'TestSM2Collaborative3KeyGen');
   MyAssert(TestSM2Collaborative3Sign, 'TestSM2Collaborative3Sign');
+  MyAssert(TestSM2VerifyCorruptedSignature, 'TestSM2VerifyCorruptedSignature');
 
 // ================================ SM3 ========================================
 
   MyAssert(TestSM3, 'TestSM3');
   MyAssert(TestSM3Hmac, 'TestSM3Hmac');
   MyAssert(TestSM3Update, 'TestSM3Update');
+  MyAssert(TestSM3UpdateByteByByte, 'TestSM3UpdateByteByByte');
 
 // ================================ SM9 ========================================
 
@@ -1135,13 +1204,17 @@ begin
   MyAssert(TestRSA2Crypt, 'TestRSA2Crypt');
   MyAssert(TestRSALongStream1, 'TestRSALongStream1');
   MyAssert(TestRSALongStream2, 'TestRSALongStream2');
+  MyAssert(TestRSAVerifyCorruptedSignature, 'TestRSAVerifyCorruptedSignature');
+  MyAssert(TestRSADecryptInvalidPadding, 'TestRSADecryptInvalidPadding');
 
 // ================================ KDF ========================================
 
   MyAssert(TestKDFPB1, 'TestKDFPB1');
   MyAssert(TestKDFPB2, 'TestKDFPB2');
+  MyAssert(TestKDFPB2InvalidIteration, 'TestKDFPB2InvalidIteration');
   MyAssert(TestKDFSM2SM9, 'TestKDFSM2SM9');
   MyAssert(TestHKDF, 'TestHKDF');
+  MyAssert(TestHKDFNilSaltEqualsZeroSalt, 'TestHKDFNilSaltEqualsZeroSalt');
 
 // ================================ Prime Number ===============================
 
@@ -1160,6 +1233,7 @@ begin
   MyAssert(Test25519KeyExchange, 'Test25519KeyExchange');
   MyAssert(Test25519CalcKey, 'Test25519CalcKey');
   MyAssert(Test25519Sign, 'Test25519Sign');
+  MyAssert(Test25519InvalidPublicKeyHandling, 'Test25519InvalidPublicKeyHandling');
   MyAssert(Test448CurveMul, 'Test448CurveMul');
   MyAssert(Test448CurveGMul, 'Test448CurveGMul');
   MyAssert(Test448KeyExchange, 'Test448KeyExchange');
@@ -1191,6 +1265,7 @@ begin
   MyAssert(TestECCMul, 'TestECCMul');
   MyAssert(TestECCECDH, 'TestECCECDH');
   MyAssert(TestECCECDSA, 'TestECCECDSA');
+  MyAssert(TestECCVerifyWrongPublicKey, 'TestECCVerifyWrongPublicKey');
   MyAssert(TestECCPrivPubPkcs1, 'TestECCPrivPubPkcs1');
   MyAssert(TestECCPrivPubPkcs8, 'TestECCPrivPubPkcs8');
   MyAssert(TestECCPub, 'TestECCPub');
@@ -3834,6 +3909,183 @@ begin
 
   B.Free;
   Bits.Free;
+end;
+
+// =============================== BER/DER =====================================
+
+function TestBERInvalidLengthField: Boolean;
+var
+  B: TBytes;
+  R: TCnBerReader;
+  N: TCnBerReadNode;
+begin
+  Result := False;
+  B := HexToBytes('3082000102');
+  R := TCnBerReader.Create(@B[0], Length(B));
+  try
+    R.ParseToTree;
+    if R.TotalCount <= 0 then Exit;
+
+    N := R.Items[0];
+    Result := (N.BerTag = CN_BER_TAG_SEQUENCE)
+      and (N.BerDataLength > 0)
+      and (N.Count = 0);
+  finally
+    R.Free;
+  end;
+end;
+
+function TestBERTruncatedInput: Boolean;
+var
+  B: TBytes;
+  R: TCnBerReader;
+  N: TCnBerReadNode;
+begin
+  Result := False;
+  B := HexToBytes('3006020101');
+  R := TCnBerReader.Create(@B[0], Length(B));
+  try
+    R.ParseToTree;
+    if R.TotalCount <= 0 then Exit;
+
+    N := R.Items[0];
+    Result := (N.BerTag = CN_BER_TAG_SEQUENCE)
+      and (N.BerLength > Length(B));
+  finally
+    R.Free;
+  end;
+end;
+
+function TestBERConstructedChildTruncated: Boolean;
+var
+  B: TBytes;
+  R: TCnBerReader;
+  N: TCnBerReadNode;
+begin
+  Result := False;
+  B := HexToBytes('30030201');
+  R := TCnBerReader.Create(@B[0], Length(B));
+  try
+    R.ParseToTree;
+    if R.TotalCount <= 0 then Exit;
+
+    N := R.Items[0];
+    Result := (N.BerTag = CN_BER_TAG_SEQUENCE)
+      and (N.BerLength > Length(B));
+  finally
+    R.Free;
+  end;
+end;
+
+function TestPEMInvalidHeaderFooter: Boolean;
+var
+  S: AnsiString;
+  InSt, OutSt: TMemoryStream;
+begin
+  S := '-----BEGIN CERTIFICATE-----' + SCRLF +
+    'QUJD' + SCRLF +
+    '-----END PUBLIC KEY-----' + SCRLF;
+  InSt := TMemoryStream.Create;
+  OutSt := TMemoryStream.Create;
+  try
+    InSt.Write(S[1], Length(S));
+    InSt.Position := 0;
+    Result := not LoadPemStreamToMemory(InSt, '-----BEGIN CERTIFICATE-----',
+      '-----END CERTIFICATE-----', OutSt);
+  finally
+    OutSt.Free;
+    InSt.Free;
+  end;
+end;
+
+function TestPEMCorruptedBase64: Boolean;
+var
+  S: AnsiString;
+  InSt, OutSt: TMemoryStream;
+begin
+  S := '-----BEGIN CERTIFICATE-----' + SCRLF +
+    'QUJ$' + SCRLF +
+    '-----END CERTIFICATE-----' + SCRLF;
+  InSt := TMemoryStream.Create;
+  OutSt := TMemoryStream.Create;
+  try
+    InSt.Write(S[1], Length(S));
+    InSt.Position := 0;
+    Result := not LoadPemStreamToMemory(InSt, '-----BEGIN CERTIFICATE-----',
+      '-----END CERTIFICATE-----', OutSt);
+  finally
+    OutSt.Free;
+    InSt.Free;
+  end;
+end;
+
+function TestPEMEncryptedMissingDekInfo: Boolean;
+var
+  S: AnsiString;
+  InSt, OutSt: TMemoryStream;
+begin
+  S := '-----BEGIN CERTIFICATE-----' + SCRLF +
+    'Proc-Type: 4,ENCRYPTED' + SCRLF +
+    'QUJDRA==' + SCRLF +
+    '-----END CERTIFICATE-----' + SCRLF;
+  InSt := TMemoryStream.Create;
+  OutSt := TMemoryStream.Create;
+  try
+    InSt.Write(S[1], Length(S));
+    InSt.Position := 0;
+    Result := not LoadPemStreamToMemory(InSt, '-----BEGIN CERTIFICATE-----',
+      '-----END CERTIFICATE-----', OutSt, '123456', ckhSha256);
+  finally
+    OutSt.Free;
+    InSt.Free;
+  end;
+end;
+
+function TestPEMEncryptedCorruptedBase64: Boolean;
+var
+  S: AnsiString;
+  InSt, OutSt: TMemoryStream;
+begin
+  S := '-----BEGIN CERTIFICATE-----' + SCRLF +
+    'Proc-Type: 4,ENCRYPTED' + SCRLF +
+    'DEK-Info: AES-256-CBC,00112233445566778899AABBCCDDEEFF' + SCRLF +
+    'QUJ$' + SCRLF +
+    '-----END CERTIFICATE-----' + SCRLF;
+  InSt := TMemoryStream.Create;
+  OutSt := TMemoryStream.Create;
+  try
+    InSt.Write(S[1], Length(S));
+    InSt.Position := 0;
+    Result := not LoadPemStreamToMemory(InSt, '-----BEGIN CERTIFICATE-----',
+      '-----END CERTIFICATE-----', OutSt, '123456', ckhSha256);
+  finally
+    OutSt.Free;
+    InSt.Free;
+  end;
+end;
+
+function TestCARejectInvalidCert: Boolean;
+var
+  CAPub: TCnRSAPublicKey;
+  St: TMemoryStream;
+  S: AnsiString;
+begin
+  Result := False;
+  CAPub := TCnRSAPublicKey.Create;
+  St := TMemoryStream.Create;
+  try
+    S := '-----BEGIN CERTIFICATE-----' + SCRLF +
+      'QUJDRA==' + SCRLF +
+      '-----END CERTIFICATE-----' + SCRLF;
+    St.Size := 0;
+    St.Write(S[1], Length(S));
+    St.Position := 0;
+
+    Result := not CnCAVerifyCertificateStream(St, CAPub);
+  finally
+    St.Free;
+    CAPub.Free;
+  end;
 end;
 
 // =============================== Int128 ======================================
@@ -9518,6 +9770,24 @@ begin
   Result := SHA256Match(D1, D2);
 end;
 
+function TestSHA256UpdateByteByByte: Boolean;
+var
+  D1, D2: TCnSHA256Digest;
+  C: TCnSHA256Context;
+  S: AnsiString;
+  I: Integer;
+begin
+  S := '0123456789abcdefghijklmnop';
+  D1 := SHA256StringA(S);
+
+  SHA256Init(C);
+  for I := 1 to Length(S) do
+    SHA256Update(C, @S[I], 1);
+  SHA256Final(C, D2);
+
+  Result := SHA256Match(D1, D2);
+end;
+
 function TestSHA384: Boolean;
 var
   Dig: TCnSHA384Digest;
@@ -9763,6 +10033,24 @@ begin
   SHA3_256Init(C);
   SHA3_256Update(C, PAnsiChar(S1), Length(S1));
   SHA3_256Update(C, PAnsiChar(S2), Length(S2));
+  SHA3_256Final(C, D2);
+
+  Result := SHA3_256Match(D1, D2);
+end;
+
+function TestSHA3_256UpdateByteByByte: Boolean;
+var
+  D1, D2: TCnSHA3_256Digest;
+  C: TCnSHA3Context;
+  S: AnsiString;
+  I: Integer;
+begin
+  S := '0123456789abcdefghijklmnop';
+  D1 := SHA3_256StringA(S);
+
+  SHA3_256Init(C);
+  for I := 1 to Length(S) do
+    SHA3_256Update(C, @S[I], 1);
   SHA3_256Final(C, D2);
 
   Result := SHA3_256Match(D1, D2);
@@ -10309,6 +10597,338 @@ begin
   Result := BLAKE2BMatch(D1, D2);
 end;
 
+// =============================== BLAKE3 ======================================
+
+function TestBLAKE3: Boolean;
+var
+  Dig: TCnBLAKE3Digest;
+  Data: TBytes;
+  I: Integer;
+begin
+  // 空输入（0 字节）
+  Dig := BLAKE3Bytes(nil);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    'AF1349B9F5F9A1A6A0404DEA36DCC9499BCB25C9ADC112B7CC9A93CAE41F3262';
+  if not Result then Exit;
+
+  // 1 字节输入（值 0x00）
+  SetLength(Data, 1);
+  Data[0] := 0;
+  Dig := BLAKE3Bytes(Data);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    '2D3ADEDFF11B61F14C886E35AFA036736DCD87A74D27B5C1510225D0F592E213';
+  if not Result then Exit;
+
+  // 63 字节输入（内容 0,1,...,62）
+  SetLength(Data, 63);
+  for I := 0 to 62 do
+    Data[I] := I;
+  Dig := BLAKE3Bytes(Data);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    'E9BC37A594DAAD83BE9470DF7F7B3798297C3D834CE80BA85D6E207627B7DB7B';
+  if not Result then Exit;
+
+  // 64 字节输入（内容 0,1,...,63）
+  SetLength(Data, 64);
+  for I := 0 to 63 do
+    Data[I] := I;
+  Dig := BLAKE3Bytes(Data);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    '4EED7141EA4A5CD4B788606BD23F46E212AF9CACEBACDC7D1F4C6DC7F2511B98';
+  if not Result then Exit;
+
+  // 65 字节输入（内容 0,1,...,64）
+  SetLength(Data, 65);
+  for I := 0 to 64 do
+    Data[I] := I;
+  Dig := BLAKE3Bytes(Data);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    'DE1E5FA0BE70DF6D2BE8FFFD0E99CEAA8EB6E8C93A63F2D8D1C30ECB6B263DEE';
+end;
+
+function TestBLAKE3LongInput: Boolean;
+var
+  Dig: TCnBLAKE3Digest;
+  Data: TBytes;
+  I: Integer;
+begin
+  // 1023 字节输入（内容为 0,1,...,250 循环）
+  SetLength(Data, 1023);
+  for I := 0 to 1022 do
+    Data[I] := I mod 251;
+  Dig := BLAKE3Bytes(Data);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    '10108970EEDA3EB932BAAC1428C7A2163B0E924C9A9E25B35BBA72B28F70BD11';
+  if not Result then Exit;
+
+  // 1024 字节输入（恰好一个 Chunk）
+  SetLength(Data, 1024);
+  for I := 0 to 1023 do
+    Data[I] := I mod 251;
+  Dig := BLAKE3Bytes(Data);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    '42214739F095A406F3FC83DEB889744AC00DF831C10DAA55189B5D121C855AF7';
+  if not Result then Exit;
+
+  // 1025 字节输入（跨 Chunk 边界，触发 Merkle 树合并）
+  SetLength(Data, 1025);
+  for I := 0 to 1024 do
+    Data[I] := I mod 251;
+  Dig := BLAKE3Bytes(Data);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    'D00278AE47EB27B34FAECF67B4FE263F82D5412916C1FFD97C8CB7FB814B8444';
+end;
+
+function TestBLAKE3Keyed: Boolean;
+var
+  Dig: TCnBLAKE3Digest;
+  Data, Key: TBytes;
+  I: Integer;
+begin
+  // 密钥：'whats the Elvish word for friend'（32 字节 ASCII）
+  Key := AnsiToBytes('whats the Elvish word for friend');
+
+  // 空输入
+  Dig := BLAKE3Bytes(nil, Key);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    '92B2B75604ED3C761F9D6F62392C8A9227AD0EA3F09573E783F1498A4ED60D26';
+  if not Result then Exit;
+
+  // 1 字节输入
+  SetLength(Data, 1);
+  Data[0] := 0;
+  Dig := BLAKE3Bytes(Data, Key);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    '6D7878DFFF2F485635D39013278AE14F1454B8C0A3A2D34BC1AB38228A80C95B';
+  if not Result then Exit;
+
+  // 63 字节输入
+  SetLength(Data, 63);
+  for I := 0 to 62 do
+    Data[I] := I;
+  Dig := BLAKE3Bytes(Data, Key);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    'BB1EB5D4AFA793C1EBDD9FB08DEF6C36D10096986AE0CFE148CD101170CE37AE';
+  if not Result then Exit;
+
+  // 64 字节输入
+  SetLength(Data, 64);
+  for I := 0 to 63 do
+    Data[I] := I;
+  Dig := BLAKE3Bytes(Data, Key);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    'BA8CED36F327700D213F120B1A207A3B8C04330528586F414D09F2F7D9CCB7E6';
+  if not Result then Exit;
+
+  // 65 字节输入
+  SetLength(Data, 65);
+  for I := 0 to 64 do
+    Data[I] := I;
+  Dig := BLAKE3Bytes(Data, Key);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    'C0A4EDEFA2D2ACCB9277C371AC12FCDBB52988A86EDC54F0716E1591B4326E72';
+  if not Result then Exit;
+
+  // 1023 字节输入
+  SetLength(Data, 1023);
+  for I := 0 to 1022 do
+    Data[I] := I mod 251;
+  Dig := BLAKE3Bytes(Data, Key);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    'C951ECDF03288D0FCC96EE3413563D8A6D3589547F2C2FB36D9786470F1B9D6E';
+  if not Result then Exit;
+
+  // 1024 字节输入
+  SetLength(Data, 1024);
+  for I := 0 to 1023 do
+    Data[I] := I mod 251;
+  Dig := BLAKE3Bytes(Data, Key);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    '75C46F6F3D9EB4F55ECAAEE480DB732E6C2105546F1E675003687C31719C7BA4';
+  if not Result then Exit;
+
+  // 1025 字节输入
+  SetLength(Data, 1025);
+  for I := 0 to 1024 do
+    Data[I] := I mod 251;
+  Dig := BLAKE3Bytes(Data, Key);
+  Result := DataToHex(@Dig[0], SizeOf(TCnBLAKE3Digest)) =
+    '357DC55DE0C7E382C900FD6E320ACC04146BE01DB6A8CE7210B7189BD664EA69';
+end;
+
+function TestBLAKE3DeriveKey: Boolean;
+var
+  DK: TCnBLAKE3DerivedKey;
+  Data: TBytes;
+  Ctx: AnsiString;
+  I: Integer;
+begin
+  Ctx := 'BLAKE3 2019-12-27 16:29:52 test vectors context';
+
+  // 空输入
+  DK := BLAKE3DeriveKeyStr(Ctx, nil);
+  Result := DataToHex(@DK[0], SizeOf(TCnBLAKE3Digest)) =
+    '2CC39783C223154FEA8DFB7C1B1660F2AC2DCBD1C1DE8277B0B0DD39B7E50D7D';
+  if not Result then Exit;
+
+  // 1 字节输入
+  SetLength(Data, 1);
+  Data[0] := 0;
+  DK := BLAKE3DeriveKeyStr(Ctx, Data);
+  Result := DataToHex(@DK[0], SizeOf(TCnBLAKE3Digest)) =
+    'B3E2E340A117A499C6CF2398A19EE0D29CCA2BB7404C73063382693BF66CB06C';
+  if not Result then Exit;
+
+  // 63 字节输入
+  SetLength(Data, 63);
+  for I := 0 to 62 do
+    Data[I] := I;
+  DK := BLAKE3DeriveKeyStr(Ctx, Data);
+  Result := DataToHex(@DK[0], SizeOf(TCnBLAKE3Digest)) =
+    'B6451E30B953C206E34644C6803724E9D2725E0893039CFC49584F991F451AF3';
+  if not Result then Exit;
+
+  // 64 字节输入
+  SetLength(Data, 64);
+  for I := 0 to 63 do
+    Data[I] := I;
+  DK := BLAKE3DeriveKeyStr(Ctx, Data);
+  Result := DataToHex(@DK[0], SizeOf(TCnBLAKE3Digest)) =
+    'A5C4A7053FA86B64746D4BB688D06AD1F02A18FCE9AFD3E818FEFAA7126BF73E';
+  if not Result then Exit;
+
+  // 65 字节输入
+  SetLength(Data, 65);
+  for I := 0 to 64 do
+    Data[I] := I;
+  DK := BLAKE3DeriveKeyStr(Ctx, Data);
+  Result := DataToHex(@DK[0], SizeOf(TCnBLAKE3Digest)) =
+    '51FD05C3C1CFBC8ED67D139AD76F5CF8236CD2ACD26627A30C104DFD9D3FF8A8';
+  if not Result then Exit;
+
+  // 1023 字节输入
+  SetLength(Data, 1023);
+  for I := 0 to 1022 do
+    Data[I] := I mod 251;
+  DK := BLAKE3DeriveKeyStr(Ctx, Data);
+  Result := DataToHex(@DK[0], SizeOf(TCnBLAKE3Digest)) =
+    '74A16C1C3D44368A86E1CA6DF64BE6A2F64CCE8F09220787450722D85725DEA5';
+  if not Result then Exit;
+
+  // 1024 字节输入
+  SetLength(Data, 1024);
+  for I := 0 to 1023 do
+    Data[I] := I mod 251;
+  DK := BLAKE3DeriveKeyStr(Ctx, Data);
+  Result := DataToHex(@DK[0], SizeOf(TCnBLAKE3Digest)) =
+    '7356CD7720D5B66B6D0697EB3177D9F8D73A4A5C5E968896EB6A689684302706';
+  if not Result then Exit;
+
+  // 1025 字节输入
+  SetLength(Data, 1025);
+  for I := 0 to 1024 do
+    Data[I] := I mod 251;
+  DK := BLAKE3DeriveKeyStr(Ctx, Data);
+  Result := DataToHex(@DK[0], SizeOf(TCnBLAKE3Digest)) =
+    'EFFAA245F065FBF82AC186839A249707C3BDDF6D3FDDA22D1B95A3C970379BCB';
+end;
+
+function TestBLAKE3XOF: Boolean;
+var
+  Dig: TCnBLAKE3Digest;
+  XOFOut: TBytes;
+begin
+  // 对空输入输出 131 字节，验证与官方测试向量一致
+  // 官方向量（input_len=0 hash 字段前 131 字节 = 262 个十六进制字符）：
+  // af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262
+  // e00f03e7b69af26b7faaf09fcd333050338ddfe085b8cc869ca98b206c08243a
+  // 26f5487789e8f660afe6c99ef9e0c52b92e7393024a80459cf91f476f9ffdbda
+  // 7001c22e159b402631f277ca96f2defdf1078282314e763699a31c5363165421
+  // cc (131 bytes)
+  XOFOut := BLAKE3XOFBytes(nil, 131);
+  Result := Length(XOFOut) = 131;
+  if not Result then Exit;
+
+  Result := DataToHex(@XOFOut[0], 131) =
+    'AF1349B9F5F9A1A6A0404DEA36DCC9499BCB25C9ADC112B7CC9A93CAE41F3262' +
+    'E00F03E7B69AF26B7FAAF09FCD333050338DDFE085B8CC869CA98B206C08243A' +
+    '26F5487789E8F660AFE6C99EF9E0C52B92E7393024A80459CF91F476F9FFDBDA' +
+    '7001C22E159B402631F277CA96F2DEFDF1078282314E763699A31C5363165421' +
+    'CCE14D';
+  if not Result then Exit;
+
+  // XOF 输出 32 字节时与普通哈希一致
+  XOFOut := BLAKE3XOFBytes(nil, 32);
+  Dig := BLAKE3Bytes(nil);
+  Result := CompareMem(@XOFOut[0], @Dig[0], 32);
+end;
+
+function TestBLAKE3Update: Boolean;
+var
+  D1, D2: TCnBLAKE3Digest;
+  C: TCnBLAKE3Context;
+  Data: TBytes;
+  I: Integer;
+begin
+  // 1025 字节输入（跨 Chunk 边界）
+  SetLength(Data, 1025);
+  for I := 0 to 1024 do
+    Data[I] := I mod 251;
+
+  // 一次性调用
+  D1 := BLAKE3Bytes(Data);
+
+  // 分两段：512 + 513
+  BLAKE3Init(C);
+  BLAKE3Update(C, PAnsiChar(@Data[0]), 512);
+  BLAKE3Update(C, PAnsiChar(@Data[512]), 513);
+  BLAKE3Final(C, D2);
+  Result := BLAKE3Match(D1, D2);
+  if not Result then Exit;
+
+  // 分三段：64 + 960 + 1（跨 Block 和 Chunk 边界）
+  BLAKE3Init(C);
+  BLAKE3Update(C, PAnsiChar(@Data[0]), 64);
+  BLAKE3Update(C, PAnsiChar(@Data[64]), 960);
+  BLAKE3Update(C, PAnsiChar(@Data[1024]), 1);
+  BLAKE3Final(C, D2);
+  Result := BLAKE3Match(D1, D2);
+  if not Result then Exit;
+
+  // 逐字节送入
+  BLAKE3Init(C);
+  for I := 0 to 1024 do
+    BLAKE3Update(C, PAnsiChar(@Data[I]), 1);
+  BLAKE3Final(C, D2);
+  Result := BLAKE3Match(D1, D2);
+  if not Result then Exit;
+
+  // 测试跨 Block 边界（64 字节）：128 字节输入，分 63+65
+  SetLength(Data, 128);
+  for I := 0 to 127 do
+    Data[I] := I;
+  D1 := BLAKE3Bytes(Data);
+
+  BLAKE3Init(C);
+  BLAKE3Update(C, PAnsiChar(@Data[0]), 63);
+  BLAKE3Update(C, PAnsiChar(@Data[63]), 65);
+  BLAKE3Final(C, D2);
+  Result := BLAKE3Match(D1, D2);
+  if not Result then Exit;
+
+  // 测试跨 Chunk 边界（1024 字节）：2048 字节输入，分 1024+1024
+  SetLength(Data, 2048);
+  for I := 0 to 2047 do
+    Data[I] := I mod 251;
+  D1 := BLAKE3Bytes(Data);
+
+  BLAKE3Init(C);
+  BLAKE3Update(C, PAnsiChar(@Data[0]), 1024);
+  BLAKE3Update(C, PAnsiChar(@Data[1024]), 1024);
+  BLAKE3Final(C, D2);
+  Result := BLAKE3Match(D1, D2);
+end;
+
 // ================================ Base64 =====================================
 
 function TestBase64: Boolean;
@@ -10347,6 +10967,19 @@ begin
     Result := CompareBytes(Data, Output)
   else
     Result := False;
+end;
+
+function TestBase64StrictRejectInvalidChar: Boolean;
+begin
+  Result := not Base64IsStrictText('QUJ$');
+end;
+
+function TestBase64StrictRejectInvalidPadding: Boolean;
+begin
+  Result := not Base64IsStrictText('AA=A');
+  if not Result then Exit;
+
+  Result := not Base64IsStrictText('A===');
 end;
 
 // ================================ OTP ========================================
@@ -10759,6 +11392,122 @@ begin
 
   DeData := XChaCha20Poly1305DecryptBytes(Key, Iv, EnData, AAD, Tag);
   Result := CompareBytes(DeData, Plain);
+end;
+
+function TestSM2VerifyCorruptedSignature: Boolean;
+var
+  Priv: TCnSM2PrivateKey;
+  Pub: TCnSM2PublicKey;
+  Sig: TCnSM2Signature;
+  Msg: AnsiString;
+  HexSig: string;
+begin
+  Priv := TCnSM2PrivateKey.Create;
+  Pub := TCnSM2PublicKey.Create;
+  Sig := TCnSM2Signature.Create;
+  try
+    Priv.SetHex('3945208F7B2144B13F36E38AC6D39F95889393692860B51A42FB81EF4DF7C5B8');
+    Pub.X.SetHex('09F9DF311E5421A150DD7D161E4BC5C672179FAD1833FC076BB08FF356F35020');
+    Pub.Y.SetHex('CCEA490CE26775A52DC6EA718CC1AA600AED05FBF35E084A6632F6072DA9AD13');
+    Msg := 'message digest';
+
+    Result := CnSM2SignData('1234567812345678', @Msg[1], Length(Msg), Sig, Priv, Pub);
+    if not Result then Exit;
+
+    HexSig := Sig.ToHex();
+    if HexSig[Length(HexSig)] = '0' then
+      HexSig[Length(HexSig)] := '1'
+    else
+      HexSig[Length(HexSig)] := '0';
+    Sig.SetHex(AnsiString(HexSig));
+
+    Result := not CnSM2VerifyData('1234567812345678', @Msg[1], Length(Msg), Sig, Pub);
+  finally
+    Sig.Free;
+    Pub.Free;
+    Priv.Free;
+  end;
+end;
+
+function TestAEADAESGCMTamperedCiphertext: Boolean;
+var
+  Key, Iv, AD, Plain, C, P: TBytes;
+  T: TCnGCM128Tag;
+begin
+  Key := HexToBytes('FEFFE9928665731C6D6A8F9467308308');
+  Iv := HexToBytes('CAFEBABEFACEDBADDECAF888');
+  Plain := HexToBytes('D9313225F88406E5A55909C5AFF5269A86A7A9531534F7DA2E4C303D8A318A72');
+  AD := HexToBytes('FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2');
+
+  C := AES128GCMEncryptBytes(Key, Iv, Plain, AD, T);
+  C[0] := C[0] xor $01;
+  P := AES128GCMDecryptBytes(Key, Iv, C, AD, T);
+  Result := (Length(P) = 0) and (not CompareBytes(P, Plain));
+end;
+
+function TestAEADAESGCMTamperedAAD: Boolean;
+var
+  Key, Iv, AD, AD2, Plain, C, P: TBytes;
+  T: TCnGCM128Tag;
+begin
+  Key := HexToBytes('FEFFE9928665731C6D6A8F9467308308');
+  Iv := HexToBytes('CAFEBABEFACEDBADDECAF888');
+  Plain := HexToBytes('D9313225F88406E5A55909C5AFF5269A86A7A9531534F7DA2E4C303D8A318A72');
+  AD := HexToBytes('FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2');
+  AD2 := Copy(AD, 0, Length(AD));
+  AD2[0] := AD2[0] xor $80;
+
+  C := AES128GCMEncryptBytes(Key, Iv, Plain, AD, T);
+  P := AES128GCMDecryptBytes(Key, Iv, C, AD2, T);
+  Result := (Length(P) = 0) and (not CompareBytes(P, Plain));
+end;
+
+function TestAEADAESGCMTamperedTag: Boolean;
+var
+  Key, Iv, AD, Plain, C, P: TBytes;
+  T: TCnGCM128Tag;
+begin
+  Key := HexToBytes('FEFFE9928665731C6D6A8F9467308308');
+  Iv := HexToBytes('CAFEBABEFACEDBADDECAF888');
+  Plain := HexToBytes('D9313225F88406E5A55909C5AFF5269A86A7A9531534F7DA2E4C303D8A318A72');
+  AD := HexToBytes('FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2');
+
+  C := AES128GCMEncryptBytes(Key, Iv, Plain, AD, T);
+  T[High(T)] := T[High(T)] xor $01;
+  P := AES128GCMDecryptBytes(Key, Iv, C, AD, T);
+  Result := (Length(P) = 0) and (not CompareBytes(P, Plain));
+end;
+
+function TestAEADAESGCMInvalidNonceLen: Boolean;
+var
+  Key, Iv, IvShort, AD, Plain, C, P: TBytes;
+  T: TCnGCM128Tag;
+begin
+  Key := HexToBytes('FEFFE9928665731C6D6A8F9467308308');
+  Iv := HexToBytes('CAFEBABEFACEDBADDECAF888');
+  IvShort := HexToBytes('CAFEBABE');
+  Plain := HexToBytes('D9313225F88406E5A55909C5AFF5269A86A7A9531534F7DA2E4C303D8A318A72');
+  AD := HexToBytes('FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2');
+
+  C := AES128GCMEncryptBytes(Key, Iv, Plain, AD, T);
+  P := AES128GCMDecryptBytes(Key, IvShort, C, AD, T);
+  Result := (Length(P) = 0) and (not CompareBytes(P, Plain));
+end;
+
+function TestAEADChaCha20Poly1305TamperedTag: Boolean;
+var
+  Plain, Key, AAD, Iv, EnData, DeData: TBytes;
+  Tag: TCnPoly1305Digest;
+begin
+  Plain := AnsiToBytes('Ladies and Gentlemen of the class of ''99: If I could offer you only one tip for the future, sunscreen would be it.');
+  AAD := HexToBytes('50515253C0C1C2C3C4C5C6C7');
+  Key := HexToBytes('808182838485868788898A8B8C8D8E8F909192939495969798999A9B9C9D9E9F');
+  Iv := HexToBytes('070000004041424344454647');
+
+  EnData := ChaCha20Poly1305EncryptBytes(Key, Iv, Plain, AAD, Tag);
+  Tag[0] := Tag[0] xor $01;
+  DeData := ChaCha20Poly1305DecryptBytes(Key, Iv, EnData, AAD, Tag);
+  Result := (Length(DeData) = 0) and (not CompareBytes(DeData, Plain));
 end;
 
 // ================================ ChaCha20 ===================================
@@ -11900,6 +12649,24 @@ begin
   SM3Init(C);
   SM3Update(C, PAnsiChar(S1), Length(S1));
   SM3Update(C, PAnsiChar(S2), Length(S2));
+  SM3Final(C, D2);
+
+  Result := SM3Match(D1, D2);
+end;
+
+function TestSM3UpdateByteByByte: Boolean;
+var
+  D1, D2: TCnSM3Digest;
+  C: TCnSM3Context;
+  S: AnsiString;
+  I: Integer;
+begin
+  S := '0123456789abcdefghijklmnop';
+  D1 := SM3StringA(S);
+
+  SM3Init(C);
+  for I := 1 to Length(S) do
+    SM3Update(C, @S[I], 1);
   SM3Final(C, D2);
 
   Result := SM3Match(D1, D2);
@@ -13113,6 +13880,108 @@ begin
   end;
 end;
 
+function TestRSAVerifyCorruptedSignature: Boolean;
+var
+  Priv: TCnRSAPrivateKey;
+  Pub: TCnRSAPublicKey;
+  Data, Sign: TMemoryStream;
+  S: AnsiString;
+  B: Byte;
+begin
+  Priv := TCnRSAPrivateKey.Create;
+  Pub := TCnRSAPublicKey.Create;
+  Data := TMemoryStream.Create;
+  Sign := TMemoryStream.Create;
+  try
+    Priv.PrimeKey1.SetDec('11926501752010836305573547055010388132818881584424893368438260986340083815661726132764041431839102912426991427194974395769462431410735199955905343985824903');
+    Priv.PrimeKey2.SetDec('8573695372469847739125271816213638824277647604717881633559571969225574325225015620887808957893360658142977333484565099818973457402882454768789495637432799');
+    Priv.PrivKeyProduct.SetDec('102254192880968838810801382868389181256002534349148386664790879432128469476008930592645952145670063316387886310707201792269823813875471904969765005471'
+      + '655784895966560585402535313253239266974336591272564426699631037042766443337890644687331420209218848611174173514131044514861915637897961332996331736169243193497');
+    Priv.PrivKeyExponent.SetDec('39672511136982081334852781820872662950644314523029678314931072391484666575621085465907939411446247157266807837135542059783707067998407374882375067429'
+      + '509912283003943601853564564341100084349650097087748956228566192837448482334604835364484274776995406202376013966890951221884425618589294581045684761888524743389');
+    Pub.PubKeyExponent.SetDec('65537');
+    Pub.PubKeyProduct.SetDec('10225419288096883881080138286838918125600253434914838666479087943212846947600893059264595214567006331638788631070720179226982381387547190496976500547165'
+      + '5784895966560585402535313253239266974336591272564426699631037042766443337890644687331420209218848611174173514131044514861915637897961332996331736169243193497');
+
+    S := 'Data To Sign.';
+    Data.Write(S[1], Length(S));
+    Data.Position := 0;
+    Result := CnRSASignStream(Data, Sign, Priv, rsdtSHA256);
+    if not Result then Exit;
+
+    Sign.Position := 0;
+    Sign.Read(B, 1);
+    B := B xor $01;
+    Sign.Position := 0;
+    Sign.Write(B, 1);
+
+    Data.Position := 0;
+    Sign.Position := 0;
+    Result := not CnRSAVerifyStream(Data, Sign, Pub, rsdtSHA256);
+  finally
+    Sign.Free;
+    Data.Free;
+    Pub.Free;
+    Priv.Free;
+  end;
+end;
+
+function TestRSADecryptInvalidPadding: Boolean;
+const
+  KEY =
+    '-----BEGIN RSA PRIVATE KEY-----' + #13#10 +
+    'MIICXQIBAAKBgQCGVs2u3xXdEwQum3Um/8/IP7FcfkkaYpnHwO1EW84L0lzD8qSF' + #13#10 +
+    'bWFc2ou2IZ133VcXtRbUfZEonzD8ljYTdGXuVS9rqRlJ2JXTWFI0jWy+9UQBW8hU' + #13#10 +
+    'T+ak3eKNGEk9tRy+gniike74qrclUmjuKgv7zTdt+N/z7CIGRmVWvC/B3QIDAQAB' + #13#10 +
+    'AoGAF/0yN5MAvXyi14vNLMyrlw/ApUqr1TlcSq5p8DYQok3LYPZYaLcylrk0D68L' + #13#10 +
+    'BpeQ8NvWmtVdcYqT3dcZCvpTJSpQCzRewWfiCPYjKoJ/0wIhTMedQLCOw8joOeop' + #13#10 +
+    '2LFq3ui1vsbnst5oktw6GJFNHxvJ4NpgbNnieqQkSWxkMqUCQQD16RKsh2rgNNaa' + #13#10 +
+    'L1tN2+9cXexucFfNulcMaK0FSmx2ylJdJcI7evgpvnPcYcgXobvmeHYxVty7ZHX7' + #13#10 +
+    'OTkQxgRTAkEAi9nWbdwj/jAZxEe3G/JAczOsY8A8FKLmutXiYmfoHl9deh4lxpgw' + #13#10 +
+    'Dp9fb2adUwSWuWDIew4r5iPyoP0NDURbDwJBAIU5JP3FS3h2B8F2YH+45F9lHv7h' + #13#10 +
+    '7B+vkRNO7lWMcWCV0bNXDnhM8X8kB/7gFpf+7h45KscmKOV40pYs9SaKMLMCQHhy' + #13#10 +
+    'eVfNDcLSsp52FaKgFhoiGwseeaBcXNP1ejC+xQ/DmsKeTHKqiFlPseZEPqNNhHLM' + #13#10 +
+    'hF5Xaj+gHkvBJgiTIskCQQCp0FMAgOCBQdsJKYxEetiBb2DxdTiam6s1QA8xcQ99' + #13#10 +
+    'I0FMSVba8467OWrg6DyOMyp5NfIy4Gci7+8CuGAMvcGr' + #13#10 +
+    '-----END RSA PRIVATE KEY-----';
+var
+  Priv: TCnRSAPrivateKey;
+  Pub: TCnRSAPublicKey;
+  InStream, EnStream, DeStream: TMemoryStream;
+  Plain: TBytes;
+  B: Byte;
+begin
+  Result := False;
+  Priv := TCnRSAPrivateKey.Create;
+  Pub := TCnRSAPublicKey.Create;
+  InStream := TMemoryStream.Create;
+  EnStream := TMemoryStream.Create;
+  DeStream := TMemoryStream.Create;
+  try
+    if not CnRSALoadKeysFromPemStr(KEY, Priv, Pub) then Exit;
+    Plain := AnsiToBytes('A Test Message Single.');
+    BytesToStream(Plain, InStream);
+    InStream.Position := 0;
+    if not CnRSAEncryptLongStream(InStream, EnStream, Pub) then Exit;
+    if EnStream.Size = 0 then Exit;
+
+    EnStream.Position := 0;
+    EnStream.Read(B, 1);
+    B := B xor $01;
+    EnStream.Position := 0;
+    EnStream.Write(B, 1);
+
+    EnStream.Position := 0;
+    Result := not CnRSADecryptLongStream(EnStream, DeStream, Priv);
+  finally
+    DeStream.Free;
+    EnStream.Free;
+    InStream.Free;
+    Pub.Free;
+    Priv.Free;
+  end;
+end;
+
 // ================================ KDF ========================================
 
 function TestKDFPB1: Boolean;
@@ -13147,6 +14016,21 @@ begin
   Salt := HexToAnsiStr('123456');
   Res := CnPBKDF2(Pass, Salt, 1000, 32, cpdfSha256Hmac);
   Result := DataToHex(@Res[1], Length(Res)) = '87410D487A6414E9ADB9D078CBA7E28BFCB0C3767F1BD4C1A628010FF91DDD1A';
+end;
+
+function TestKDFPB2InvalidIteration: Boolean;
+var
+  P, S: TBytes;
+begin
+  P := AnsiToBytes('123456');
+  S := HexToBytes('123456');
+  Result := False;
+  try
+    CnPBKDF2Bytes(P, S, 0, 32, cpdfSha256Hmac);
+  except
+    on ECnKDFException do
+      Result := True;
+  end;
 end;
 
 function TestKDFSM2SM9: Boolean;
@@ -13203,6 +14087,21 @@ begin
   Info := AnsiToBytes('optional context string');
   Key := CnHKDFBytes(chkSm3, IKM, nil, Info, 32); // Salt 为空
   Result := DataToHex(@Key[0], Length(Key)) = '040E1C83AB8CA2C2AD73EDAE1EA6025DD21F77AA1AA088926D3843BCA70310CA';
+end;
+
+function TestHKDFNilSaltEqualsZeroSalt: Boolean;
+var
+  IKM, Info, K1, K2, ZeroSalt: TBytes;
+begin
+  IKM := AnsiToBytes('input keying material');
+  Info := AnsiToBytes('optional context string');
+  SetLength(ZeroSalt, SizeOf(TCnSHA256Digest));
+  FillChar(ZeroSalt[0], Length(ZeroSalt), 0);
+
+  K1 := CnHKDFBytes(chkSha256, IKM, nil, Info, 32);
+  K2 := CnHKDFBytes(chkSha256, IKM, ZeroSalt, Info, 32);
+
+  Result := (Length(K1) = Length(K2)) and CompareMem(@K1[0], @K2[0], Length(K1));
 end;
 
 // ================================ Prime Number ===============================
@@ -13550,6 +14449,34 @@ begin
     PubKey.Free;
     PrivKey.Free;
     Ed.Free;
+  end;
+end;
+
+function Test25519InvalidPublicKeyHandling: Boolean;
+var
+  PrivKey: TCnEd25519PrivateKey;
+  PubKey, WrongPubKey: TCnEd25519PublicKey;
+  Sig: TCnEd25519Signature;
+  B: Byte;
+begin
+  PrivKey := TCnEd25519PrivateKey.Create;
+  PubKey := TCnEd25519PublicKey.Create;
+  WrongPubKey := TCnEd25519PublicKey.Create;
+  Sig := TCnEd25519Signature.Create;
+  try
+    PrivKey.LoadFromHex('4CCD089B28FF96DA9DB6C346EC114E0F5B8A319F35ABA624DA8CF6ED4FB8A6FB');
+    PubKey.LoadFromHex('3D4017C3E843895A92B70AA74D1B7EBC9C982CCF2EC4968CC0CD55F12AF4660C');
+    WrongPubKey.LoadFromHex('0000000000000000000000000000000000000000000000000000000000000000');
+
+    B := $72;
+    Result := CnEd25519SignData(@B, 1, PrivKey, PubKey, Sig);
+    if not Result then Exit;
+    Result := not CnEd25519VerifyData(@B, 1, Sig, WrongPubKey);
+  finally
+    Sig.Free;
+    WrongPubKey.Free;
+    PubKey.Free;
+    PrivKey.Free;
   end;
 end;
 
@@ -14387,6 +15314,47 @@ begin
   finally
     SigStream.Free;
     InStream.Free;
+    Pub.Free;
+    Priv.Free;
+    Ecc.Free;
+  end;
+end;
+
+function TestECCVerifyWrongPublicKey: Boolean;
+var
+  Ecc: TCnEcc;
+  Priv: TCnEccPrivateKey;
+  Pub, WrongPub: TCnEccPublicKey;
+  InStream, SigStream: TMemoryStream;
+  S: AnsiString;
+begin
+  Ecc := TCnEcc.Create(ctRfc4754ECDSAExample256);
+  Priv := TCnEccPrivateKey.Create;
+  Pub := TCnEccPublicKey.Create;
+  WrongPub := TCnEccPublicKey.Create;
+  InStream := TMemoryStream.Create;
+  SigStream := TMemoryStream.Create;
+  try
+    Priv.SetHex('DC51D3866A15BACDE33D96F992FCA99DA7E6EF0934E7097559C27F1614C88A7F');
+    Pub.X.SetHex('2442A5CC0ECD015FA3CA31DC8E2BBC70BF42D60CBCA20085E0822CB04235E970');
+    Pub.Y.SetHex('6FC98BD7E50211A4A27102FA3549DF79EBCB4BF246B80945CDDFE7D509BBFD7D');
+    WrongPub.X.SetHex('96AA4956CF6689BD57CED42E0C5645499C5993A77AFAF15860B12CA0B38FFC4E');
+    WrongPub.Y.SetHex('9C1689B9B524534C37DBFF7628A1CB85F39F146B813F8C89825CC82BCA2E9B75');
+
+    S := 'abc';
+    InStream.Write(S[1], Length(S));
+    InStream.Position := 0;
+
+    Result := CnEccSignStream(InStream, SigStream, Ecc, Priv, esdtSHA256);
+    if not Result then Exit;
+
+    InStream.Position := 0;
+    SigStream.Position := 0;
+    Result := not CnEccVerifyStream(InStream, SigStream, Ecc, WrongPub, esdtSHA256);
+  finally
+    SigStream.Free;
+    InStream.Free;
+    WrongPub.Free;
     Pub.Free;
     Priv.Free;
     Ecc.Free;

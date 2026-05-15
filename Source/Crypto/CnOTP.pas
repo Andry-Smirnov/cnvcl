@@ -26,9 +26,11 @@ unit CnOTP;
 * 单元作者：CnPack 开发组 (master@cnpack.org)
 * 备    注：本单元实现了一次性密码与动态口令功能，
 *           参考《GB/T 38556-2020 信息安全技术动态口令密码应用技术规范》
-*           以及 RFC 4226 与 RFC 6238。
+*           以及 RFC 4226 与 RFC 6238。其中 TOTP+SHA1 已通过 GitHub 的 2FA 测试
 * 开发平台：Win 7
-* 修改记录：2023.04.11 V1.1
+* 修改记录：2026.05.12 V1.2
+*                修正世界时的偏差问题
+*           2023.04.11 V1.1
 *                增加 RFC 4226 的 HOTP 实现与 RFC 6238 的 TOTP 实现
 *           2022.02.11 V1.0
 *               创建单元，实现功能
@@ -40,7 +42,9 @@ interface
 {$I CnPack.inc}
 
 uses
-  Classes, SysUtils, Math, CnNative;
+  Classes, SysUtils, Math, {$IFDEF MSWINDOWS} Windows, {$ELSE}
+  {$IFDEF FPC} BaseUnix, Unix, {$ELSE} DateUtils, TimeSpan, {$ENDIF} {$ENDIF}
+  CnNative;
 
 const
   CN_DEFAULT_PASSWORD_DIGITS = 6;
@@ -225,6 +229,16 @@ type
     {* 口令位数，默认 6}
   end;
 
+function CnGetCurrentTimeZoneUTCBiasMinutes: Integer;
+{* 跨平台实现获取当前时区与 UTC 时间差了多少分钟，也即本地时间减 UTC 时间。
+   使用时注意，本地时间减去该返值，即为 UTC 时间。
+
+   参数：
+     （无）
+
+   返回值：Integer                        - 返回分钟为单位的时间差
+}
+
 implementation
 
 uses
@@ -235,12 +249,47 @@ resourcestring
   SCnErrorOTPInvalidDigits = 'Invalid Digits';
   SCnErrorOTPInvalidPeriod = 'Invalid Period';
 
+function CnGetCurrentTimeZoneUTCBiasMinutes: Integer;
+var
+{$IFDEF MSWINDOWS}
+  TZ: TTimeZoneInformation;
+{$ELSE}
+{$IFDEF FPC}
+  tv: timeval;
+  tz: timezone;
+{$ELSE}
+  S: TTimeSpan;
+{$ENDIF}
+{$ENDIF}
+begin
+{$IFDEF MSWINDOWS}
+  GetTimeZoneInformation(TZ);
+  if GetTimeZoneInformation(TZ) = TIME_ZONE_ID_DAYLIGHT then
+    Result := TZ.Bias + TZ.DaylightBias
+  else
+    Result := TZ.Bias;
+{$ELSE}
+{$IFDEF FPC}
+  fpGetTimeOfDay(@tv, @tz);
+  Result := tz.tz_minuteswest;
+{$ELSE}
+  // Delphi 的高版本在其他平台上的实现
+  S := TTimeZone.Local.GetUTCOffset(Now);
+  Result := -S.Ticks div S.TicksPerMinute;
+{$ENDIF}
+{$ENDIF}
+end;
+
 function EpochSeconds: Int64; {$IFDEF SUPPORT_INLINE} inline; {$ENDIF}
 var
   D: TDateTime;
+  B: Integer;
 begin
   D := EncodeDate(1970, 1, 1);
-  Result := Trunc(86400 * (Now - D));
+  Result := Trunc(86400 * (Now - D)); // 实际上要求 UTC，在中国东八区还得 - 3600 * 8;
+
+  B := CnGetCurrentTimeZoneUTCBiasMinutes;
+  Result := Result + B * 60;
 end;
 
 { TCnDynamicToken }

@@ -256,6 +256,7 @@ function TestQREncoderNumericMode: Boolean;
 function TestQREncoderAlphanumericMode: Boolean;
 function TestQREncoderByteMode: Boolean;
 function TestQREncoderTextMatrix: Boolean;
+function TestQRDecoderData: Boolean;
 
 // ============================= Polynomial ====================================
 
@@ -272,6 +273,10 @@ function TestPolynomialInverseTrunc: Boolean;
 function TestPolynomialMulTrunc: Boolean;
 function TestPolynomialPowerTrunc: Boolean;
 function TestBigNumberPolynomialDerivative: Boolean;
+function TestBigNumberPolynomialGaloisDerivative: Boolean;
+function TestBigNumberPolynomialGaloisSquareFreeFactorization: Boolean;
+function TestBigNumberPolynomialGaloisFindLinearFactors: Boolean;
+function TestBigNumberPolynomialGaloisFactorCantorZassenhaus: Boolean;
 
 // ================================ NTRU =======================================
 
@@ -440,6 +445,9 @@ function TestBase64: Boolean;
 function TestBase64URL: Boolean;
 function TestBase64StrictRejectInvalidChar: Boolean;
 function TestBase64StrictRejectInvalidPadding: Boolean;
+function TestBase32: Boolean;
+function TestBase32StrictRejectInvalidChar: Boolean;
+function TestBase32StrictRejectInvalidPadding: Boolean;
 
 // ================================ OTP ========================================
 
@@ -627,6 +635,7 @@ function TestECCVerifyWrongPublicKey: Boolean;
 function TestECCPrivPubPkcs1: Boolean;
 function TestECCPrivPubPkcs8: Boolean;
 function TestECCPub: Boolean;
+function TestECCJInvariant: Boolean;
 function TestECCSchoof: Boolean;
 function TestECCSchoof2: Boolean;
 function TestECCFastSchoof: Boolean;
@@ -897,6 +906,7 @@ begin
   MyAssert(TestQREncoderAlphanumericMode, 'TestQREncoderAlphanumericMode');
   MyAssert(TestQREncoderByteMode, 'TestQREncoderByteMode');
   MyAssert(TestQREncoderTextMatrix, 'TestQREncoderMaskPatterns');
+  MyAssert(TestQRDecoderData, 'TestQRDecoderData');
 
 // ============================= Polynomial ====================================
 
@@ -913,6 +923,10 @@ begin
   MyAssert(TestPolynomialMulTrunc, 'TestPolynomialMulTrunc');
   MyAssert(TestPolynomialPowerTrunc, 'TestPolynomialPowerTrunc');
   MyAssert(TestBigNumberPolynomialDerivative, 'TestBigNumberPolynomialDerivative');
+  MyAssert(TestBigNumberPolynomialGaloisDerivative, 'TestBigNumberPolynomialGaloisDerivative');
+  MyAssert(TestBigNumberPolynomialGaloisSquareFreeFactorization, 'TestBigNumberPolynomialGaloisSquareFreeFactorization');
+  MyAssert(TestBigNumberPolynomialGaloisFindLinearFactors, 'TestBigNumberPolynomialGaloisFindLinearFactors');
+  MyAssert(TestBigNumberPolynomialGaloisFactorCantorZassenhaus, 'TestBigNumberPolynomialGaloisFactorCantorZassenhaus');
 
 // ================================ NTRU =======================================
 
@@ -1081,6 +1095,9 @@ begin
   MyAssert(TestBase64URL, 'TestBase64URL');
   MyAssert(TestBase64StrictRejectInvalidChar, 'TestBase64StrictRejectInvalidChar');
   MyAssert(TestBase64StrictRejectInvalidPadding, 'TestBase64StrictRejectInvalidPadding');
+  MyAssert(TestBase32, 'TestBase32');
+  MyAssert(TestBase32StrictRejectInvalidChar, 'TestBase32StrictRejectInvalidChar');
+  MyAssert(TestBase32StrictRejectInvalidPadding, 'TestBase32StrictRejectInvalidPadding');
 
 // ================================ OTP ========================================
 
@@ -1269,6 +1286,7 @@ begin
   MyAssert(TestECCPrivPubPkcs1, 'TestECCPrivPubPkcs1');
   MyAssert(TestECCPrivPubPkcs8, 'TestECCPrivPubPkcs8');
   MyAssert(TestECCPub, 'TestECCPub');
+  MyAssert(TestECCJInvariant, 'TestECCJInvariant');
   MyAssert(TestECCSchoof, 'TestECCSchoof');
   MyAssert(TestECCSchoof2, 'TestECCSchoof2');
   MyAssert(TestECCFastSchoof, 'TestECCFastSchoof');
@@ -2033,8 +2051,6 @@ function TestComplexNumberString: Boolean;
 var
   C1: TCnComplexNumber;
 begin
-  Result := False;
-
   // 测试纯实数：0
   ComplexNumberSetString(C1, '0');
   Result := ComplexNumberIsZero(C1);
@@ -2166,7 +2182,6 @@ function TestBigComplexString: Boolean;
 var
   C1: TCnBigComplex;
 begin
-  Result := False;
   C1 := TCnBigComplex.Create;
   try
     // 测试纯实数：0
@@ -2389,7 +2404,6 @@ function TestBigComplexDecimalString: Boolean;
 var
   C1: TCnBigComplexDecimal;
 begin
-  Result := False;
   C1 := TCnBigComplexDecimal.Create;
   try
     // 测试纯实数：0
@@ -4070,7 +4084,6 @@ var
   St: TMemoryStream;
   S: AnsiString;
 begin
-  Result := False;
   CAPub := TCnRSAPublicKey.Create;
   St := TMemoryStream.Create;
   try
@@ -5806,6 +5819,60 @@ begin
   end;
 end;
 
+function TestQRDecoderData: Boolean;
+const
+  // 完整精确的编码矩阵
+  QRARRAY: array[0..28, 0..28] of Byte = (
+    (1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1),
+    (1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1),
+    (1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1),
+    (1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1),
+    (1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1),
+    (1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1),
+    (1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1),
+    (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    (0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1),
+    (1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1),
+    (1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1),
+    (1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0),
+    (0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1),
+    (1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1),
+    (0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1),
+    (0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0),
+    (1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1),
+    (0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+    (1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1),
+    (1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1),
+    (0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+    (0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+    (1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1),
+    (1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0),
+    (1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1),
+    (1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1),
+    (1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1),
+    (1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1),
+    (1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1)
+  );
+var
+  S: string;
+  QRData: TCnQRData;
+  I, J, QRSize: Integer;
+begin
+  QRSize := 29;
+  SetLength(QRData, QRSize, QRSize);
+
+  for I := 0 to QRSize - 1 do
+  begin
+    for J := 0 to QRSize - 1 do
+    begin
+      QRData[I, J] := QRARRAY[I, J];
+    end;
+  end;
+
+  S := CnQRDecodeFromMatrix(QRData);
+  Result := S = 'CnPack QRCode Decode Test 123!@#';
+end;
+
 // ============================= Polynomial ====================================
 
 function TestBigNumberPolynomialGaloisPrimePowerModularInverse: Boolean;
@@ -5857,10 +5924,10 @@ function TestInt64Polynomial: Boolean;
 var
   P1, P2, Res: TCnInt64Polynomial;
 begin
-  Result := False;
   P1 := TCnInt64Polynomial.Create([1, 2, 3]);
   P2 := TCnInt64Polynomial.Create([3, 2, 1]);
   Res := TCnInt64Polynomial.Create;
+
   try
     Result := P1.ToString = '3X^2+2X+1';
     if not Result then Exit;
@@ -5954,12 +6021,12 @@ var
   P1, P2, Res: TCnBigComplexPolynomial;
   C1, C2: TCnBigComplex;
 begin
-  Result := False;
   P1 := TCnBigComplexPolynomial.Create;
   P2 := TCnBigComplexPolynomial.Create;
   Res := TCnBigComplexPolynomial.Create;
   C1 := TCnBigComplex.Create;
   C2 := TCnBigComplex.Create;
+
   try
     // 创建 P1 = 5 + (4i)X + 3X^2
     P1.MaxDegree := 2;
@@ -6025,13 +6092,13 @@ var
   P1, P2, Res, Rem: TCnBigComplexDecimalPolynomial;
   C1, C2, C3, C4: TCnBigComplexDecimal;
 begin
-  Result := False;
   P1 := TCnBigComplexDecimalPolynomial.Create;
   P2 := TCnBigComplexDecimalPolynomial.Create;
   Res := TCnBigComplexDecimalPolynomial.Create;
   Rem := TCnBigComplexDecimalPolynomial.Create;
   C3 := TCnBigComplexDecimal.Create;
   C4 := TCnBigComplexDecimal.Create;
+
   try
     // 创建第一个多项式 P1 = 1 + 2i + (2 + 3i)X + (3 + 4i)X^2
     C1 := TCnBigComplexDecimal.Create;
@@ -6178,11 +6245,11 @@ var
   R1, R2, Res: TCnInt64RationalPolynomial;
   Pool: TCnInt64RationalPolynomialPool;
 begin
-  Result := False;
   Pool := TCnInt64RationalPolynomialPool.Create;
   R1 := Pool.Obtain;
   R2 := Pool.Obtain;
   Res := Pool.Obtain;
+
   try
     R1.Numerator.SetCoefficients([2, 1]);
     R1.Denominator.SetCoefficients([2]);
@@ -6375,15 +6442,11 @@ end;
 function TestBigNumberPolynomialDerivative: Boolean;
 var
   P, Res: TCnBigNumberPolynomial;
-  Prime: TCnBigNumber;
 begin
-  Result := False;
   P := TCnBigNumberPolynomial.Create;
   Res := TCnBigNumberPolynomial.Create;
-  Prime := TCnBigNumber.Create;
-  try
-    // ===== BigNumberPolynomialDerivative ????????? =====
 
+  try
     // P = 3X^3 + 2X^2 + X + 5
     // P' = 9X^2 + 4X + 1
     P.SetCoefficients([5, 1, 2, 3]);
@@ -6417,10 +6480,22 @@ begin
     P.SetCoefficients([0, 1]);
     BigNumberPolynomialDerivative(Res, P);
     Result := Res.ToString = '1';
-    if not Result then Exit;
+  finally
+    Res.Free;
+    P.Free;
+  end;
+end;
 
-    // ===== BigNumberPolynomialGaloisDerivative Galois =====
+function TestBigNumberPolynomialGaloisDerivative: Boolean;
+var
+  P, Res: TCnBigNumberPolynomial;
+  Prime: TCnBigNumber;
+begin
+  P := TCnBigNumberPolynomial.Create;
+  Res := TCnBigNumberPolynomial.Create;
+  Prime := TCnBigNumber.Create;
 
+  try
     // P = 3X^3 + 2X^2 + X + 5, Prime = 7
     // P' = 9X^2 + 4X + 1, mod 7 => 2X^2 + 4X + 1
     P.SetCoefficients([5, 1, 2, 3]);
@@ -6465,6 +6540,124 @@ begin
     Prime.Free;
     Res.Free;
     P.Free;
+  end;
+end;
+
+function TestBigNumberPolynomialGaloisSquareFreeFactorization: Boolean;
+var
+  F: TCnBigNumberPolynomial;
+  Prime: TCnBigNumber;
+  Factors: TCnBigNumberPolynomialList;
+begin
+  Result := False;
+  F := TCnBigNumberPolynomial.Create;
+  Prime := TCnBigNumber.Create;
+  Factors := TCnBigNumberPolynomialList.Create;
+
+  try
+    // =====================================================================
+    // Test 1: Square-free polynomial: X^2 - 1 in F7 -> should return 1 factor
+    // =====================================================================
+    Factors.Clear;
+    F.SetCoefficients([-1, 0, 1]);  // -1 + X^2
+    Prime.SetWord(7);
+    if BigNumberPolynomialGaloisSquareFreeFactorization(Factors, F, Prime) <> 1 then
+      Exit;
+
+    // =====================================================================
+    // Test 2: Repeated roots: (X+1)^2 * (X+2) -> should return 2 factors
+    // F = X^3 + 4X^2 + 5X + 2 in F7, has (X+1)^2 repeated factor
+    // Yun's: b1 = F/GCD(F,F') gives the multiplicity-1 part (X+2)
+    //        a1 = GCD(b1, d1) gives the repeated part (X+1)
+    // =====================================================================
+    Factors.Clear;
+    F.SetCoefficients([2, 5, 4, 1]);  // (X+1)^2*(X+2) in F7, has repeated root
+    if BigNumberPolynomialGaloisSquareFreeFactorization(Factors, F, Prime) <> 2 then Exit;
+
+    Factors.Clear;
+    F.SetCoefficients([0, -1, 0, 1]);  // X^3 - X, square-free
+    if BigNumberPolynomialGaloisSquareFreeFactorization(Factors, F, Prime) <> 1 then Exit;
+
+    Factors.Clear;
+    F.SetCoefficients([1, 0, 1]);  // X^2 + 1, square-free, irreducible
+    if BigNumberPolynomialGaloisSquareFreeFactorization(Factors, F, Prime) <> 1 then Exit;
+
+    Result := True;
+  finally
+    F.Free;
+    Prime.Free;
+    Factors.Free;
+  end;
+end;
+
+function TestBigNumberPolynomialGaloisFindLinearFactors: Boolean;
+var
+  F: TCnBigNumberPolynomial;
+  Prime: TCnBigNumber;
+  Roots: TCnBigNumberList;
+begin
+  Result := False;
+  F := TCnBigNumberPolynomial.Create;
+  Prime := TCnBigNumber.Create;
+  Roots := TCnBigNumberList.Create;
+
+  try
+    Roots.Clear;
+    F.SetCoefficients([0, -1, 0, 1]);  // X^3 - X in F7 -> roots {0, 1, 6}
+    Prime.SetWord(7);
+    if not BigNumberPolynomialGaloisFindLinearFactors(Roots, F, Prime) then Exit;
+    if Roots.Count <> 3 then Exit;
+
+    Roots.Clear;
+    F.SetCoefficients([1, 0, 1]);  // X^2 + 1 in F7 -> no roots
+    if not BigNumberPolynomialGaloisFindLinearFactors(Roots, F, Prime) then Exit;
+    if Roots.Count <> 0 then Exit;
+
+    Roots.Clear;
+    F.SetCoefficients([-2, 0, 1]);  // X^2 - 2 in F7 -> roots {3, 4}
+    if not BigNumberPolynomialGaloisFindLinearFactors(Roots, F, Prime) then Exit;
+    if Roots.Count <> 2 then Exit;
+
+    Result := True;
+  finally
+    F.Free;
+    Prime.Free;
+    Roots.Free;
+  end;
+end;
+
+function TestBigNumberPolynomialGaloisFactorCantorZassenhaus: Boolean;
+var
+  F: TCnBigNumberPolynomial;
+  Prime: TCnBigNumber;
+  Factors: TCnBigNumberPolynomialList;
+begin
+  Result := False;
+  F := TCnBigNumberPolynomial.Create;
+  Prime := TCnBigNumber.Create;
+  Factors := TCnBigNumberPolynomialList.Create;
+
+  try
+    F.SetCoefficients([-2, 0, 1]);  // X^2 - 2 in F7 -> (X-3)(X-4)
+    Prime.SetWord(7);
+    if not BigNumberPolynomialGaloisFactorCantorZassenhaus(Factors, F, Prime) then Exit;
+    if Factors.Count <> 2 then Exit;
+
+    Factors.Clear;
+    F.SetCoefficients([1, 0, 1]);  // X^2 + 1 in F7 -> irreducible
+    if not BigNumberPolynomialGaloisFactorCantorZassenhaus(Factors, F, Prime) then Exit;
+    if Factors.Count <> 1 then Exit;
+
+    Factors.Clear;
+    F.SetCoefficients([0, -1, 0, 1]);  // X^3 - X in F7 -> X(X-1)(X-6)
+    if not BigNumberPolynomialGaloisFactorCantorZassenhaus(Factors, F, Prime) then Exit;
+    if Factors.Count <> 3 then Exit;
+
+    Result := True;
+  finally
+    F.Free;
+    Prime.Free;
+    Factors.Free;
   end;
 end;
 
@@ -10980,6 +11173,38 @@ begin
   if not Result then Exit;
 
   Result := not Base64IsStrictText('A===');
+end;
+
+function TestBase32: Boolean;
+var
+  Res: string;
+  Data, Output: TBytes;
+begin
+  Data := HexToBytes('666F6F626172'); // "foobar"
+  if ECN_BASE32_OK = Base32Encode(Data, Res) then
+    Result := Res = 'MZXW6YTBOI======'
+  else
+    Result := False;
+
+  if not Result then Exit;
+
+  if ECN_BASE32_OK = Base32Decode(Res, Output) then
+    Result := CompareBytes(Data, Output)
+  else
+    Result := False;
+end;
+
+function TestBase32StrictRejectInvalidChar: Boolean;
+begin
+  Result := not Base32IsStrictText('MZXW6YTB$I======');
+end;
+
+function TestBase32StrictRejectInvalidPadding: Boolean;
+begin
+  Result := not Base32IsStrictText('MZXW6Y=BOI======');
+  if not Result then Exit;
+
+  Result := not Base32IsStrictText('MZXW6YTBOI=====');
 end;
 
 // ================================ OTP ========================================
@@ -15513,6 +15738,44 @@ begin
   Sl.Free;
   Pub.Free;
   Stream.Free;
+end;
+
+function TestECCJInvariant: Boolean;
+var
+  ECC: TCnECC;
+  Res: TCnBigNumber;
+begin
+  Result := False;
+  ECC := TCnECC.Create;
+  Res := TCnBigNumber.Create;
+
+  try
+    // =====================================================================
+    // Test 1: y^2 = x^3 + x + 1 in F7, j-invariant = 1
+    // j = 1728 * 4A^3 / (4A^3 + 27B^2) mod 7
+    // 4*1^3 = 4, 27*1^2 = 27 ≡ 6 mod 7
+    // Δ = 4+6 = 10 ≡ 3 mod 7, Δ^(-1) = 5 (3*5=15≡1)
+    // j = 1728*4*5 = 34560 ≡ 1 mod 7
+    // =====================================================================
+    ECC.Load('1', '1', '7', '0', '0', '0');  // A=1, B=1, P=7
+    if not ECC.GetJInvariance(Res) then Exit;
+    if Res.ToDec <> '1' then Exit;
+
+    // =====================================================================
+    // Test 2: y^2 = x^3 + 2x + 3 in F13, j-invariant = 10
+    // 4*2^3 = 32 ≡ 6 mod 13, 27*9 = 243 ≡ 9 mod 13
+    // Δ = 6+9 = 15 ≡ 2 mod 13, Δ^(-1) = 7
+    // j = 1728*6*7 mod 13 = 10
+    // =====================================================================
+    ECC.Load('2', '3', 'D', '0', '0', '0');
+    if not ECC.GetJInvariance(Res) then Exit;
+    if Res.ToDec <> '10' then Exit;
+
+    Result := True;
+  finally
+    ECC.Free;
+    Res.Free;
+  end;
 end;
 
 function TestECCSchoof: Boolean;

@@ -4,20 +4,27 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls;
+  StdCtrls, ExtCtrls, CnOTP;
 
 type
   TFormOneTimePassword = class(TForm)
     btnGenerate: TButton;
     btnGen2: TButton;
     btnGen3: TButton;
+    grpTOTP: TGroupBox;
+    lblTOTP: TLabel;
+    edtTOTPSecret: TEdit;
+    btnTOTPGen: TButton;
+    pnlTOTP: TPanel;
     procedure btnGenerateClick(Sender: TObject);
     procedure btnGen2Click(Sender: TObject);
     procedure btnGen3Click(Sender: TObject);
+    procedure btnTOTPGenClick(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
   private
-    { Private declarations }
+    FTOtp: TCnTOTPGenerator;
   public
-    { Public declarations }
+
   end;
 
 var
@@ -26,7 +33,7 @@ var
 implementation
 
 uses
-  CnOTP;
+  CnBase64, CnNative;
 
 {$R *.DFM}
 
@@ -118,6 +125,27 @@ begin
   ShowMessage(T.OneTimePassword);
 
   T.Free;
+end;
+
+procedure TFormOneTimePassword.btnTOTPGenClick(Sender: TObject);
+var
+  B: TBytes;
+begin
+  FreeAndNil(FTOtp);
+  if Base32Decode(edtTOTPSecret.Text, B) = ECN_BASE32_OK then
+  begin
+    if Length(B) > 0 then
+    begin
+      FTOtp := TCnTOTPGenerator.Create;
+      FTOtp.SetSeedKey(@B[0], Length(B));
+      pnlTOTP.Caption := FTOtp.OneTimePassword;
+    end;
+  end;
+end;
+
+procedure TFormOneTimePassword.FormDestroy(Sender: TObject);
+begin
+  FTOtp.Free;
 end;
 
 end.

@@ -2,7 +2,7 @@ object IntfHookForm: TIntfHookForm
   Left = 200
   Top = 120
   BorderStyle = bsDialog
-  Caption = 'CnIntfHook Example - Interface Method Hook Demo'
+  Caption = 'CnIntfMethodHook Example - Interface Method Hook Demo'
   ClientHeight = 522
   ClientWidth = 724
   Color = clBtnFace
@@ -111,6 +111,15 @@ object IntfHookForm: TIntfHookForm
         Caption = 'Call Add(10, 20)'
         TabOrder = 8
         OnClick = btnCallAddClick
+      end
+      object btnHookByVTable: TButton
+        Left = 428
+        Top = 436
+        Width = 256
+        Height = 25
+        Caption = 'CreateAtVirtualTable Hook (Toggle)'
+        TabOrder = 9
+        OnClick = btnHookByVTableClick
       end
     end
     object ts2: TTabSheet

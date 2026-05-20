@@ -24,12 +24,15 @@ unit CnQRImage;
 * 软件名称：开发包基础库
 * 单元名称：二维码显示单元
 * 单元作者：CnPack 开发组
-* 备    注：本单元使用 CnQRCode 单元中的 TCnQREncoder 实现了二维码图形绘制。
+* 备    注：本单元使用 CnQRCode 单元中的 TCnQREncoder 实现 VCL/FPX 下的二维码图形绘制，
+*           暂不支持 FMX 组件。
+*           另外实现了将 VCL/FMX/FPC 的位图转换为二维码矩阵数据供辨识的函数。
+*           注意 FMX 相关功能需要定义 ENABLE_FMX
 * 开发平台：Win7 + Delphi 5.0
 * 兼容测试：暂未进行
 * 本 地 化：该单元无需本地化处理
-* 修改记录：2026.05.13 V1.1
-*               增加将 VCL 的位图转为二维码灰度矩阵的功能供解码用
+* 修改记录：2026.05.15 V1.1
+*               增加将 VCL/FMX/FPC 的位图等转为二维码灰度矩阵的功能供解码用
 *           2026.01.13 V1.0
 *               创建单元，在 AI 帮助下实现编码并能扫描成功
 ================================================================================
@@ -39,11 +42,21 @@ interface
 
 {$I CnPack.inc}
 
+// 如果要在 FMX 中使用针对 FMX 的 Bitmap 的解码功能，请工程中或下面定义 ENABLE_FMX
+// {$DEFINE ENABLE_FMX}
+
+{$IFNDEF SUPPORT_FMX}
+  {$UNDEF ENABLE_FMX}
+{$ENDIF}
+
 uses
-  SysUtils, Classes, {$IFDEF FPC} LCLIntf, LCLType, {$ELSE} Windows, {$ENDIF}
-  Graphics, Controls, ExtCtrls, CnQRCode;
+  SysUtils, Classes, {$IFDEF FPC} LCLIntf, LCLType, FPImage, {$ELSE} Windows, {$ENDIF}
+  {$IFNDEF ENABLE_FMX} Graphics, {$ENDIF} Controls, ExtCtrls,
+  {$IFDEF ENABLE_FMX} System.UITypes, {$IFDEF FMX_HAS_GRAPHICS} FMX.Graphics,
+  {$ELSE} FMX.Types, {$ENDIF} Vcl.Graphics, {$ENDIF} CnQRCode;
 
 type
+{$IFNDEF ENABLE_FMX}
 {$IFNDEF FPC}
 {$IFDEF SUPPORT_32_AND_64}
   [ComponentPlatformsAttribute(pidWin32 or pidWin64)]
@@ -100,9 +113,62 @@ type
     {* 中央图标边缘的空隙}
   end;
 
+{$ENDIF}
+
+{$IFDEF ENABLE_FMX}
+{$IFDEF FMX_HAS_GRAPHICS}
+  TCnFMXBitmap = FMX.Graphics.TBitmap;
+{$ELSE}
+  TCnFMXBitmap = FMX.Types.TBitmap;
+{$ENDIF}
+
+{$IFDEF FMX_TBITMAP_MAP}
+{$IFDEF FMX_HAS_GRAPHICS}
+  TCnBitmapData = FMX.Graphics.TBitmapData;
+{$ELSE}
+  TCnBitmapData = FMX.Types.TBitmapData;
+{$ENDIF}
+{$ENDIF}
+
+{$ENDIF}
+
+// 注意这个 TBitmap 是 Vcl.Graphics 里的，因为 uses 靠后
 function CnBitmapToGrayImage(const ABitmap: TBitmap): TCnQRData;
-{* 将 VCL 的 TBitmap 转换为二维码专用的 TCnQRData。
+{* 将 VCL/FPC 的 TBitmap 转换为二维码专用的 TCnQRData。
    灰度转换（灰度公式: 0.299R+0.587G+0.114B）}
+
+{$IFDEF ENABLE_FMX}
+
+function CnFMXBitmapToGrayImage(const ABitmap: TCnFMXBitmap): TCnQRData;
+{* 将 FMX 的 TBitmap 转换为二维码专用的 TCnQRData。
+   灰度转换（灰度公式: 0.299R+0.587G+0.114B）}
+
+{$ENDIF}
+
+{$IFDEF FPC}
+
+function CnFPCImageToGrayImage(Image: TFPCustomImage): TCnQRData;
+{* 将 FPC 的 TFPCustomImage 转换为二维码专用的 TCnQRData。
+   灰度转换（灰度公式: 0.299R+0.587G+0.114B）}
+
+{$ENDIF}
+
+function CnDecodeQRImageFile(const FileName: string): string;
+{* 从图片文件中解码二维码文本（VCL/FPC），使用 TPicture 加载文件并解码}
+
+{$IFDEF ENABLE_FMX}
+
+function CnFMXDecodeQRImageFile(const FileName: string): string;
+{* 从图片文件中解码二维码文本（FMX），使用 FMX.Graphics.TBitmap 加载文件并解码}
+
+{$ENDIF}
+
+{$IFDEF FPC}
+
+function CnFPCDecodeQRImageFile(const FileName: string): string;
+{* 从图片文件中解码二维码文本（FPC），使用 TFPCustomImage 加载文件并解码}
+
+{$ENDIF}
 
 implementation
 
@@ -112,11 +178,54 @@ var
   X, Y, Width, Height: Integer;
   P: PByteArray;
   R, G, B: Byte;
+{$IFDEF FPC}
+  TempBmp: TBitmap;
+{$ENDIF}
 begin
   Width := ABitmap.Width;
   Height := ABitmap.Height;
   SetLength(Result, Width, Height);
+  if (Width <= 0) or (Height <= 0) then Exit;
 
+{$IFDEF FPC}
+  if ABitmap.PixelFormat = pf24bit then
+  begin
+    for Y := 0 to Height - 1 do
+    begin
+      P := ABitmap.ScanLine[Y];
+      for X := 0 to Width - 1 do
+      begin
+        B := P[X * 3];
+        G := P[X * 3 + 1];
+        R := P[X * 3 + 2];
+        Result[X, Y] := (R * 299 + G * 587 + B * 114) div 1000;
+      end;
+    end;
+  end
+  else
+  begin
+    TempBmp := TBitmap.Create;
+    try
+      TempBmp.PixelFormat := pf24bit;
+      TempBmp.SetSize(Width, Height);
+      TempBmp.Canvas.Draw(0, 0, ABitmap);
+
+      for Y := 0 to Height - 1 do
+      begin
+        P := TempBmp.ScanLine[Y];
+        for X := 0 to Width - 1 do
+        begin
+          B := P[X * 3];
+          G := P[X * 3 + 1];
+          R := P[X * 3 + 2];
+          Result[X, Y] := (R * 299 + G * 587 + B * 114) div 1000;
+        end;
+      end;
+    finally
+      TempBmp.Free;
+    end;
+  end;
+{$ELSE}
   ABitmap.PixelFormat := pf24bit;
   for Y := 0 to Height - 1 do
   begin
@@ -130,7 +239,151 @@ begin
       Result[X, Y] := (R * 299 + G * 587 + B * 114) div 1000;
     end;
   end;
+{$ENDIF}
 end;
+
+{$IFDEF ENABLE_FMX}
+
+function CnFMXBitmapToGrayImage(const ABitmap: TCnFMXBitmap): TCnQRData;
+var
+  X, Y, W, H: Integer;
+{$IFDEF FMX_TBITMAP_MAP}
+  Data: TCnBitmapData;
+  Res: Boolean;
+{$ELSE}
+  P: PByteArray;
+{$ENDIF}
+  Pixel: TAlphaColor;
+  R, G, B: Byte;
+begin
+  W := ABitmap.Width;
+  H := ABitmap.Height;
+  SetLength(Result, W, H);
+  if (W <= 0) or (H <= 0) then Exit;
+
+{$IFDEF FMX_TBITMAP_MAP}
+  // XE4 及以上能 map
+{$IFDEF DELPHIXE6_UP}
+  // XE6 及以上改名了
+  Res := ABitmap.Map(TMapAccess.Read, Data);
+{$ELSE}
+  Res := ABitmap.Map(TMapAccess.maRead, Data);
+{$ENDIF}
+  if Res then
+  begin
+    try
+      for Y := 0 to H - 1 do
+      begin
+        for X := 0 to W - 1 do
+        begin
+          Pixel := Data.GetPixel(X, Y);
+          R := (Pixel shr 16) and $FF;
+          G := (Pixel shr 8) and $FF;
+          B := Pixel and $FF;
+          Result[X, Y] := (R * 299 + G * 587 + B * 114) div 1000;
+        end;
+      end;
+    finally
+      ABitmap.Unmap(Data);
+    end;
+  end;
+{$ELSE}
+  // XE2-XE4 ScanLine
+  for Y := 0 to H - 1 do
+  begin
+    P := PByteArray(ABitmap.ScanLine[Y]);
+    for X := 0 to W - 1 do
+    begin
+      B := P[X * 4];
+      G := P[X * 4 + 1];
+      R := P[X * 4 + 2];
+      Result[X, Y] := (R * 299 + G * 587 + B * 114) div 1000;
+    end;
+  end;
+{$ENDIF}
+end;
+
+{$ENDIF}
+
+{$IFDEF FPC}
+
+function CnFPCImageToGrayImage(Image: TFPCustomImage): TCnQRData;
+var
+  X, Y: Integer;
+  Pixel: TFPColor;
+  R, G, B: Byte;
+begin
+  SetLength(Result, Image.Width, Image.Height);
+
+  for Y := 0 to Image.Height - 1 do
+  begin
+    for X := 0 to Image.Width - 1 do
+    begin
+      Pixel := Image.Colors[X, Y];  // 注意 TFPColor 是 0 到 65536
+      R := Pixel.Red div 256;
+      G := Pixel.Green div 256;
+      B := Pixel.Blue div 256;
+      Result[X, Y] := (R * 299 + G * 587 + B * 114) div 1000;
+    end;
+  end;
+end;
+
+{$ENDIF}
+
+function CnDecodeQRImageFile(const FileName: string): string;
+var
+  Pic: TPicture;
+  GrayData: TCnQRData;
+begin
+  Pic := TPicture.Create;
+  try
+    Pic.LoadFromFile(FileName);
+    GrayData := CnBitmapToGrayImage(Pic.Bitmap);
+    Result := CnQRDecodeFromGrayImage(GrayData);
+  finally
+    Pic.Free;
+  end;
+end;
+
+{$IFDEF ENABLE_FMX}
+
+function CnFMXDecodeQRImageFile(const FileName: string): string;
+var
+  Bmp: TCnFMXBitmap;
+  GrayData: TCnQRData;
+begin
+  Bmp := TCnFMXBitmap.Create(0, 0);
+  try
+    Bmp.LoadFromFile(FileName);
+    GrayData := CnFMXBitmapToGrayImage(Bmp);
+    Result := CnQRDecodeFromGrayImage(GrayData);
+  finally
+    Bmp.Free;
+  end;
+end;
+
+{$ENDIF}
+
+{$IFDEF FPC}
+
+function CnFPCDecodeQRImageFile(const FileName: string): string;
+var
+  Pic: TPicture;
+  GrayData: TCnQRData;
+begin
+  Pic := TPicture.Create;
+  try
+    Pic.LoadFromFile(FileName);
+    GrayData := CnBitmapToGrayImage(Pic.Bitmap);
+    Result := CnQRDecodeFromGrayImage(GrayData);
+  finally
+    Pic.Free;
+  end;
+end;
+
+{$ENDIF}
+
+{$IFNDEF ENABLE_FMX}
 
 { TCnQRCodeImage }
 
@@ -402,6 +655,8 @@ begin
     Invalidate;
   end;
 end;
+
+{$ENDIF}
 
 end.
 

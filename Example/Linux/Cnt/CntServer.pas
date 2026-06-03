@@ -92,6 +92,8 @@ type
     procedure CloseSockets;
     function IsRunning: Boolean;
     procedure OnRecvData(const Data: Pointer; Len: Integer);
+    procedure OnSentData(const Data: Pointer; Len: Integer);
+    procedure RunUDPServer(ServerSock: TSocket);
   public
     constructor Create(const AOptions: TCntOptions; APort: Word);
     destructor Destroy; override;
@@ -281,7 +283,7 @@ end;
 
 function TCntServer.IsRunning: Boolean;
 begin
-  Result := FRunning and (FClientSocket <> INVALID_SOCKET);
+  Result := FRunning and (FClientSocket <> INVALID_SOCKET) and GCntRunning;
 end;
 
 procedure TCntServer.SetupKeepAlive(Sock: TSocket);
@@ -332,6 +334,11 @@ begin
   OutputData(Data, Len, '<');
 end;
 
+procedure TCntServer.OnSentData(const Data: Pointer; Len: Integer);
+begin
+  OutputData(Data, Len, '>');
+end;
+
 {==================== 主运行方法 ====================}
 
 procedure TCntServer.Run;
@@ -344,12 +351,13 @@ var
   Data: Integer;
   AddrLen: Integer;
 begin
-  ServerSock := INVALID_SOCKET;
-  ClientSock := INVALID_SOCKET;
-
   try
-    // Create server socket
+    // Create server socket (TCP or UDP)
+    if FOptions.Protocol = cpUDP then
+      ServerSock := CnNewSocket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)
+    else
     ServerSock := CnNewSocket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+
     if ServerSock = INVALID_SOCKET then
     begin
       WriteLn('Error: Failed to create server socket');
@@ -373,15 +381,24 @@ begin
       Exit;
     end;
 
-    if CnListen(ServerSock, 5) < 0 then
+    // Only call listen for TCP
+    if FOptions.Protocol = cpTCP then
     begin
-      CnCloseSocket(ServerSock);
-      WriteLn('Error: Failed to listen on port ', FPort);
-      Exit;
+      if CnListen(ServerSock, 5) < 0 then
+      begin
+        CnCloseSocket(ServerSock);
+        WriteLn('Error: Failed to listen on port ', FPort);
+        Exit;
+      end;
     end;
 
     if FOptions.Verbose then
-      WriteLn('Listening on port ', FPort, '...');
+    begin
+      if FOptions.Protocol = cpUDP then
+        WriteLn('UDP server listening on port ', FPort, '...')
+      else
+        WriteLn('Listening on port ', FPort, '...');
+    end;
 
     FServerSocket := ServerSock;
 
@@ -419,7 +436,8 @@ begin
           FTotalSent,
           FTotalReceived,
           IsRunning,
-          OnRecvData
+          OnRecvData,
+          OnSentData
         );
 
         // 客户端断开后关闭
@@ -427,7 +445,6 @@ begin
         begin
           CnShutdown(ClientSock, SHUT_RDWR);
           CnCloseSocket(ClientSock);
-          ClientSock := INVALID_SOCKET;
           FClientSocket := INVALID_SOCKET;
         end;
 
@@ -441,8 +458,8 @@ begin
     end
     else
     begin
-      // UDP server mode - simplified
-      WriteLn('UDP server mode not yet implemented');
+      // UDP server mode
+      RunUDPServer(ServerSock);
     end;
 
   finally
@@ -454,6 +471,179 @@ begin
     WriteLn('Total sent: ', FTotalSent, ' bytes');
     WriteLn('Total received: ', FTotalReceived, ' bytes');
     WriteLn('CNT Server finished.');
+  end;
+end;
+
+procedure TCntServer.RunUDPServer(ServerSock: TSocket);
+var
+  Readfds: TCnFDSet;
+  Tv: TTimeVal;
+  SelRes: Longint;
+  MaxFd: Integer;
+  SockAddr: TSockAddr;
+  AddrLen: Integer;
+  RecvBuf: array[0..CN_CNT_BUF_SIZE - 1] of Byte;
+  N: Integer;
+  StdInFd: Integer;
+  LastSenderAddr: TSockAddr;
+  HasLastSender: Boolean;
+{$IFDEF MSWINDOWS}
+  IsConsole: Boolean;
+  DummyMode, BytesAvail, BytesRead: DWORD;
+  cIn: TInputRecord;
+  nRead: DWORD;
+  LineBuf: array[0..CN_CNT_BUF_SIZE - 1] of Byte;
+  LinePos: Integer;
+{$ENDIF}
+begin
+  HasLastSender := False;
+{$IFDEF MSWINDOWS}
+  StdInFd := GetStdHandle(STD_INPUT_HANDLE);
+  IsConsole := GetConsoleMode(StdInFd, DummyMode);
+{$ELSE}
+  StdInFd := StdInputHandle;
+{$ENDIF}
+
+{$IFDEF MSWINDOWS}
+  LinePos := 0;
+{$ENDIF}
+
+  while FRunning and GCntRunning do
+  begin
+{$IFDEF MSWINDOWS}
+    // Windows: select() only works with socket handles.
+    // Socket check uses WaitForSocketReady (socket-only select).
+    // Stdin check uses PeekNamedPipe or PeekConsoleInput.
+    if WaitForSocketReady(ServerSock, 100) then
+    begin
+      FillChar(SockAddr, SizeOf(SockAddr), 0);
+      AddrLen := SizeOf(SockAddr);
+      N := CnRecvFrom(ServerSock, RecvBuf, SizeOf(RecvBuf), 0, SockAddr, AddrLen);
+      if N > 0 then
+      begin
+        Inc(FTotalReceived, N);
+        OutputData(@RecvBuf, N, '<');
+
+        LastSenderAddr := SockAddr;
+        HasLastSender := True;
+      end;
+    end;
+
+    if IsConsole then
+    begin
+      if PeekConsoleInput(StdInFd, cIn, 1, nRead) and (nRead > 0) then
+      begin
+        ReadConsoleInput(StdInFd, cIn, 1, nRead);
+        if (cIn.EventType = KEY_EVENT) and cIn.Event.KeyEvent.bKeyDown then
+        begin
+          case cIn.Event.KeyEvent.wVirtualKeyCode of
+            VK_RETURN:
+              begin
+                if (LinePos > 0) and HasLastSender then
+                begin
+                  LineBuf[LinePos] := 13;
+                  LineBuf[LinePos + 1] := 10;
+                  OnSentData(@LineBuf, LinePos);
+                  CnSendTo(ServerSock, LineBuf, LinePos + 2, 0,
+                    LastSenderAddr, SizeOf(LastSenderAddr));
+                  Inc(FTotalSent, LinePos + 2);
+                  LinePos := 0;
+                end;
+                WriteLn;
+              end;
+            VK_BACK:
+              begin
+                if LinePos > 0 then
+                begin
+                  Dec(LinePos);
+                  Write(#8' '#8);
+                  Flush(Output);
+                end;
+              end;
+            else
+              begin
+                if (cIn.Event.KeyEvent.AsciiChar <> #0)
+                   and (LinePos < CN_CNT_BUF_SIZE - 2) then
+                begin
+                  LineBuf[LinePos] := Byte(cIn.Event.KeyEvent.AsciiChar);
+                  Inc(LinePos);
+                  Write(AnsiChar(cIn.Event.KeyEvent.AsciiChar));
+                  Flush(Output);
+                end;
+              end;
+          end;
+        end;
+      end
+      else
+        Sleep(1);
+    end
+    else
+    begin
+      // Pipe mode (Git Bash): non-blocking stdin via PeekNamedPipe
+      BytesAvail := 0;
+      if PeekNamedPipe(StdInFd, nil, 0, nil, @BytesAvail, nil) and (BytesAvail > 0) then
+      begin
+        if BytesAvail > DWORD(SizeOf(RecvBuf)) then
+          BytesAvail := SizeOf(RecvBuf);
+        ReadFile(StdInFd, RecvBuf, BytesAvail, BytesRead, nil);
+        if (BytesRead > 0) and HasLastSender then
+        begin
+          OnSentData(@RecvBuf, BytesRead);
+          CnSendTo(ServerSock, RecvBuf, BytesRead, 0, LastSenderAddr, SizeOf(LastSenderAddr));
+          Inc(FTotalSent, BytesRead);
+        end;
+      end
+      else
+        Sleep(1);
+    end;
+{$ELSE}
+    // Unix: select() works with all file descriptors
+    CnFDZero(Readfds);
+    CnFDSet(ServerSock, Readfds);
+    CnFDSet(StdInFd, Readfds);
+
+    MaxFd := ServerSock;
+    if StdInFd > MaxFd then
+      MaxFd := StdInFd;
+
+    Tv.tv_sec := 1;
+    Tv.tv_usec := 0;
+
+    SelRes := CnSelect(MaxFd + 1, @Readfds, nil, nil, @Tv);
+    if SelRes <= 0 then
+      Continue;
+
+    // UDP data received from network
+    if CnFDIsSet(ServerSock, Readfds) then
+    begin
+      FillChar(SockAddr, SizeOf(SockAddr), 0);
+      AddrLen := SizeOf(SockAddr);
+      N := CnRecvFrom(ServerSock, RecvBuf, SizeOf(RecvBuf), 0, SockAddr, AddrLen);
+      if N > 0 then
+      begin
+        Inc(FTotalReceived, N);
+        OutputData(@RecvBuf, N, '<');
+
+        LastSenderAddr := SockAddr;
+        HasLastSender := True;
+      end;
+    end;
+
+    // stdin data -> send via UDP to last sender
+    if CnFDIsSet(StdInFd, Readfds) then
+    begin
+      N := FileRead(StdInFd, RecvBuf, SizeOf(RecvBuf));
+      if N > 0 then
+      begin
+        if HasLastSender then
+        begin
+          OnSentData(@RecvBuf, N);
+          CnSendTo(ServerSock, RecvBuf, N, 0, LastSenderAddr, SizeOf(LastSenderAddr));
+          Inc(FTotalSent, N);
+        end;
+      end;
+    end;
+{$ENDIF}
   end;
 end;
 

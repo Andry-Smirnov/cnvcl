@@ -262,6 +262,7 @@ ECHO USEUNIT("..\Source\CnSecretSharing.pas");                                  
 ECHO USEUNIT("..\Source\CnSHA1.pas");                                                  >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnSHA2.pas");                                                  >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnSHA3.pas");                                                  >> Crypto.bpf
+ECHO USEUNIT("..\Source\CnSLHDSA.pas");                                                >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnSM2.pas");                                                   >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnSM3.pas");                                                   >> Crypto.bpf
 ECHO USEUNIT("..\Source\CnSM4.pas");                                                   >> Crypto.bpf
@@ -318,10 +319,10 @@ ECHO       ..\Source\CnQRCode.obj ..\Source\CnRandom.obj                        
 ECHO       ..\Source\CnRSA.obj ..\Source\CnRC4.obj                                    >> Crypto.bpr
 ECHO       ..\Source\CnSecretSharing.obj ..\Source\CnSHA1.obj                         >> Crypto.bpr
 ECHO       ..\Source\CnSHA2.obj ..\Source\CnSHA3.obj                                  >> Crypto.bpr
-ECHO       ..\Source\CnSM2.obj ..\Source\CnSM3.obj                                    >> Crypto.bpr
-ECHO       ..\Source\CnSM4.obj ..\Source\CnSM9.obj                                    >> Crypto.bpr
-ECHO       ..\Source\CnTEA.obj ..\Source\CnVector.obj                                 >> Crypto.bpr
-ECHO       ..\Source\CnXXH.obj                                                        >> Crypto.bpr
+ECHO       ..\Source\CnSLHDSA.obj ..\Source\CnSM2.obj                                 >> Crypto.bpr
+ECHO       ..\Source\CnSM3.obj ..\Source\CnSM4.obj                                    >> Crypto.bpr
+ECHO       ..\Source\CnSM9.obj ..\Source\CnTEA.obj                                    >> Crypto.bpr
+ECHO       ..\Source\CnVector.obj ..\Source\CnXXH.obj                                 >> Crypto.bpr
 ECHO       ..\Source\CnZUC.obj ..\Source\CnBigDecimal.obj                             >> Crypto.bpr
 ECHO       ..\Source\CnBigRational.obj ..\Source\CnCalendar.obj                       >> Crypto.bpr
 ECHO       ..\Source\CnConsts.obj ..\Source\CnContainers.obj                          >> Crypto.bpr
@@ -446,6 +447,7 @@ CD ..
 MKDIR Doc
 CD Doc
 COPY ..\..\cnvcl\Doc\Develop\CnRSA*.txt .
+COPY ..\..\cnvcl\Doc\Develop\CnPack密码算法库*.txt .
 COPY ..\..\cnvcl\Doc\Develop\如何在Delphi7下手动支持64位无符号整数运算.txt .
 COPY ..\..\cnvcl\Doc\Develop\CnCalendar历法说明.txt .
 CD ..
@@ -480,6 +482,7 @@ CALL :COPYEXAMPLE Polynomial
 CALL :COPYEXAMPLE PrimeNumber
 CALL :COPYEXAMPLE RSA
 CALL :COPYEXAMPLE SecretSharing
+CALL :COPYEXAMPLE SLHDSA
 CALL :COPYEXAMPLE SM2
 CALL :COPYEXAMPLE SM9
 CD Delphi
@@ -567,6 +570,7 @@ ECHO   CnSecretSharing in '..\Source\CnSecretSharing.pas',                     >
 ECHO   CnSHA1 in '..\Source\CnSHA1.pas',                                       >> %1
 ECHO   CnSHA2 in '..\Source\CnSHA2.pas',                                       >> %1
 ECHO   CnSHA3 in '..\Source\CnSHA3.pas',                                       >> %1
+ECHO   CnSLHDSA in '..\Source\CnSLHDSA.pas',                                   >> %1
 ECHO   CnSM2 in '..\Source\CnSM2.pas',                                         >> %1
 ECHO   CnSM3 in '..\Source\CnSM3.pas',                                         >> %1
 ECHO   CnSM4 in '..\Source\CnSM4.pas',                                         >> %1
@@ -603,6 +607,8 @@ ECHO   cn_base64_encode                       name 'cn_base64_encode',          
 ECHO   cn_base64_decode                       name 'cn_base64_decode',                        >> %1
 ECHO   cn_base64url_encode                    name 'cn_base64url_encode',                     >> %1
 ECHO   cn_base64url_decode                    name 'cn_base64url_decode',                     >> %1
+ECHO   cn_base32_encode                       name 'cn_base32_encode',                        >> %1
+ECHO   cn_base32_decode                       name 'cn_base32_decode',                        >> %1
 ECHO   cn_kdf_pbkdf2                          name 'cn_kdf_pbkdf2',                           >> %1
 ECHO   cn_kdf_hkdf                            name 'cn_kdf_hkdf',                             >> %1
 ECHO   cn_otp_hotp                            name 'cn_otp_hotp',                             >> %1

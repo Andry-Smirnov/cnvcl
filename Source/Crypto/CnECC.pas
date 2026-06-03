@@ -416,6 +416,9 @@ type
     procedure SetZero;
     {* 设为无穷远点也即 0 点}
 
+    procedure Clear;
+    {* 将 X、Y 坐标的数据缓冲区全部清零，用于防止敏感数据残留}
+
     function ToString: string; {$IFDEF OBJECT_HAS_TOSTRING} override; {$ENDIF}
     {* 转换为字符串，简单输出用逗号分隔的十六进制 X 和 Y 坐标值。
 
@@ -529,6 +532,9 @@ type
 
     procedure SetZero;
     {* 设为无穷远点也即 0 点}
+
+    procedure Clear;
+    {* 将 X、Y、Z 坐标的数据缓冲区全部清零，用于防止敏感数据残留}
 
     function ToString: string; {$IFDEF OBJECT_HAS_TOSTRING} override; {$ELSE} virtual; {$ENDIF}
     {* 转换为字符串，简单输出用逗号分隔的十六进制 X、Y、Z 坐标值。
@@ -649,6 +655,8 @@ type
        返回值：Boolean                    - 返回加载是否成功
     }
 
+    procedure Clear;
+    {* 将签名 R、S 的数据缓冲区全部清零，用于防止敏感数据残留}
     property R: TCnBigNumber read FR;
     {* 签名 R 值}
     property S: TCnBigNumber read FS;
@@ -1066,6 +1074,9 @@ type
     procedure SetZero;
     {* 设为无穷远点也即 0 点}
 
+    procedure Clear;
+    {* 将 X、Y 多项式系数数据全部清零，用于防止敏感数据残留}
+
     function ToString: string; {$IFDEF OBJECT_HAS_TOSTRING} override; {$ENDIF}
     {* 将多项式转成字符串。
 
@@ -1316,6 +1327,9 @@ type
 
     procedure SetZero;
     {* 设为无穷远点也即 0 点}
+
+    procedure Clear;
+    {* 将 X、Y 大数多项式系数数据全部清零，用于防止敏感数据残留}
 
     function ToString: string; {$IFDEF OBJECT_HAS_TOSTRING} override; {$ENDIF}
     {* 将多项式转成字符串。
@@ -3916,6 +3930,15 @@ begin
   FY.SetZero;
 end;
 
+procedure TCnEccPoint.Clear;
+begin
+  if Self <> nil then
+  begin
+    FX.Clear;
+    FY.Clear;
+  end;
+end;
+
 function TCnEccPoint.ToBase64(FixedLen: Integer): string;
 var
   B: Byte;
@@ -4297,7 +4320,7 @@ end;
 procedure TCnEcc.AffineMultiplePoint(K: TCnBigNumber; Point: TCnEcc3Point);
 var
   I, C, OrderBits: Integer;
-  E, R: TCnEcc3Point;
+  E, R, Q: TCnEcc3Point;
 begin
   if BigNumberIsNegative(K) then
   begin
@@ -4315,10 +4338,12 @@ begin
   else if BigNumberIsOne(K) then // 乘 1 无需动
     Exit;
 
+  Q := nil;
   R := nil;
   E := nil;
 
   try
+    Q := TCnEcc3Point.Create;
     R := TCnEcc3Point.Create;
     E := TCnEcc3Point.Create;
 
@@ -4330,10 +4355,12 @@ begin
     OrderBits := BigNumberGetBitsCount(FOrder);
     if (OrderBits > 0) and (not BigNumberIsNegative(K)) and (C <= OrderBits + 2) then
       C := OrderBits + 2;
+
     for I := 0 to C - 1 do
     begin
-      if BigNumberIsBitSet(K, I) then
-        AffinePointAddPoint(R, E, R);
+      AffinePointAddPoint(R, E, Q);
+      if BigNumberIsBitSet(K, I) then // 始终加，但只置位时 R <- Q，以防止侧信道攻击
+        R.Assign(Q);
 
       if I < C - 1 then // 最后一次循环无需加 E
         AffinePointAddPoint(E, E, E);
@@ -4343,6 +4370,7 @@ begin
     Point.Y := R.Y;
     Point.Z := R.Z;
   finally
+    Q.Free;
     R.Free;
     E.Free;
   end;
@@ -4351,7 +4379,7 @@ end;
 procedure TCnEcc.JacobianMultiplePoint(K: TCnBigNumber; Point: TCnEcc3Point);
 var
   I, C, OrderBits: Integer;
-  E, R: TCnEcc3Point;
+  E, R, Q: TCnEcc3Point;
 begin
   if BigNumberIsNegative(K) then
   begin
@@ -4369,10 +4397,12 @@ begin
   else if BigNumberIsOne(K) then // 乘 1 无需动
     Exit;
 
+  Q := nil;
   R := nil;
   E := nil;
 
   try
+    Q := TCnEcc3Point.Create;
     R := TCnEcc3Point.Create;
     E := TCnEcc3Point.Create;
 
@@ -4384,10 +4414,12 @@ begin
     OrderBits := BigNumberGetBitsCount(FOrder);
     if (OrderBits > 0) and (not BigNumberIsNegative(K)) and (C <= OrderBits + 2) then
       C := OrderBits + 2;
+
     for I := 0 to C - 1 do
     begin
-      if BigNumberIsBitSet(K, I) then
-        JacobianPointAddPoint(R, E, R);
+      JacobianPointAddPoint(R, E, Q);
+      if BigNumberIsBitSet(K, I) then // 始终加，但只置位时 R <- Q，以防止侧信道攻击
+        R.Assign(Q);
 
       if I < C - 1 then
         JacobianPointAddPoint(E, E, E);
@@ -4397,6 +4429,7 @@ begin
     Point.Y := R.Y;
     Point.Z := R.Z;
   finally
+    Q.Free;
     R.Free;
     E.Free;
   end;
@@ -4432,9 +4465,10 @@ begin
       BigNumberMod(BK, BK, FOrder);
       Rnd := FEccBigNumberPool.Obtain;
       Tmp := FEccBigNumberPool.Obtain;
-      if BigNumberRandBits(Rnd, 1) then
+
+      // 盲化，乘数增加 16 位随机的价的倍数，最终值会抵消，但运算随机化了能更抗攻击，尤其是 NAF 部分
+      if BigNumberRandBits(Rnd, 16) then
       begin
-        BigNumberAdd(Rnd, Rnd, CnBigNumberOne);
         BigNumberMul(Tmp, Rnd, FOrder);
         BigNumberAdd(BK, BK, Tmp);
       end;
@@ -6056,9 +6090,13 @@ begin
     end;
     Result := True;
   finally
+    P.Clear;
     P.Free;
+    KInv.Clear;
     KInv.Free;
+    X.Clear;
     X.Free;
+    K.Clear;
     K.Free;
   end;
 end;
@@ -6657,6 +6695,15 @@ procedure TCnInt64PolynomialEccPoint.SetZero;
 begin
   FX.SetZero;
   FY.SetZero;
+end;
+
+procedure TCnInt64PolynomialEccPoint.Clear;
+begin
+  if Self <> nil then
+  begin
+    FX.SetZero;
+    FY.SetZero;
+  end;
 end;
 
 function TCnInt64PolynomialEccPoint.ToString: string;
@@ -8182,6 +8229,15 @@ procedure TCnPolynomialEccPoint.SetZero;
 begin
   FX.SetZero;
   FY.SetZero;
+end;
+
+procedure TCnPolynomialEccPoint.Clear;
+begin
+  if Self <> nil then
+  begin
+    FX.Clear;
+    FY.Clear;
+  end;
 end;
 
 function TCnPolynomialEccPoint.ToString: string;
@@ -10075,6 +10131,16 @@ begin
   Z.SetZero;
 end;
 
+procedure TCnEcc3Point.Clear;
+begin
+  if Self <> nil then
+  begin
+    FX.Clear;
+    FY.Clear;
+    FZ.Clear;
+  end;
+end;
+
 function TCnEcc3Point.ToString: string;
 begin
   Result := CnEcc3PointToHex(Self);
@@ -10105,6 +10171,15 @@ begin
   FS.Free;
   FR.Free;
   inherited;
+end;
+
+procedure TCnEccSignature.Clear;
+begin
+  if Self <> nil then
+  begin
+    FR.Clear;
+    FS.Clear;
+  end;
 end;
 
 function TCnEccSignature.SetAsn1Base64(const Buf: AnsiString): Boolean;

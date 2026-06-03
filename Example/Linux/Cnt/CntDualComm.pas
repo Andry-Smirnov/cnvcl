@@ -40,7 +40,7 @@ uses
   Windows, WinSock,
 {$ENDIF}
 {$IFDEF FPC}
-  Sockets, {$IFNDEF MSWINDOWS} BaseUnix, {$ENDIF}
+  Sockets, {$IFNDEF MSWINDOWS} BaseUnix, Termio, {$ENDIF}
 {$ENDIF}
 {$IFDEF POSIX}
   Posix.SysTime,
@@ -51,6 +51,9 @@ uses
 type
   // 数据接收回调：收到远程数据时调用，用于显示/记录
   TOnDataReceived = procedure(const Data: Pointer; Len: Integer) of object;
+
+  // 数据发送回调：发送数据到远程时调用，用于显示/记录
+  TOnDataSent = procedure(const Data: Pointer; Len: Integer) of object;
 
   // 运行状态回调：检查是否应该继续运行
   TRunningCheck = function: Boolean of object;
@@ -64,16 +67,17 @@ procedure CnDualCommRun(
   var TotalSent: Int64;
   var TotalReceived: Int64;
   RunningCheck: TRunningCheck;
-  OnRecv: TOnDataReceived
+  OnRecv: TOnDataReceived;
+  OnSent: TOnDataSent = nil
 );
+
+// 非阻塞地检查 Socket 是否有待读数据（超时毫秒）
+function WaitForSocketReady(Sock: TSocket; TimeOutMs: Integer): Boolean;
 
 implementation
 
 const
   MAX_LINE_BUF = 4096;
-
-// 前向声明
-function WaitForSocketReady(Sock: TSocket; TimeOutMs: Integer): Boolean; forward;
 
 // 平台特定的实现函数
 {$IFDEF MSWINDOWS}
@@ -83,7 +87,8 @@ procedure DoWinDualComm(
   var TotalSent: Int64;
   var TotalReceived: Int64;
   RunningCheck: TRunningCheck;
-  OnRecv: TOnDataReceived
+  OnRecv: TOnDataReceived;
+  OnSent: TOnDataSent
 ); forward;
 {$ELSE}{$IFDEF UNIX}
 procedure DoUnixDualComm(
@@ -92,7 +97,8 @@ procedure DoUnixDualComm(
   var TotalSent: Int64;
   var TotalReceived: Int64;
   RunningCheck: TRunningCheck;
-  OnRecv: TOnDataReceived
+  OnRecv: TOnDataReceived;
+  OnSent: TOnDataSent
 ); forward;
 {$ENDIF}{$ENDIF}
 
@@ -102,14 +108,15 @@ procedure CnDualCommRun(
   var TotalSent: Int64;
   var TotalReceived: Int64;
   RunningCheck: TRunningCheck;
-  OnRecv: TOnDataReceived
+  OnRecv: TOnDataReceived;
+  OnSent: TOnDataSent = nil
 );
 begin
 {$IFDEF MSWINDOWS}
-  DoWinDualComm(Sock, Options, TotalSent, TotalReceived, RunningCheck, OnRecv);
+  DoWinDualComm(Sock, Options, TotalSent, TotalReceived, RunningCheck, OnRecv, OnSent);
 {$ELSE}
 {$IFDEF UNIX}
-  DoUnixDualComm(Sock, Options, TotalSent, TotalReceived, RunningCheck, OnRecv);
+  DoUnixDualComm(Sock, Options, TotalSent, TotalReceived, RunningCheck, OnRecv, OnSent);
 {$ENDIF}
 {$ENDIF}
 end;
@@ -130,7 +137,8 @@ procedure DoWinDualComm(
   var TotalSent: Int64;
   var TotalReceived: Int64;
   RunningCheck: TRunningCheck;
-  OnRecv: TOnDataReceived
+  OnRecv: TOnDataReceived;
+  OnSent: TOnDataSent
 );
 var
   RecvBuf: array[0..4095] of Byte;
@@ -138,14 +146,15 @@ var
   LinePos: Integer;      // 当前行缓冲区位置
   Len: Integer;
   cIn: TInputRecord;
-  nRead: DWORD;
+  nRead, BytesRead, BytesAvail: DWORD;
   hCon: THandle;
+  IsConsole: Boolean;
+  DummyMode: DWORD;
 
   procedure SendLine;
   begin
     if LinePos > 0 then
     begin
-      // 发送整行 + CRLF
       LineBuf[LinePos] := 13;   // CR
       LineBuf[LinePos + 1] := 10; // LF
       CnSend(Sock, LineBuf, LinePos + 2, 0);
@@ -156,6 +165,7 @@ var
 
 begin
   hCon := GetStdHandle(STD_INPUT_HANDLE);
+  IsConsole := GetConsoleMode(hCon, DummyMode);
   LinePos := 0;
 
   while RunningCheck do
@@ -179,46 +189,68 @@ begin
     end;
 
     // 2. 检查控制台是否有键盘输入
-    if PeekConsoleInput(hCon, cIn, 1, nRead) and (nRead > 0) then
+    if IsConsole then
     begin
-      ReadConsoleInput(hCon, cIn, 1, nRead);
-      if (cIn.EventType = KEY_EVENT) and cIn.Event.KeyEvent.bKeyDown then
+      if PeekConsoleInput(hCon, cIn, 1, nRead) and (nRead > 0) then
       begin
-        case cIn.Event.KeyEvent.wVirtualKeyCode of
-          VK_RETURN:
-            begin
-              // 回车 -> 发送整行并换行
-              SendLine;
-              WriteLn;
-            end;
-          VK_BACK:
-            begin
-              // 退格 -> 删除最后一个字符
-              if LinePos > 0 then
+        ReadConsoleInput(hCon, cIn, 1, nRead);
+        if (cIn.EventType = KEY_EVENT) and cIn.Event.KeyEvent.bKeyDown then
+        begin
+          case cIn.Event.KeyEvent.wVirtualKeyCode of
+            VK_RETURN:
               begin
-                Dec(LinePos);
-                Write(#8' '#8);  // 光标左移、擦除、再左移
-                Flush(Output);
+                // 回车 -> 发送整行并换行
+                SendLine;
+                WriteLn;
               end;
-            end;
-          else
-            begin
-              // 普通可打印字符 -> 缓存并回显
-              if (cIn.Event.KeyEvent.AsciiChar <> #0)
-                 and (LinePos < MAX_LINE_BUF - 2) then
+            VK_BACK:
               begin
-                LineBuf[LinePos] := Byte(cIn.Event.KeyEvent.AsciiChar);
-                Inc(LinePos);
-                // 本地回显
-                Write(AnsiChar(cIn.Event.KeyEvent.AsciiChar));
-                Flush(Output);
+                // 退格 -> 删除最后一个字符
+                if LinePos > 0 then
+                begin
+                  Dec(LinePos);
+                  Write(#8' '#8);  // 光标左移、擦除、再左移
+                  Flush(Output);
+                end;
               end;
-            end;
+            else
+              begin
+                // 普通可打印字符 -> 缓存并回显
+                if (cIn.Event.KeyEvent.AsciiChar <> #0)
+                   and (LinePos < MAX_LINE_BUF - 2) then
+                begin
+                  LineBuf[LinePos] := Byte(cIn.Event.KeyEvent.AsciiChar);
+                  Inc(LinePos);
+                  // 本地回显
+                  Write(AnsiChar(cIn.Event.KeyEvent.AsciiChar));
+                  Flush(Output);
+                end;
+              end;
+          end;
         end;
-      end;
+      end
+      else
+        Sleep(1);  // 避免 CPU 空转
     end
     else
-      Sleep(1);  // 避免 CPU 空转
+    begin
+      // 2b. Git Bash/MSYS2/mintty: WaitForSingleObject + ReadFile
+
+      BytesAvail := 0;
+      if PeekNamedPipe(hCon, nil, 0, nil, @BytesAvail, nil) and (BytesAvail > 0) then
+      begin
+        if BytesAvail > DWORD(SizeOf(RecvBuf)) then
+          BytesAvail := SizeOf(RecvBuf);
+        ReadFile(hCon, RecvBuf, BytesAvail, BytesRead, nil);
+        if (BytesRead > 0) then
+        begin
+          CnSend(Sock, RecvBuf, BytesRead, 0);
+          Inc(TotalSent, BytesRead);
+        end;
+      end
+      else
+        Sleep(1);
+    end;
   end;
 end;
 
@@ -239,7 +271,8 @@ procedure DoUnixDualComm(
   var TotalSent: Int64;
   var TotalReceived: Int64;
   RunningCheck: TRunningCheck;
-  OnRecv: TOnDataReceived
+  OnRecv: TOnDataReceived;
+  OnSent: TOnDataSent
 );
 var
   Buffer: array[0..8191] of Byte;
@@ -270,25 +303,24 @@ begin
     if SelResult <= 0 then
       Continue;
 
-    // stdin 可读 -> 读取并发送（终端已自动行缓冲，回车后才到这里）
     if CnFDIsSet(StdInFd, Readfds) then
     begin
       Len := FileRead(StdInFd, Buffer, SizeOf(Buffer));
       if Len > 0 then
       begin
+        if Assigned(OnSent) then
+          OnSent(@Buffer, Len);
         CnSend(Sock, Buffer, Len, 0);
         Inc(TotalSent, Len);
       end
       else if Len <= 0 then
       begin
-        // EOF on stdin
         if Options.Verbose then
           WriteLn(ErrOutput, 'EOF on stdin');
         Break;
       end;
     end;
 
-    // socket 可读 -> 接收并回调
     if CnFDIsSet(Sock, Readfds) then
     begin
       Len := CnRecv(Sock, Buffer, SizeOf(Buffer), 0);

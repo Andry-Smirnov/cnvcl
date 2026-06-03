@@ -996,7 +996,7 @@ end;
 procedure TCnSM2.AffineMultiplePoint(K: TCnBigNumber; Point: TCnEcc3Point);
 var
   I, C, Row, Col: Integer;
-  E, R: TCnEcc3Point;
+  E, R, Q: TCnEcc3Point;
   IsG: Boolean;
   M: TCnBigNumber;
   Naf: TShortInts;
@@ -1021,12 +1021,14 @@ begin
   IsG := Point.Z.IsOne and BigNumberEqual(Point.X, FLocalSM2Generator.X) and
     BigNumberEqual(Point.Y, FLocalSM2Generator.Y);
 
+  Q := nil;
   R := nil;
   E := nil;
   M := nil;
   Naf := nil;
 
   try
+    Q := TCnEcc3Point.Create;
     R := TCnEcc3Point.Create;
     E := TCnEcc3Point.Create;
 
@@ -1060,8 +1062,9 @@ begin
       begin
         for I := 0 to C - 1 do
         begin
-          if BigNumberIsBitSet(K, I) then
-            AffinePointAddPoint(R, E, R);
+          AffinePointAddPoint(R, E, Q);
+          if BigNumberIsBitSet(K, I) then // 始终加，但只置位时 R <- Q，以防止侧信道攻击
+            R.Assign(Q);
 
           // P 是 G 点，无需点加，直接取出
           if I < FSM2AffineGPower2KList.Count - 1 then
@@ -1087,8 +1090,9 @@ begin
 //      原始点乘平均一半，改用 NAF 缩小到大概 1/3
 //      for I := 0 to C - 1 do
 //      begin
-//        if BigNumberIsBitSet(K, I) then
-//          AffinePointAddPoint(R, E, R);
+//        AffinePointAddPoint(R, E, Q);
+//        if BigNumberIsBitSet(K, I) then // 始终加，但只置位时 R <- Q，以防止侧信道攻击
+//          R.Assign(Q);
 //
 //        if I < C - 1 then // 最后一轮不用自加
 //          AffinePointAddPoint(E, E, E);
@@ -1103,6 +1107,7 @@ begin
     M.Free;
     E.Free;
     R.Free;
+    Q.Free;
   end;
 end;
 
@@ -1302,9 +1307,13 @@ begin
     Result := True;
     _CnSetLastError(ECN_SM2_OK);
   finally
+    P2.Clear;
     P2.Free;
+    P1.Clear;
     P1.Free;
+    Py.Clear;
     Py.Free;
+    K.Clear;
     K.Free;
     if SM2IsNil then
       SM2.Free;
@@ -1924,9 +1933,13 @@ begin
       Break;
     end;
   finally
+    K.Clear;
     K.Free;
+    P.Clear;
     P.Free;
+    R.Clear;
     R.Free;
+    E.Clear;
     E.Free;
     if PubIsNil then
       PublicKey.Free;
@@ -2299,9 +2312,13 @@ begin
     OutOptionalS2 := CalcSM2OptionalSig(V, InRA, OutRB, Za, Zb, False);
     Result := True;
   finally
+    V.Clear;
     V.Free;
+    T.Clear;
     T.Free;
+    X.Clear;
     X.Free;
+    R.Clear;
     R.Free;
     if SM2IsNil then
       SM2.Free;
@@ -2384,8 +2401,11 @@ begin
     OutOptionalSA := CalcSM2OptionalSig(U, MyRA, InRB, Za, Zb, False);
     Result := True;
   finally
+    U.Clear;
     U.Free;
+    T.Clear;
     T.Free;
+    X.Clear;
     X.Free;
     if SM2IsNil then
       SM2.Free;
@@ -2463,6 +2483,7 @@ begin
     _CnSetLastError(ECN_SM2_OK);
   finally
     Stream.Free;
+    R.Clear;
     R.Free;
     if SM2IsNil then
       SM2.Free;
@@ -2749,10 +2770,15 @@ begin
       Break;
     end;
   finally
+    Inv.Clear;
     Inv.Free;
+    P.Clear;
     P.Free;
+    Q.Clear;
     Q.Free;
+    K2.Clear;
     K2.Free;
+    K1.Clear;
     K1.Free;
     if SM2IsNil then
       SM2.Free;
@@ -2820,7 +2846,9 @@ begin
       _CnSetLastError(ECN_SM2_OK);
     end;
   finally
+    T.Clear;
     T.Free;
+    Inv.Clear;
     Inv.Free;
     if SM2IsNil then
       SM2.Free;
@@ -3305,10 +3333,15 @@ begin
       Break;
     end;
   finally
+    Inv.Clear;
     Inv.Free;
+    Q.Clear;
     Q.Free;
+    P.Clear;
     P.Free;
+    RandKC.Clear;
     RandKC.Free;
+    K1.Clear;
     K1.Free;
     if SM2IsNil then
       SM2.Free;
@@ -3356,7 +3389,9 @@ begin
     Result := True;
     _CnSetLastError(ECN_SM2_OK);
   finally
+    Inv.Clear;
     Inv.Free;
+    K2.Clear;
     K2.Free;
     if SM2IsNil then
       SM2.Free;
@@ -3418,8 +3453,11 @@ begin
     Result := True;
     _CnSetLastError(ECN_SM2_OK);
   finally
+    Inv.Clear;
     Inv.Free;
+    S2.Clear;
     S2.Free;
+    S1.Clear;
     S1.Free;
     if SM2IsNil then
       SM2.Free;

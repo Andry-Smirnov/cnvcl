@@ -28,7 +28,15 @@ unit CnGraphUtils;
 * 开发平台：PWin98SE + Delphi 5.0
 * 兼容测试：PWin9X/2000/XP + Delphi 5/6
 * 本 地 化：该单元中的字符串均符合本地化处理方式
-* 修改记录：2024.06.09 V1.2
+* 修改记录：2026.06.06 V1.4
+*               GDI+ 声明移出 $IFNDEF SUPPORT_GDIPLUS，统一为 $IFDEF MSWINDOWS
+*               新增 CnGdiPlusAvailable 运行时标记，CnStartUpGdiPlus 成功置 True；
+*               初始化节统一两条编译路径，去掉 Assert 改静默失败；
+*               GdiPlusInit 变量由 CnGdiPlusAvailable 替代
+*           2026.06.05 V1.3
+*               大幅扩充 GDI+ 动态导入声明，新增 Pen/Brush/Path/Matrix 等
+*               SVG 渲染所需的 50 余个函数，声明移至 interface 段以便外部调用
+*           2024.06.09 V1.2
 *               加入几个高版本的 TPoint/TRect 封装函数
 *           2021.09.28 V1.1
 *               加入一个平滑拉伸绘制位图的函数，使用 GDI+
@@ -40,10 +48,6 @@ unit CnGraphUtils;
 interface
 
 {$I CnPack.inc}
-
-{$IFNDEF MSWINDOWS}
-  {$UNDEF SUPPORT_GDIPLUS}
-{$ENDIF}
 
 uses
   {$IFDEF MSWINDOWS} Windows, {$ELSE} MacTypes, ObjcBase, Types, {$ENDIF} Graphics, Math, Classes, Controls
@@ -213,47 +217,175 @@ procedure CnSetRectLocation(var Rect: TRect; const P: TPoint); overload;
 procedure CnCanvasRoundRect(const Canvas: TCanvas; const Rect: TRect; CX, CY: Integer);
 {* 在 Canvas 上绘制圆角矩形}
 
+//==============================================================================
+// GDI+ 扁平 API 统一声明（编译路径无关）
+// 高版本 Delphi（SUPPORT_GDIPLUS）和低版本 Delphi 共用此声明。
+// 高版本通过 GetModuleHandle + GetProcAddress 填充函数变量（DLL 已被
+// WinApi.GDIPAPI 静态导入自动加载）；低版本通过 LoadLibrary + GetProcAddress
+// 动态加载。运行时通过 CnGdiPlusAvailable 判断 GDI+ 是否可用。
+//==============================================================================
+
 {$IFDEF MSWINDOWS}
-{$IFNDEF SUPPORT_GDIPLUS}
 
 procedure CnStartUpGdiPlus;
-{* 由于 DLL 中不允许跟着单元来初始化/释放 GDI+，所以输出给宿主调用，初始化 GDI+}
+{* 初始化 GDI+ 令牌。成功后置 CnGdiPlusAvailable := True。
+     EXE 项目在单元初始化时自动调用；
+     DLL 项目必须在安全时机（非 DLL_PROCESS_ATTACH）手动调用。 }
+
 procedure CnShutDownGdiPlus;
-{* 由于 DLL 中不允许跟着单元来初始化/释放 GDI+，所以输出给宿主调用，释放 GDI+}
+{* 关闭 GDI+ 令牌，置 CnGdiPlusAvailable := False。 }
 
-{$ENDIF}
-{$ENDIF}
-
-function FontEqual(A, B: TFont): Boolean;
-{* 比较俩字体对象的各属性是否相等}
-
-implementation
-
-{$IFDEF MSWINDOWS}
-{$IFNDEF SUPPORT_GDIPLUS}
-
-//==============================================================================
-// Windows 下编译器不支持 GDI+ 时手工定义 GDI+ 相关函数
-//==============================================================================
+function MakeGDIPColor(A, R, G, B: Byte): Cardinal;
+{* 构造 GDI+ ARGB 颜色值（$AARRGGBB）}
 
 const
   WINGDIPDLL = 'gdiplus.dll';
+
+  // SmoothingMode 枚举值
   SmoothingModeInvalid     = -1;
   SmoothingModeDefault     = 0;
   SmoothingModeHighSpeed   = 1;
   SmoothingModeHighQuality = 2;
   SmoothingModeNone        = 3;
   SmoothingModeAntiAlias   = 4;
+  SmoothingModeHighQualityGDI = 5;
+
+  PixelFormat32bppARGB = $0026200A;
+  ImageLockModeRead    = 1;
+  ImageLockModeWrite   = 2;
+  ImageLockModeRW      = 3;
+
+  // FillMode 枚举值
+  FillModeAlternate   = 0;  // 奇偶填充，对应 GDI 的 ALTERNATE
+  FillModeWinding     = 1;  // 缠绕填充，对应 GDI 的 WINDING
+
+  // LineCap 枚举值
+  LineCapFlat         = 0;
+  LineCapSquare       = 1;
+  LineCapRound        = 2;
+  LineCapTriangle     = 3;
+  LineCapNoAnchor     = $10;
+  LineCapSquareAnchor = $11;
+  LineCapRoundAnchor  = $12;
+  LineCapDiamondAnchor = $13;
+  LineCapArrowAnchor  = $14;
+  LineCapCustom       = $FF;
+
+  // LineJoin 枚举值
+  LineJoinMiter        = 0;
+  LineJoinBevel        = 1;
+  LineJoinRound        = 2;
+  LineJoinMiterClipped = 3;
+
+  // PenDashStyle 枚举值
+  DashStyleSolid           = 0;
+  DashStyleDash            = 1;
+  DashStyleDot             = 2;
+  DashStyleDashDot         = 3;
+  DashStyleDashDotDot      = 4;
+  DashStyleCustom          = 5;
+
+  // Unit 枚举值（用于 GdipCreatePen1 等函数的 Unit_ 参数）
+  UnitWorld   = 0;  // 世界坐标，受世界变换影响
+  UnitDisplay = 1;
+  UnitPixel   = 2;  // 像素，不受世界变换影响
+  UnitPoint   = 3;
+  UnitInch    = 4;
+  UnitDocument = 5;
+  UnitMillimeter = 6;
+
+  // WrapMode 枚举值
+  WrapModeTile = 0;
+  WrapModeTileFlipX = 1;
+  WrapModeTileFlipY = 2;
+  WrapModeTileFlipXY = 3;
+  WrapModeClamp = 4;
+
+  // LinearGradientMode 枚举值
+  LinearGradientModeHorizontal = 0;
+  LinearGradientModeVertical = 1;
+  LinearGradientModeForwardDiagonal = 2;
+  LinearGradientModeBackwardDiagonal = 3;
+
+  // CombineMode 枚举值
+  CombineModeReplace = 0;
+  CombineModeIntersect = 1;
+  CombineModeUnion = 2;
+  CombineModeXor = 3;
+  CombineModeExclude = 4;
+  CombineModeComplement = 5;
+
+  // MatrixOrder 枚举值
+  MatrixOrderPrepend = 0;
+  MatrixOrderAppend = 1;
 
 type
   GpGraphics = Pointer;
-  {* GDI+ 绘图参数类，用 GdipCreateFromHDC 等创建，用 GdipDeleteGraphics 释放}
+  {* GDI+ 绘图上下文，用 GdipCreateFromHDC 等创建，用 GdipDeleteGraphics 释放}
 
   GpImage = Pointer;
   {* GDI+ 图像基类，和子类一起用 GdipCreateBitmapFromHBITMAP 等创建，用 GdipDisposeImage 释放}
 
   GpBitmap = Pointer;
   {* GDI+ GpImage 的子类，代表位图}
+
+  GpPen = Pointer;
+  {* GDI+ 画笔对象，用 GdipCreatePen1 等创建，用 GdipDeletePen 释放}
+
+  GpBrush = Pointer;
+  {* GDI+ 画刷基类}
+
+  GpSolidFill = Pointer;
+  {* GDI+ 实心画刷，用 GdipCreateSolidFill 创建，用 GdipDeleteBrush 释放}
+
+  GpPath = Pointer;
+  {* GDI+ 路径对象，用 GdipCreatePath 创建，用 GdipDeletePath 释放}
+
+  GpPathData = Pointer;
+  {* GDI+ 路径数据}
+
+  GpMatrix = Pointer;
+  {* GDI+ 矩阵对象，用 GdipCreateMatrix 等创建，用 GdipDeleteMatrix 释放}
+
+  GpFontFamily = Pointer;
+  {* GDI+ 字体族对象}
+
+  GpFont = Pointer;
+  {* GDI+ 字体对象}
+
+  GpStringFormat = Pointer;
+  {* GDI+ 字符串格式对象}
+
+  GpCachedBitmap = Pointer;
+  {* GDI+ 缓存位图对象}
+
+  TGPRectF = record
+    X: Single;
+    Y: Single;
+    Width: Single;
+    Height: Single;
+  end;
+  {* GDI+ 浮点矩形，用于 GdipDrawString / GdipMeasureString 的布局和边界框 }
+  PGPRect = ^TGPRect;
+  TGPRect = record
+    X: Integer;
+    Y: Integer;
+    Width: Integer;
+    Height: Integer;
+  end;
+
+  PGDIPBitmapData = ^TGDIPBitmapData;
+  TGDIPBitmapData = record
+    Width: Cardinal;
+    Height: Cardinal;
+    Stride: Integer;
+    PixelFormat: Integer;
+    Scan0: Pointer;
+    Reserved: Pointer;
+  end;
+
+  PGPColor = ^TGPColor;
+  TGPColor = Cardinal;
 
   TStatus = (
     Ok,
@@ -282,7 +414,10 @@ type
   GpStatus = TStatus;
 
   TSmoothingMode = Integer;
-  {* 使用 const 中的 SmoothingMode* 值}
+  TFillMode = Integer;
+  TLineCap = Integer;
+  TLineJoin = Integer;
+  TDashStyle = Integer;
 
   TDebugEventLevel = (DebugEventLevelFatal, DebugEventLevelWarning);
 
@@ -306,12 +441,15 @@ type
   TGdiplusStartupOutput = GdiplusStartupOutput;
   PGdiplusStartupOutput = ^TGdiplusStartupOutput;
 
-  // GDI+ 中所需的函数声明类型
+  // GDI+ 扁平 API 函数声明类型
+
+  //---------- 初始化/关闭 ----------
   TGdiplusStartup = function(out Token: ULONG; Input: PGdiplusStartupInput;
     Output: PGdiplusStartupOutput): GPSTATUS; stdcall;
 
   TGdiplusShutdown = procedure(Token: ULONG); stdcall;
 
+  //---------- Graphics 对象 ----------
   TGdipCreateFromHDC = function(hdc: HDC; out Graphic: GPGRAPHICS): GPSTATUS; stdcall;
 
   TGdipDeleteGraphics = function(Graphic: GPGRAPHICS): GPSTATUS; stdcall;
@@ -322,8 +460,165 @@ type
   TGdipGetSmoothingMode = function(Graphic: GPGRAPHICS; var Sm: TSmoothingMode):
     GPSTATUS; stdcall;
 
+  TGdipSetPixelOffsetMode = function(Graphic: GPGRAPHICS;
+    Mode: Integer): GPSTATUS; stdcall;
+
+  TGdipSetTextContrast = function(Graphic: GPGRAPHICS;
+    Contrast: Integer): GPSTATUS; stdcall;
+
+  TGdipSaveGraphics = function(Graphic: GPGRAPHICS; var State: Cardinal):
+    GPSTATUS; stdcall;
+
+  TGdipRestoreGraphics = function(Graphic: GPGRAPHICS; State: Cardinal):
+    GPSTATUS; stdcall;
+
+  TGdipSetWorldTransform = function(Graphic: GPGRAPHICS;
+    Matrix: GPMATRIX): GPSTATUS; stdcall;
+
+  TGdipMultiplyWorldTransform = function(Graphic: GPGRAPHICS;
+    Matrix: GPMATRIX; Order: Integer): GPSTATUS; stdcall;
+
+  TGdipTranslateWorldTransform = function(Graphic: GPGRAPHICS;
+    dx, dy: Single; Order: Integer): GPSTATUS; stdcall;
+
+  TGdipScaleWorldTransform = function(Graphic: GPGRAPHICS;
+    sx, sy: Single; Order: Integer): GPSTATUS; stdcall;
+
+  TGdipRotateWorldTransform = function(Graphic: GPGRAPHICS;
+    Angle: Single; Order: Integer): GPSTATUS; stdcall;
+
+  TGdipResetWorldTransform = function(Graphic: GPGRAPHICS): GPSTATUS; stdcall;
+
+  TGdipSetClipRectI = function(Graphic: GPGRAPHICS; X, Y, Width, Height: Integer;
+    CombineMode: Integer): GPSTATUS; stdcall;
+
+  //---------- Pen 画笔 ----------
+  TGdipCreatePen1 = function(Color: TGPColor; Width: Single;
+    Unit_: Integer; out Pen: GPPEN): GPSTATUS; stdcall;
+
+  TGdipDeletePen = function(Pen: GPPEN): GPSTATUS; stdcall;
+
+  TGdipSetPenWidth = function(Pen: GPPEN; Width: Single): GPSTATUS; stdcall;
+
+  TGdipSetPenColor = function(Pen: GPPEN; Color: TGPColor): GPSTATUS; stdcall;
+
+  TGdipSetPenLineCap = function(Pen: GPPEN; StartCap, EndCap, DashCap: TLineCap):
+    GPSTATUS; stdcall;
+
+  TGdipSetPenLineJoin = function(Pen: GPPEN; LineJoin: TLineJoin):
+    GPSTATUS; stdcall;
+
+  TGdipSetPenMiterLimit = function(Pen: GPPEN; MiterLimit: Single):
+    GPSTATUS; stdcall;
+
+  TGdipSetPenDashStyle = function(Pen: GPPEN; DashStyle: TDashStyle):
+    GPSTATUS; stdcall;
+
+  TGdipSetPenDashArray = function(Pen: GPPEN; DashArr: PSingle;
+    Count: Integer): GPSTATUS; stdcall;
+
+  TGdipSetPenDashOffset = function(Pen: GPPEN; DashOffset: Single):
+    GPSTATUS; stdcall;
+
+  TGdipSetPenBrushFill = function(Pen: GPPEN; Brush: GPBRUSH): GPSTATUS; stdcall;
+
+  //---------- Brush 画刷 ----------
+  TGdipCreateSolidFill = function(Color: TGPColor;
+    out Brush: GPSOLIDFILL): GPSTATUS; stdcall;
+
+  TGdipDeleteBrush = function(Brush: GPBRUSH): GPSTATUS; stdcall;
+
+  TGdipSetSolidFillColor = function(Brush: GPSOLIDFILL;
+    Color: TGPColor): GPSTATUS; stdcall;
+
+  //---------- Path 路径 ----------
+  TGdipCreatePath = function(FillMode: TFillMode;
+    out Path: GPPATH): GPSTATUS; stdcall;
+
+  TGdipDeletePath = function(Path: GPPATH): GPSTATUS; stdcall;
+
+  TGdipResetPath = function(Path: GPPATH): GPSTATUS; stdcall;
+
+  TGdipAddPathLine = function(Path: GPPATH; X1, Y1, X2, Y2: Single):
+    GPSTATUS; stdcall;
+
+  TGdipAddPathLineI = function(Path: GPPATH; X1, Y1, X2, Y2: Integer):
+    GPSTATUS; stdcall;
+
+  TGdipAddPathLines = function(Path: GPPATH; Points: PPoint;
+    Count: Integer): GPSTATUS; stdcall;
+
+  TGdipAddPathArc = function(Path: GPPATH; X, Y, Width, Height: Single;
+    StartAngle, SweepAngle: Single): GPSTATUS; stdcall;
+
+  TGdipAddPathArcI = function(Path: GPPATH; X, Y, Width, Height: Integer;
+    StartAngle, SweepAngle: Single): GPSTATUS; stdcall;
+
+  TGdipAddPathBezier = function(Path: GPPATH; X1, Y1, X2, Y2, X3, Y3, X4, Y4: Single):
+    GPSTATUS; stdcall;
+
+  TGdipAddPathBezierI = function(Path: GPPATH; X1, Y1, X2, Y2, X3, Y3, X4, Y4: Integer):
+    GPSTATUS; stdcall;
+
+  TGdipAddPathRectangle = function(Path: GPPATH; X, Y, Width, Height: Single):
+    GPSTATUS; stdcall;
+
+  TGdipAddPathEllipse = function(Path: GPPATH; X, Y, Width, Height: Single):
+    GPSTATUS; stdcall;
+
+  TGdipClosePathFigure = function(Path: GPPATH): GPSTATUS; stdcall;
+
+  TGdipStartPathFigure = function(Path: GPPATH): GPSTATUS; stdcall;
+
+  TGdipSetPathFillMode = function(Path: GPPATH; FillMode: TFillMode):
+    GPSTATUS; stdcall;
+
+  TGdipGetPathPointCount = function(Path: GPPATH;
+    var Count: Integer): GPSTATUS; stdcall;
+
+  //---------- Graphics 绘制操作 ----------
+  TGdipDrawLine = function(Graphic: GPGRAPHICS; Pen: GPPEN;
+    X1, Y1, X2, Y2: Single): GPSTATUS; stdcall;
+
+  TGdipDrawLineI = function(Graphic: GPGRAPHICS; Pen: GPPEN;
+    X1, Y1, X2, Y2: Integer): GPSTATUS; stdcall;
+
+  TGdipDrawLinesI = function(Graphic: GPGRAPHICS; Pen: GPPEN;
+    Points: PPoint; Count: Integer): GPSTATUS; stdcall;
+
+  TGdipDrawRectangle = function(Graphic: GPGRAPHICS; Pen: GPPEN;
+    X, Y, Width, Height: Single): GPSTATUS; stdcall;
+
+  TGdipDrawEllipse = function(Graphic: GPGRAPHICS; Pen: GPPEN;
+    X, Y, Width, Height: Single): GPSTATUS; stdcall;
+
+  TGdipFillRectangle = function(Graphic: GPGRAPHICS; Brush: GPBRUSH;
+    X, Y, Width, Height: Single): GPSTATUS; stdcall;
+
+  TGdipFillRectangleI = function(Graphic: GPGRAPHICS; Brush: GPBRUSH;
+    X, Y, Width, Height: Integer): GPSTATUS; stdcall;
+
+  TGdipFillEllipse = function(Graphic: GPGRAPHICS; Brush: GPBRUSH;
+    X, Y, Width, Height: Single): GPSTATUS; stdcall;
+
+  TGdipFillPolygon = function(Graphic: GPGRAPHICS; Brush: GPBRUSH;
+    Points: Pointer; Count: Integer; FillMode: TFillMode): GPSTATUS; stdcall;
+
+  TGdipFillPolygonI = function(Graphic: GPGRAPHICS; Brush: GPBRUSH;
+    Points: PPoint; Count: Integer; FillMode: TFillMode): GPSTATUS; stdcall;
+
+  TGdipFillPath = function(Graphic: GPGRAPHICS; Brush: GPBRUSH;
+    Path: GPPATH): GPSTATUS; stdcall;
+
+  TGdipDrawPath = function(Graphic: GPGRAPHICS; Pen: GPPEN;
+    Path: GPPATH): GPSTATUS; stdcall;
+
+  //---------- Image/Bitmap ----------
   TGdipCreateBitmapFromHBITMAP = function(hbm: HBITMAP; hpal: HPALETTE; out
     Bitmap: GPBITMAP): GPSTATUS; stdcall;
+
+  TGdipLoadImageFromFile = function(FileName: PWideChar;
+    out Image: GPIMAGE): GPSTATUS; stdcall;
 
   TGdipDisposeImage = function(Image: GPIMAGE): GPSTATUS; stdcall;
 
@@ -333,24 +628,321 @@ type
   TGdipDrawImageRectI = function(Graphic: GPGRAPHICS; Image: GPIMAGE; x: Integer;
     y: Integer; Width: Integer; Height: Integer): GPSTATUS; stdcall;
 
+  TGdipCreateBitmapFromScan0 = function(Width, Height, Stride: Integer;
+    PixelFormat: Integer; Scan0: Pointer; out Bitmap: GPIMAGE): GPSTATUS; stdcall;
+
+  TGdipBitmapLockBits = function(Bitmap: GPIMAGE; Rect: PGPRect;
+    Flags, Format: Integer; out Data: TGDIPBitmapData): GPSTATUS; stdcall;
+
+  TGdipBitmapUnlockBits = function(Bitmap: GPIMAGE;
+    var Data: TGDIPBitmapData): GPSTATUS; stdcall;
+
+  TGdipGetImageGraphicsContext = function(Image: GPIMAGE;
+    out Graphics: GPGRAPHICS): GPSTATUS; stdcall;
+
+  //---------- Font ----------
+  TGdipCreateFontFromLogfontW = function(hdc: HDC; Logfont: Pointer;
+    out Font: GPFONT): GPSTATUS; stdcall;
+
+  TGdipDeleteFont = function(Font: GPFONT): GPSTATUS; stdcall;
+
+  //---------- StringFormat 字符串格式 ----------
+  TGdipCreateStringFormat = function(FormatAttributes: Integer; Language: Word;
+    out Format: GPSTRINGFORMAT): GPSTATUS; stdcall;
+
+  TGdipDeleteStringFormat = function(Format: GPSTRINGFORMAT): GPSTATUS; stdcall;
+
+  TGdipSetStringFormatAlign = function(Format: GPSTRINGFORMAT;
+    Align: Integer): GPSTATUS; stdcall;
+
+  TGdipSetStringFormatLineAlign = function(Format: GPSTRINGFORMAT;
+    Align: Integer): GPSTATUS; stdcall;
+
+  //---------- Text 文字绘制 ----------
+  TGdipDrawString = function(Graphics: GPGRAPHICS; Str: PWideChar;
+    Length: Integer; Font: GPFONT; LayoutRect: Pointer;
+    Format: GPSTRINGFORMAT; Brush: GPBRUSH): GPSTATUS; stdcall;
+
+  TGdipMeasureString = function(Graphics: GPGRAPHICS; Str: PWideChar;
+    Length: Integer; Font: GPFONT; LayoutRect: Pointer;
+    Format: GPSTRINGFORMAT; BoundingBox: Pointer;
+    CodepointsFitted: PInteger; LinesFilled: PInteger): GPSTATUS; stdcall;
+
+  TGdipSetTextRenderingHint = function(Graphics: GPGRAPHICS;
+    Mode: Integer): GPSTATUS; stdcall;
+
+  //---------- FontFamily ----------
+  TGdipCreateFontFamilyFromName = function(Name: PWideChar;
+    FontCollection: Pointer; out FontFamily: Pointer): GPSTATUS; stdcall;
+
+  TGdipDeleteFontFamily = function(FontFamily: Pointer): GPSTATUS; stdcall;
+
+  //---------- Path ----------
+  TGdipAddPathString = function(Path: GPPATH; Str: PWideChar;
+    Length: Integer; Family: Pointer; EmSize: Single; Style: Integer;
+    LayoutRect: Pointer; Format: GPSTRINGFORMAT): GPSTATUS; stdcall;
+
+  //---------- Matrix 矩阵 ----------
+  TGdipCreateMatrix = function(out Matrix: GPMATRIX): GPSTATUS; stdcall;
+
+  TGdipCreateMatrix2 = function(m11, m12, m21, m22, dx, dy: Single;
+    out Matrix: GPMATRIX): GPSTATUS; stdcall;
+
+  TGdipDeleteMatrix = function(Matrix: GPMATRIX): GPSTATUS; stdcall;
+
+  TGdipSetMatrixElements = function(Matrix: GPMATRIX;
+    m11, m12, m21, m22, dx, dy: Single): GPSTATUS; stdcall;
+
+  TGdipMultiplyMatrix = function(Matrix: GPMATRIX; Matrix2: GPMATRIX;
+    Order: Integer): GPSTATUS; stdcall;
+
+  //---------- LineGradient 线性渐变画刷 ----------
+  TGdipCreateLineBrush = function(Point1, Point2: Pointer;
+    Color1, Color2: TGPColor; WrapMode: Integer;
+    out LineGradient: GPBRUSH): GPSTATUS; stdcall;
+
+  TGdipCreateLineBrushFromRect = function(Rect: Pointer;
+    Color1, Color2: TGPColor; Mode: Integer; WrapMode: Integer;
+    out LineGradient: GPBRUSH): GPSTATUS; stdcall;
+
+  TGdipSetLineColors = function(LineGradient: GPBRUSH;
+    Color1, Color2: TGPColor): GPSTATUS; stdcall;
+
+  TGdipSetLineBlend = function(LineGradient: GPBRUSH;
+    Blends: PSingle; Positions: PSingle; Count: Integer): GPSTATUS; stdcall;
+
+  TGdipSetLineGammaCorrection = function(LineGradient: GPBRUSH;
+    UseGammaCorrection: BOOL): GPSTATUS; stdcall;
+
+  TGdipSetLinePresetBlend = function(LineGradient: GPBRUSH;
+    Colors: PGPColor; Positions: PSingle; Count: Integer): GPSTATUS; stdcall;
+
+  TGdipSetLineWrapMode = function(LineGradient: GPBRUSH;
+    WrapMode: Integer): GPSTATUS; stdcall;
+
+  //---------- PathGradient 路径渐变画刷 ----------
+  TGdipCreatePathGradientFromPath = function(Path: GPPATH;
+    out PathGradient: GPBRUSH): GPSTATUS; stdcall;
+
+  TGdipSetPathGradientCenterColor = function(PathGradient: GPBRUSH;
+    Color: TGPColor): GPSTATUS; stdcall;
+
+  TGdipSetPathGradientSurroundColors = function(PathGradient: GPBRUSH;
+    Colors: PGPColor; Count: PInteger): GPSTATUS; stdcall;
+
+  TGdipSetPathGradientPresetBlend = function(PathGradient: GPBRUSH;
+    Colors: PGPColor; Positions: PSingle; Count: Integer): GPSTATUS; stdcall;
+
+  TGdipSetPathGradientCenterPoint = function(PathGradient: GPBRUSH;
+    Point: Pointer): GPSTATUS; stdcall;
+
+  TGdipGetPathGradientSurroundColorsCount = function(PathGradient: GPBRUSH;
+    Count: PInteger): GPSTATUS; stdcall;
+
+  TGdipCreatePathGradient = function(Points: Pointer; Count: Integer;
+    WrapMode: Integer; out PolyGradient: GPBRUSH): GPSTATUS; stdcall;
+  //---------- Clip 裁剪 ----------
+  TGdipSetClipPath = function(Graphics: GPGRAPHICS; Path: GPPATH;
+    CombineMode: Integer): GPSTATUS; stdcall;
+
+  TGdipSetClipRect = function(Graphics: GPGRAPHICS; X, Y, Width, Height: Single;
+    CombineMode: Integer): GPSTATUS; stdcall;
+
+  TGdipResetClip = function(Graphics: GPGRAPHICS): GPSTATUS; stdcall;
+
+  //---------- Graphics Save/Restore State ----------
+  TGdipSaveGraphics2 = function(Graphics: GPGRAPHICS; var State: Cardinal):
+    GPSTATUS; stdcall;
+
+  TGdipRestoreGraphics2 = function(Graphics: GPGRAPHICS; State: Cardinal):
+    GPSTATUS; stdcall;
+
 var
-  GdiPlusInit: Boolean = False;
+  CnGdiPlusAvailable: Boolean = False;
+  {* GDI+ 运行时可用性标记。
+     - SUPPORT_GDIPLUS 路径：静态链接保证 DLL 可用，CnStartUpGdiPlus 成功后为 True
+     - 动态路径：取决于 gdiplus.dll 是否存在及 CnStartUpGdiPlus 是否成功
+     - CnSVG 等消费方据此选择 GDI+ 或纯 GDI 渲染路径 }
+
   GdiPlusHandle: THandle = 0;
   StartupInput: TGDIPlusStartupInput;
   GdiplusToken: ULONG;
 
+  //---------- 初始化/关闭 ----------
   GdiplusStartup: TGdiplusStartup = nil;
   GdiplusShutdown: TGdiplusShutdown = nil;
+
+  //---------- Graphics 对象 ----------
   GdipCreateFromHDC: TGdipCreateFromHDC = nil;
   GdipDeleteGraphics: TGdipDeleteGraphics = nil;
   GdipSetSmoothingMode: TGdipSetSmoothingMode = nil;
   GdipGetSmoothingMode: TGdipGetSmoothingMode = nil;
+  GdipSetPixelOffsetMode: TGdipSetPixelOffsetMode = nil;
+  GdipSetTextContrast: TGdipSetTextContrast = nil;
+  GdipSaveGraphics: TGdipSaveGraphics = nil;
+  GdipRestoreGraphics: TGdipRestoreGraphics = nil;
+  GdipSetWorldTransform: TGdipSetWorldTransform = nil;
+  GdipMultiplyWorldTransform: TGdipMultiplyWorldTransform = nil;
+  GdipTranslateWorldTransform: TGdipTranslateWorldTransform = nil;
+  GdipScaleWorldTransform: TGdipScaleWorldTransform = nil;
+  GdipRotateWorldTransform: TGdipRotateWorldTransform = nil;
+  GdipResetWorldTransform: TGdipResetWorldTransform = nil;
+  GdipSetClipRectI: TGdipSetClipRectI = nil;
+
+  //---------- Pen 画笔 ----------
+  GdipCreatePen1: TGdipCreatePen1 = nil;
+  GdipDeletePen: TGdipDeletePen = nil;
+  GdipSetPenWidth: TGdipSetPenWidth = nil;
+  GdipSetPenColor: TGdipSetPenColor = nil;
+  GdipSetPenLineCap: TGdipSetPenLineCap = nil;
+  GdipSetPenLineJoin: TGdipSetPenLineJoin = nil;
+  GdipSetPenMiterLimit: TGdipSetPenMiterLimit = nil;
+  GdipSetPenDashStyle: TGdipSetPenDashStyle = nil;
+  GdipSetPenDashArray: TGdipSetPenDashArray = nil;
+  GdipSetPenDashOffset: TGdipSetPenDashOffset = nil;
+  GdipSetPenBrushFill: TGdipSetPenBrushFill = nil;
+
+  //---------- Brush 画刷 ----------
+  GdipCreateSolidFill: TGdipCreateSolidFill = nil;
+  GdipDeleteBrush: TGdipDeleteBrush = nil;
+  GdipSetSolidFillColor: TGdipSetSolidFillColor = nil;
+
+  //---------- Path 路径 ----------
+  GdipCreatePath: TGdipCreatePath = nil;
+  GdipDeletePath: TGdipDeletePath = nil;
+  GdipResetPath: TGdipResetPath = nil;
+  GdipAddPathLine: TGdipAddPathLine = nil;
+  GdipAddPathLineI: TGdipAddPathLineI = nil;
+  GdipAddPathLines: TGdipAddPathLines = nil;
+  GdipAddPathArc: TGdipAddPathArc = nil;
+  GdipAddPathArcI: TGdipAddPathArcI = nil;
+  GdipAddPathBezier: TGdipAddPathBezier = nil;
+  GdipAddPathBezierI: TGdipAddPathBezierI = nil;
+  GdipAddPathRectangle: TGdipAddPathRectangle = nil;
+  GdipAddPathEllipse: TGdipAddPathEllipse = nil;
+  GdipClosePathFigure: TGdipClosePathFigure = nil;
+  GdipStartPathFigure: TGdipStartPathFigure = nil;
+  GdipSetPathFillMode: TGdipSetPathFillMode = nil;
+  GdipGetPathPointCount: TGdipGetPathPointCount = nil;
+
+  //---------- Graphics 绘制操作 ----------
+  GdipDrawLine: TGdipDrawLine = nil;
+  GdipDrawLineI: TGdipDrawLineI = nil;
+  GdipDrawLinesI: TGdipDrawLinesI = nil;
+  GdipDrawRectangle: TGdipDrawRectangle = nil;
+  GdipDrawEllipse: TGdipDrawEllipse = nil;
+  GdipFillRectangle: TGdipFillRectangle = nil;
+  GdipFillRectangleI: TGdipFillRectangleI = nil;
+  GdipFillEllipse: TGdipFillEllipse = nil;
+  GdipFillPolygon: TGdipFillPolygon = nil;
+  GdipFillPolygonI: TGdipFillPolygonI = nil;
+  GdipFillPath: TGdipFillPath = nil;
+  GdipDrawPath: TGdipDrawPath = nil;
+
+  //---------- Image/Bitmap（非核心，允许缺失）----------
   GdipCreateBitmapFromHBITMAP: TGdipCreateBitmapFromHBITMAP = nil;
+  GdipLoadImageFromFile: TGdipLoadImageFromFile = nil;
   GdipDisposeImage: TGdipDisposeImage = nil;
   GdipDrawImageRect: TGdipDrawImageRect = nil;
   GdipDrawImageRectI: TGdipDrawImageRectI = nil;
+  GdipCreateBitmapFromScan0: TGdipCreateBitmapFromScan0 = nil;
+  GdipBitmapLockBits: TGdipBitmapLockBits = nil;
+  GdipBitmapUnlockBits: TGdipBitmapUnlockBits = nil;
+  GdipGetImageGraphicsContext: TGdipGetImageGraphicsContext = nil;
+
+  //---------- Matrix 矩阵 ----------
+  GdipCreateMatrix: TGdipCreateMatrix = nil;
+  GdipCreateMatrix2: TGdipCreateMatrix2 = nil;
+  GdipDeleteMatrix: TGdipDeleteMatrix = nil;
+  GdipSetMatrixElements: TGdipSetMatrixElements = nil;
+  GdipMultiplyMatrix: TGdipMultiplyMatrix = nil;
+
+  //---------- LineGradient 线性渐变画刷 ----------
+  GdipCreateLineBrush: TGdipCreateLineBrush = nil;
+  GdipCreateLineBrushFromRect: TGdipCreateLineBrushFromRect = nil;
+  GdipSetLineColors: TGdipSetLineColors = nil;
+  GdipSetLineBlend: TGdipSetLineBlend = nil;
+  GdipSetLinePresetBlend: TGdipSetLinePresetBlend = nil;
+  GdipSetLineWrapMode: TGdipSetLineWrapMode = nil;
+  GdipSetLineGammaCorrection: TGdipSetLineGammaCorrection = nil;
+
+  //---------- PathGradient 路径渐变画刷 ----------
+  GdipCreatePathGradientFromPath: TGdipCreatePathGradientFromPath = nil;
+  GdipCreatePathGradient: TGdipCreatePathGradient = nil;
+  GdipSetPathGradientCenterColor: TGdipSetPathGradientCenterColor = nil;
+  GdipSetPathGradientSurroundColors: TGdipSetPathGradientSurroundColors = nil;
+  GdipSetPathGradientPresetBlend: TGdipSetPathGradientPresetBlend = nil;
+  GdipSetPathGradientCenterPoint: TGdipSetPathGradientCenterPoint = nil;
+  GdipGetPathGradientSurroundColorsCount: TGdipGetPathGradientSurroundColorsCount = nil;
+
+  //---------- Clip 裁剪 ----------
+  GdipSetClipPath: TGdipSetClipPath = nil;
+  GdipSetClipRect: TGdipSetClipRect = nil;
+  GdipResetClip: TGdipResetClip = nil;
+
+  //---------- Font 字体（非核心，允许缺失，有 GDI 回退）----------
+  GdipCreateFontFromLogfontW: TGdipCreateFontFromLogfontW = nil;
+  GdipDeleteFont: TGdipDeleteFont = nil;
+
+  //---------- StringFormat 字符串格式（非核心）----------
+  GdipCreateStringFormat: TGdipCreateStringFormat = nil;
+  GdipDeleteStringFormat: TGdipDeleteStringFormat = nil;
+  GdipSetStringFormatAlign: TGdipSetStringFormatAlign = nil;
+  GdipSetStringFormatLineAlign: TGdipSetStringFormatLineAlign = nil;
+
+  //---------- Text 文字绘制（非核心）----------
+  GdipDrawString: TGdipDrawString = nil;
+  GdipMeasureString: TGdipMeasureString = nil;
+  GdipSetTextRenderingHint: TGdipSetTextRenderingHint = nil;
+  GdipCreateFontFamilyFromName: TGdipCreateFontFamilyFromName = nil;
+  GdipDeleteFontFamily: TGdipDeleteFontFamily = nil;
+  GdipAddPathString: TGdipAddPathString = nil;
 
 {$ENDIF}
+
+function FontEqual(A, B: TFont): Boolean;
+{* 比较俩字体对象的各属性是否相等}
+
+implementation
+
+{$IFDEF MSWINDOWS}
+
+function MakeGDIPColor(A, R, G, B: Byte): Cardinal;
+begin
+  Result := (Cardinal(A) shl 24) or (Cardinal(R) shl 16) or
+    (Cardinal(G) shl 8) or Cardinal(B);
+end;
+
+procedure CnStartUpGdiPlus;
+var
+  Status: Integer;
+begin
+  if CnGdiPlusAvailable then
+    Exit;
+  if (GdiPlusHandle = 0) or not Assigned(GdiplusStartup) then
+    Exit;
+
+  StartupInput.GdiplusVersion := 1;
+  StartupInput.DebugEventCallback := nil;
+  StartupInput.SuppressBackgroundThread := False;
+  StartupInput.SuppressExternalCodecs := False;
+
+  Status := Ord(GdiplusStartup(GdiplusToken, @StartupInput, nil));
+  if Status = Ord(Ok) then
+    CnGdiPlusAvailable := True;
+  // 失败时 CnGdiPlusAvailable 保持 False，消费方降级为纯 GDI
+end;
+
+procedure CnShutDownGdiPlus;
+begin
+  if CnGdiPlusAvailable then
+  begin
+    if Assigned(GdiplusShutdown) then
+      GdiplusShutdown(GdiplusToken);
+    GdiplusToken := 0;
+    CnGdiPlusAvailable := False;
+  end;
+end;
 
 {$ELSE}  // 非 Windows 平台补充声明实现
 
@@ -739,7 +1331,7 @@ begin
 {$ELSE}
   if (Src.Width <> Dst.Width) or (Src.Height <> Dst.Height) then
   begin
-    if not GdiPlusInit then // 没有动态找到 GDIPlus 的支持
+    if not CnGdiPlusAvailable then // GDI+ 运行时不可用
     begin
       Rd := Rect(0, 0, Dst.Width, Dst.Height);
       Dst.Canvas.StretchDraw(Rd, Src);
@@ -912,80 +1504,195 @@ begin
 end;
 
 {$IFDEF MSWINDOWS}
-{$IFNDEF SUPPORT_GDIPLUS}
-
-procedure CnStartUpGdiPlus;
-begin
-  if not GdiPlusInit and (GdiPlusHandle <> 0) then
-  begin
-    StartupInput.DebugEventCallback := nil;
-    StartupInput.SuppressBackgroundThread := False;
-    StartupInput.SuppressExternalCodecs   := False;
-    StartupInput.GdiplusVersion := 1;
-
-    GdiplusStartup(GdiPlusToken, @StartupInput, nil);
-
-    GdiPlusInit := True;
-  end;
-end;
-
-procedure CnShutDownGdiPlus;
-begin
-  if GdiPlusInit then
-  begin
-    GdiplusShutdown(GdiplusToken);
-
-    GdiplusToken := 0;
-    GdiPlusInit := False;
-  end;
-end;
-
-{$ENDIF}
-{$ENDIF}
-
-{$IFDEF MSWINDOWS}
-{$IFNDEF SUPPORT_GDIPLUS}
 
 initialization
+  // ── 第一步：获取 gdiplus.dll 模块句柄 ──
+  {$IFDEF SUPPORT_GDIPLUS}
+  // 高版本 Delphi：DLL 已被 WinApi.GDIPAPI 静态导入自动加载
+  GdiPlusHandle := GetModuleHandle(WINGDIPDLL);
+  {$ELSE}
+  // 低版本 Delphi：动态加载 gdiplus.dll
   GdiPlusHandle := LoadLibrary(WINGDIPDLL);
+  {$ENDIF}
+
+  // ── 第二步：填充所有函数变量（两条编译路径共用） ──
+  // 每个 GetProcAddress 结果暂存，第三步统一做完整性校验
   if GdiPlusHandle <> 0 then
   begin
+    //---------- 初始化/关闭 ----------
     GdiplusStartup := TGdiplusStartup(GetProcAddress(GdiPlusHandle, 'GdiplusStartup'));
-    Assert(Assigned(GdiplusStartup), 'Load GdiplusStartup from GDI+ DLL.');
-
     GdiplusShutdown := TGdiplusShutdown(GetProcAddress(GdiPlusHandle, 'GdiplusShutdown'));
-    Assert(Assigned(GdiplusShutdown), 'Load GdiplusShutdown from GDI+ DLL.');
 
-    GdipCreateFromHDC:= TGdipCreateFromHDC(GetProcAddress(GdiPlusHandle, 'GdipCreateFromHDC'));
-    Assert(Assigned(GdipCreateFromHDC), 'Load GdipCreateFromHDC from GDI+ DLL.');
+    //---------- Graphics 对象 ----------
+    GdipCreateFromHDC := TGdipCreateFromHDC(GetProcAddress(GdiPlusHandle, 'GdipCreateFromHDC'));
+    GdipDeleteGraphics := TGdipDeleteGraphics(GetProcAddress(GdiPlusHandle, 'GdipDeleteGraphics'));
+    GdipSetSmoothingMode := TGdipSetSmoothingMode(GetProcAddress(GdiPlusHandle, 'GdipSetSmoothingMode'));
+    GdipGetSmoothingMode := TGdipGetSmoothingMode(GetProcAddress(GdiPlusHandle, 'GdipGetSmoothingMode'));
+    GdipSetPixelOffsetMode := TGdipSetPixelOffsetMode(GetProcAddress(GdiPlusHandle, 'GdipSetPixelOffsetMode'));
+    GdipSetTextContrast := TGdipSetTextContrast(GetProcAddress(GdiPlusHandle, 'GdipSetTextContrast'));
+    GdipSaveGraphics := TGdipSaveGraphics(GetProcAddress(GdiPlusHandle, 'GdipSaveGraphics'));
+    GdipRestoreGraphics := TGdipRestoreGraphics(GetProcAddress(GdiPlusHandle, 'GdipRestoreGraphics'));
+    GdipSetWorldTransform := TGdipSetWorldTransform(GetProcAddress(GdiPlusHandle, 'GdipSetWorldTransform'));
+    GdipMultiplyWorldTransform := TGdipMultiplyWorldTransform(GetProcAddress(GdiPlusHandle, 'GdipMultiplyWorldTransform'));
+    GdipTranslateWorldTransform := TGdipTranslateWorldTransform(GetProcAddress(GdiPlusHandle, 'GdipTranslateWorldTransform'));
+    GdipScaleWorldTransform := TGdipScaleWorldTransform(GetProcAddress(GdiPlusHandle, 'GdipScaleWorldTransform'));
+    GdipRotateWorldTransform := TGdipRotateWorldTransform(GetProcAddress(GdiPlusHandle, 'GdipRotateWorldTransform'));
+    GdipResetWorldTransform := TGdipResetWorldTransform(GetProcAddress(GdiPlusHandle, 'GdipResetWorldTransform'));
+    GdipSetClipRectI := TGdipSetClipRectI(GetProcAddress(GdiPlusHandle, 'GdipSetClipRectI'));
 
-    GdipDeleteGraphics:= TGdipDeleteGraphics(GetProcAddress(GdiPlusHandle, 'GdipDeleteGraphics'));
-    Assert(Assigned(GdipDeleteGraphics), 'Load GdipDeleteGraphics from GDI+ DLL.');
+    //---------- Pen 画笔 ----------
+    GdipCreatePen1 := TGdipCreatePen1(GetProcAddress(GdiPlusHandle, 'GdipCreatePen1'));
+    GdipDeletePen := TGdipDeletePen(GetProcAddress(GdiPlusHandle, 'GdipDeletePen'));
+    GdipSetPenWidth := TGdipSetPenWidth(GetProcAddress(GdiPlusHandle, 'GdipSetPenWidth'));
+    GdipSetPenColor := TGdipSetPenColor(GetProcAddress(GdiPlusHandle, 'GdipSetPenColor'));
+    GdipSetPenLineCap := TGdipSetPenLineCap(GetProcAddress(GdiPlusHandle, 'GdipSetPenLineCap197819'));
+    GdipSetPenLineJoin := TGdipSetPenLineJoin(GetProcAddress(GdiPlusHandle, 'GdipSetPenLineJoin'));
+    GdipSetPenMiterLimit := TGdipSetPenMiterLimit(GetProcAddress(GdiPlusHandle, 'GdipSetPenMiterLimit'));
+    GdipSetPenDashStyle := TGdipSetPenDashStyle(GetProcAddress(GdiPlusHandle, 'GdipSetPenDashStyle'));
+    GdipSetPenDashArray := TGdipSetPenDashArray(GetProcAddress(GdiPlusHandle, 'GdipSetPenDashArray'));
+    GdipSetPenDashOffset := TGdipSetPenDashOffset(GetProcAddress(GdiPlusHandle, 'GdipSetPenDashOffset'));
+    GdipSetPenBrushFill := TGdipSetPenBrushFill(GetProcAddress(GdiPlusHandle, 'GdipSetPenBrushFill'));
 
-    GdipSetSmoothingMode:= TGdipSetSmoothingMode(GetProcAddress(GdiPlusHandle, 'GdipSetSmoothingMode'));
-    Assert(Assigned(GdipSetSmoothingMode), 'Load GdipSetSmoothingMode from GDI+ DLL.');
+    //---------- Brush 画刷 ----------
+    GdipCreateSolidFill := TGdipCreateSolidFill(GetProcAddress(GdiPlusHandle, 'GdipCreateSolidFill'));
+    GdipDeleteBrush := TGdipDeleteBrush(GetProcAddress(GdiPlusHandle, 'GdipDeleteBrush'));
+    GdipSetSolidFillColor := TGdipSetSolidFillColor(GetProcAddress(GdiPlusHandle, 'GdipSetSolidFillColor'));
 
-    GdipGetSmoothingMode:= TGdipGetSmoothingMode(GetProcAddress(GdiPlusHandle, 'GdipGetSmoothingMode'));
-    Assert(Assigned(GdipGetSmoothingMode), 'Load GdipGetSmoothingMode from GDI+ DLL.');
+    //---------- Path 路径 ----------
+    GdipCreatePath := TGdipCreatePath(GetProcAddress(GdiPlusHandle, 'GdipCreatePath'));
+    GdipDeletePath := TGdipDeletePath(GetProcAddress(GdiPlusHandle, 'GdipDeletePath'));
+    GdipResetPath := TGdipResetPath(GetProcAddress(GdiPlusHandle, 'GdipResetPath'));
+    GdipAddPathLine := TGdipAddPathLine(GetProcAddress(GdiPlusHandle, 'GdipAddPathLine'));
+    GdipAddPathLineI := TGdipAddPathLineI(GetProcAddress(GdiPlusHandle, 'GdipAddPathLineI'));
+    GdipAddPathLines := TGdipAddPathLines(GetProcAddress(GdiPlusHandle, 'GdipAddPathLine2'));
+    GdipAddPathArc := TGdipAddPathArc(GetProcAddress(GdiPlusHandle, 'GdipAddPathArc'));
+    GdipAddPathArcI := TGdipAddPathArcI(GetProcAddress(GdiPlusHandle, 'GdipAddPathArcI'));
+    GdipAddPathBezier := TGdipAddPathBezier(GetProcAddress(GdiPlusHandle, 'GdipAddPathBezier'));
+    GdipAddPathBezierI := TGdipAddPathBezierI(GetProcAddress(GdiPlusHandle, 'GdipAddPathBezierI'));
+    GdipAddPathRectangle := TGdipAddPathRectangle(GetProcAddress(GdiPlusHandle, 'GdipAddPathRectangle'));
+    GdipAddPathEllipse := TGdipAddPathEllipse(GetProcAddress(GdiPlusHandle, 'GdipAddPathEllipse'));
+    GdipClosePathFigure := TGdipClosePathFigure(GetProcAddress(GdiPlusHandle, 'GdipClosePathFigure'));
+    GdipStartPathFigure := TGdipStartPathFigure(GetProcAddress(GdiPlusHandle, 'GdipStartPathFigure'));
+    GdipSetPathFillMode := TGdipSetPathFillMode(GetProcAddress(GdiPlusHandle, 'GdipSetPathFillMode'));
+    // 该函数在 Windows 7 SP1 上可能没有，不强制检查
+    GdipGetPathPointCount := TGdipGetPathPointCount(GetProcAddress(GdiPlusHandle, 'GdipGetPathPointCount'));
 
-    GdipCreateBitmapFromHBITMAP:= TGdipCreateBitmapFromHBITMAP(GetProcAddress(GdiPlusHandle, 'GdipCreateBitmapFromHBITMAP'));
-    Assert(Assigned(GdipCreateBitmapFromHBITMAP), 'Load GdipCreateBitmapFromHBITMAP from GDI+ DLL.');
+    //---------- Graphics 绘制操作 ----------
+    GdipDrawLine := TGdipDrawLine(GetProcAddress(GdiPlusHandle, 'GdipDrawLine'));
+    GdipDrawLineI := TGdipDrawLineI(GetProcAddress(GdiPlusHandle, 'GdipDrawLineI'));
+    GdipDrawLinesI := TGdipDrawLinesI(GetProcAddress(GdiPlusHandle, 'GdipDrawLinesI'));
+    GdipDrawRectangle := TGdipDrawRectangle(GetProcAddress(GdiPlusHandle, 'GdipDrawRectangle'));
+    GdipDrawEllipse := TGdipDrawEllipse(GetProcAddress(GdiPlusHandle, 'GdipDrawEllipse'));
+    GdipFillRectangle := TGdipFillRectangle(GetProcAddress(GdiPlusHandle, 'GdipFillRectangle'));
+    GdipFillRectangleI := TGdipFillRectangleI(GetProcAddress(GdiPlusHandle, 'GdipFillRectangleI'));
+    GdipFillEllipse := TGdipFillEllipse(GetProcAddress(GdiPlusHandle, 'GdipFillEllipse'));
+    GdipFillPolygon := TGdipFillPolygon(GetProcAddress(GdiPlusHandle, 'GdipFillPolygon'));
+    GdipFillPolygonI := TGdipFillPolygonI(GetProcAddress(GdiPlusHandle, 'GdipFillPolygonI'));
+    GdipFillPath := TGdipFillPath(GetProcAddress(GdiPlusHandle, 'GdipFillPath'));
+    GdipDrawPath := TGdipDrawPath(GetProcAddress(GdiPlusHandle, 'GdipDrawPath'));
 
-    GdipDisposeImage:= TGdipDisposeImage(GetProcAddress(GdiPlusHandle, 'GdipDisposeImage'));
-    Assert(Assigned(GdipDisposeImage), 'Load GdipDisposeImage from GDI+ DLL.');
+    //---------- Image/Bitmap（非核心）----------
+    GdipCreateBitmapFromHBITMAP := TGdipCreateBitmapFromHBITMAP(GetProcAddress(GdiPlusHandle, 'GdipCreateBitmapFromHBITMAP'));
+    GdipLoadImageFromFile := TGdipLoadImageFromFile(GetProcAddress(GdiPlusHandle, 'GdipLoadImageFromFile'));
+    GdipDisposeImage := TGdipDisposeImage(GetProcAddress(GdiPlusHandle, 'GdipDisposeImage'));
+    GdipDrawImageRect := TGdipDrawImageRect(GetProcAddress(GdiPlusHandle, 'GdipDrawImageRect'));
+    GdipDrawImageRectI := TGdipDrawImageRectI(GetProcAddress(GdiPlusHandle, 'GdipDrawImageRectI'));
+    GdipCreateBitmapFromScan0 := TGdipCreateBitmapFromScan0(GetProcAddress(GdiPlusHandle, 'GdipCreateBitmapFromScan0'));
+    GdipBitmapLockBits := TGdipBitmapLockBits(GetProcAddress(GdiPlusHandle, 'GdipBitmapLockBits'));
+    GdipBitmapUnlockBits := TGdipBitmapUnlockBits(GetProcAddress(GdiPlusHandle, 'GdipBitmapUnlockBits'));
+    GdipGetImageGraphicsContext := TGdipGetImageGraphicsContext(GetProcAddress(GdiPlusHandle, 'GdipGetImageGraphicsContext'));
 
-    GdipDrawImageRect:= TGdipDrawImageRect(GetProcAddress(GdiPlusHandle, 'GdipDrawImageRect'));
-    Assert(Assigned(GdipDrawImageRect), 'Load GdipDrawImageRect from GDI+ DLL.');
+    //---------- Matrix 矩阵 ----------
+    GdipCreateMatrix := TGdipCreateMatrix(GetProcAddress(GdiPlusHandle, 'GdipCreateMatrix'));
+    GdipCreateMatrix2 := TGdipCreateMatrix2(GetProcAddress(GdiPlusHandle, 'GdipCreateMatrix2'));
+    GdipDeleteMatrix := TGdipDeleteMatrix(GetProcAddress(GdiPlusHandle, 'GdipDeleteMatrix'));
+    GdipSetMatrixElements := TGdipSetMatrixElements(GetProcAddress(GdiPlusHandle, 'GdipSetMatrixElements'));
+    GdipMultiplyMatrix := TGdipMultiplyMatrix(GetProcAddress(GdiPlusHandle, 'GdipMultiplyMatrix'));
 
-    GdipDrawImageRectI:= TGdipDrawImageRectI(GetProcAddress(GdiPlusHandle, 'GdipDrawImageRectI'));
-    Assert(Assigned(GdipDrawImageRectI), 'Load GdipDrawImageRectI from GDI+ DLL.');
+    //---------- LineGradient 线性渐变画刷（非核心）----------
+    GdipCreateLineBrush := TGdipCreateLineBrush(GetProcAddress(GdiPlusHandle, 'GdipCreateLineBrush'));
+    GdipCreateLineBrushFromRect := TGdipCreateLineBrushFromRect(GetProcAddress(GdiPlusHandle, 'GdipCreateLineBrushFromRect'));
+    GdipSetLineColors := TGdipSetLineColors(GetProcAddress(GdiPlusHandle, 'GdipSetLineColors'));
+    GdipSetLineBlend := TGdipSetLineBlend(GetProcAddress(GdiPlusHandle, 'GdipSetLineBlend'));
+    GdipSetLinePresetBlend := TGdipSetLinePresetBlend(GetProcAddress(GdiPlusHandle, 'GdipSetLinePresetBlend'));
+    GdipSetLineWrapMode := TGdipSetLineWrapMode(GetProcAddress(GdiPlusHandle, 'GdipSetLineWrapMode'));
+    GdipSetLineGammaCorrection := TGdipSetLineGammaCorrection(GetProcAddress(GdiPlusHandle, 'GdipSetLineGammaCorrection'));
+
+    //---------- PathGradient 路径渐变画刷（非核心）----------
+    GdipCreatePathGradientFromPath := TGdipCreatePathGradientFromPath(GetProcAddress(GdiPlusHandle, 'GdipCreatePathGradientFromPath'));
+    GdipCreatePathGradient := TGdipCreatePathGradient(GetProcAddress(GdiPlusHandle, 'GdipCreatePathGradient'));
+    GdipSetPathGradientCenterColor := TGdipSetPathGradientCenterColor(GetProcAddress(GdiPlusHandle, 'GdipSetPathGradientCenterColor'));
+    GdipSetPathGradientSurroundColors := TGdipSetPathGradientSurroundColors(GetProcAddress(GdiPlusHandle, 'GdipSetPathGradientSurroundColors'));
+    GdipSetPathGradientPresetBlend := TGdipSetPathGradientPresetBlend(GetProcAddress(GdiPlusHandle, 'GdipSetPathGradientPresetBlend'));
+    GdipSetPathGradientCenterPoint := TGdipSetPathGradientCenterPoint(GetProcAddress(GdiPlusHandle, 'GdipSetPathGradientCenterPoint'));
+    GdipGetPathGradientSurroundColorsCount := TGdipGetPathGradientSurroundColorsCount(GetProcAddress(GdiPlusHandle, 'GdipGetPathGradientSurroundColorsCount'));
+
+    //---------- Clip 裁剪（非核心）----------
+    GdipSetClipPath := TGdipSetClipPath(GetProcAddress(GdiPlusHandle, 'GdipSetClipPath'));
+    GdipSetClipRect := TGdipSetClipRect(GetProcAddress(GdiPlusHandle, 'GdipSetClipRect'));
+    GdipResetClip := TGdipResetClip(GetProcAddress(GdiPlusHandle, 'GdipResetClip'));
+
+    //---------- Font 字体（非核心，允许缺失）----------
+    GdipCreateFontFromLogfontW := TGdipCreateFontFromLogfontW(GetProcAddress(GdiPlusHandle, 'GdipCreateFontFromLogfontW'));
+    GdipDeleteFont := TGdipDeleteFont(GetProcAddress(GdiPlusHandle, 'GdipDeleteFont'));
+
+    //---------- StringFormat 字符串格式（非核心）----------
+    GdipCreateStringFormat := TGdipCreateStringFormat(GetProcAddress(GdiPlusHandle, 'GdipCreateStringFormat'));
+    GdipDeleteStringFormat := TGdipDeleteStringFormat(GetProcAddress(GdiPlusHandle, 'GdipDeleteStringFormat'));
+    GdipSetStringFormatAlign := TGdipSetStringFormatAlign(GetProcAddress(GdiPlusHandle, 'GdipSetStringFormatAlign'));
+    GdipSetStringFormatLineAlign := TGdipSetStringFormatLineAlign(GetProcAddress(GdiPlusHandle, 'GdipSetStringFormatLineAlign'));
+
+    //---------- Text 文字绘制（非核心）----------
+    GdipDrawString := TGdipDrawString(GetProcAddress(GdiPlusHandle, 'GdipDrawString'));
+    GdipMeasureString := TGdipMeasureString(GetProcAddress(GdiPlusHandle, 'GdipMeasureString'));
+    GdipSetTextRenderingHint := TGdipSetTextRenderingHint(GetProcAddress(GdiPlusHandle, 'GdipSetTextRenderingHint'));
+
+    //---------- FontFamily & Path ----------
+    GdipCreateFontFamilyFromName := TGdipCreateFontFamilyFromName(GetProcAddress(GdiPlusHandle, 'GdipCreateFontFamilyFromName'));
+    GdipDeleteFontFamily := TGdipDeleteFontFamily(GetProcAddress(GdiPlusHandle, 'GdipDeleteFontFamily'));
+    GdipAddPathString := TGdipAddPathString(GetProcAddress(GdiPlusHandle, 'GdipAddPathString'));
+
+    // ── 第三步：关键函数指针完整性检查 ──
+    // 任何一个核心函数为 nil 说明 DLL 版本不匹配或损坏，
+    // 此时禁用 GDI+ 整体功能，防止后续调用引发 Access Violation。
+    // GdipGetPathPointCount / GdipCreateFontFromLogfontW / GdipDrawString
+    // 等非核心函数允许缺失（注释中已标记），消费方自行回退。
+    if not Assigned(GdiplusStartup) or not Assigned(GdiplusShutdown) or
+       not Assigned(GdipCreateFromHDC) or not Assigned(GdipDeleteGraphics) or
+       not Assigned(GdipCreatePen1) or not Assigned(GdipDeletePen) or
+       not Assigned(GdipCreateSolidFill) or not Assigned(GdipDeleteBrush) or
+       not Assigned(GdipCreatePath) or not Assigned(GdipDeletePath) or
+       not Assigned(GdipDrawLineI) or not Assigned(GdipFillPath) or
+       not Assigned(GdipDrawPath) or not Assigned(GdipCreateMatrix) or
+       not Assigned(GdipDeleteMatrix) then
+    begin
+      // 置零句柄，使 CnStartUpGdiPlus 直接退出，CnGdiPlusAvailable 保持 False
+      {$IFNDEF SUPPORT_GDIPLUS}
+      FreeLibrary(GdiPlusHandle);
+      {$ENDIF}
+      GdiPlusHandle := 0;
+    end
+    else
+    begin
+      // ── 第四步：EXE 项目自动初始化 GDI+ 令牌 ──
+      if not IsLibrary then
+        CnStartUpGdiPlus;
+    end;
   end;
 
 finalization
-  if GdiPlusHandle <> 0 then
-    FreeLibrary(GdiPlusHandle);
+  if CnGdiPlusAvailable then
+    CnShutDownGdiPlus;
 
-{$ENDIF}
+  {$IFNDEF SUPPORT_GDIPLUS}
+  // 仅动态路径需要释放 DLL；静态路径由 Delphi 运行时管理
+  if GdiPlusHandle <> 0 then
+  begin
+    FreeLibrary(GdiPlusHandle);
+    GdiPlusHandle := 0;
+  end;
+  {$ENDIF}
+
 {$ENDIF}
 
 end.

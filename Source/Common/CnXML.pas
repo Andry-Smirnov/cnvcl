@@ -1008,6 +1008,16 @@ uses
   CnWideStrings;
 {$ENDIF}
 
+resourcestring
+  SCnErrorExpectedStartTagOrEmptyTag = 'Expected Start Tag or Empty Tag';
+  SCnErrorExpectedEndTag = 'Expected End Tag';
+  SCnErrorTagMismatchExpectedFmt = 'Tag Mismatch: Expected </ %s > but Got </ %s >';
+  SCnErrorUnexpectedTokenInContent = 'Unexpected Token in Content';
+  SCnErrorExpectedRootElement = 'Expected Root Element';
+  SCnErrorRootNodeNotInitialized = 'Root Node Not Initialized';
+  SCnErrorDocumentNotLoaded = 'Document Not Loaded';
+  SCnErrorRootNodeNotFound = 'Root Node Not Found';
+
 //==============================================================================
 // ECnXMLException Implementation
 //==============================================================================
@@ -1451,6 +1461,45 @@ begin
       NextChar;  // Skip '['
       Result.TokenType := xttCData;
       Result.Value := ReadCData;
+      Exit;
+    end;
+
+    // DOCTYPE and other <!...> declarations (e.g. <!DOCTYPE ...>, <!ENTITY ...>)
+    // XML specification: document type declaration starts with <! and ends with >
+    // Skip entirely - SVG rendering does not need DTD validation.
+    if FCurrentChar = '!' then
+    begin
+      NextChar;  // Skip '!'
+      // Skip until matching '>', respecting quoted strings
+      while (FCurrentChar <> #0) do
+      begin
+        if FCurrentChar = '"' then
+        begin
+          NextChar;
+          while (FCurrentChar <> #0) and (FCurrentChar <> '"') do
+            NextChar;
+          if FCurrentChar = '"' then
+            NextChar;
+        end
+        else if FCurrentChar = '''' then
+        begin
+          NextChar;
+          while (FCurrentChar <> #0) and (FCurrentChar <> '''') do
+            NextChar;
+          if FCurrentChar = '''' then
+            NextChar;
+        end
+        else if FCurrentChar = '>' then
+        begin
+          NextChar;
+          Break;
+        end
+        else
+          NextChar;
+      end;
+      // Treat as comment so parser auto-skips it (same as xttComment)
+      Result.TokenType := xttComment;
+      Result.Value := '';
       Exit;
     end;
 
@@ -2647,7 +2696,7 @@ var
 begin
   // Expect start tag or empty tag
   if not (FCurrentToken.TokenType in [xttStartTag, xttEmptyTag]) then
-    RaiseError('Expected start tag or empty tag');
+    RaiseError(SCnErrorExpectedStartTagOrEmptyTag);
 
   TagName := FCurrentToken.Value;
 
@@ -2684,13 +2733,11 @@ begin
 
   // Expect end tag
   if FCurrentToken.TokenType <> xttEndTag then
-    RaiseError('Expected end tag');
+    RaiseError(SCnErrorExpectedEndTag);
 
   if FCurrentToken.Value <> TagName then
-    raise ECnXMLException.Create('Tag mismatch: expected </' + TagName + '> but got </' +
-                                 FCurrentToken.Value + '>',
-                                 CN_XML_ERR_TAG_MISMATCH,
-                                 FCurrentToken.Line, FCurrentToken.Column);
+    raise ECnXMLException.Create(Format(SCnErrorTagMismatchExpectedFmt, [TagName, FCurrentToken.Value]),
+      CN_XML_ERR_TAG_MISMATCH, FCurrentToken.Line, FCurrentToken.Column);
 
   NextToken;
 end;
@@ -2740,7 +2787,7 @@ begin
         Break;  // End of content
 
     else
-      RaiseError('Unexpected token in content');
+      RaiseError(SCnErrorUnexpectedTokenInContent);
     end;
   end;
 end;
@@ -2765,7 +2812,7 @@ begin
       FDocument.DocumentElement := TCnXMLElement(FDocument.FirstChild);
     end
     else
-      RaiseError('Expected root element');
+      RaiseError(SCnErrorExpectedRootElement);
 
     Result := FDocument;
   except
@@ -3221,7 +3268,7 @@ begin
   if FUseDataNode then
   begin
     if FRootNode = nil then
-      raise ECnXMLException.Create('Root node not initialized', CN_XML_ERR_INVALID_OPERATION, 0, 0);
+      raise ECnXMLException.Create(SCnErrorRootNodeNotInitialized, CN_XML_ERR_INVALID_OPERATION, 0, 0);
 
     NodeList := FRootNode.GetElementsByTagName(CName);
     try
@@ -3323,12 +3370,12 @@ end;
 procedure TCnXMLReader.FindRootNode;
 begin
   if FDocument = nil then
-    raise ECnXMLException.Create('Document not loaded', CN_XML_ERR_INVALID_OPERATION, 0, 0);
+    raise ECnXMLException.Create(SCnErrorDocumentNotLoaded, CN_XML_ERR_INVALID_OPERATION, 0, 0);
 
   if FDocument.DocumentElement <> nil then
     FRootNode := FDocument.DocumentElement
   else
-    raise ECnXMLException.Create('Root node not found', CN_XML_ERR_MISSING_ROOT, 0, 0);
+    raise ECnXMLException.Create(SCnErrorRootNodeNotFound, CN_XML_ERR_MISSING_ROOT, 0, 0);
 end;
 
 procedure TCnXMLReader.SetPropertyValue(Obj: TPersistent; const PropName, PropValue: string; PProp: PPropInfo);

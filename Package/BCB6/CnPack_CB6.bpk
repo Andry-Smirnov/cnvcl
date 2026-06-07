@@ -33,6 +33,7 @@
       ..\..\Source\Common\CnIni.obj 
       ..\..\Source\Common\CnIniCfg.obj 
       ..\..\Source\Common\CnIniStrUtils.obj 
+      ..\..\Source\Common\CnIntfMethodHook.obj 
       ..\..\Source\Common\CnJSON.obj 
       ..\..\Source\Common\CnLinkedList.obj 
       ..\..\Source\Common\CnLockFree.obj 
@@ -69,6 +70,7 @@
       ..\..\Source\Crypto\CnBits.obj 
       ..\..\Source\Crypto\CnBLAKE.obj 
       ..\..\Source\Crypto\CnBLAKE2.obj 
+      ..\..\Source\Crypto\CnBLAKE3.obj 
       ..\..\Source\Crypto\CnCertificateAuthority.obj 
       ..\..\Source\Crypto\CnComplex.obj 
       ..\..\Source\Crypto\CnCRC32.obj 
@@ -100,6 +102,7 @@
       ..\..\Source\Crypto\CnSHA1.obj 
       ..\..\Source\Crypto\CnSHA2.obj 
       ..\..\Source\Crypto\CnSHA3.obj 
+      ..\..\Source\Crypto\CnSLHDSA.obj 
       ..\..\Source\Crypto\CnSM2.obj 
       ..\..\Source\Crypto\CnSM3.obj 
       ..\..\Source\Crypto\CnSM4.obj 
@@ -235,6 +238,7 @@
       ..\..\Source\NonVisual\CnOuterControls.obj 
       ..\..\Source\NonVisual\CnRawInput.obj 
       ..\..\Source\NonVisual\CnRestoreSystemMenu.obj 
+      ..\..\Source\NonVisual\CnStdio.obj 
       ..\..\Source\NonVisual\CnSystemDebugControl.obj 
       ..\..\Source\NonVisual\CnTaskBar.obj 
       ..\..\Source\NonVisual\CnThreadPool.obj 
@@ -335,6 +339,7 @@
       <FILE FILENAME="..\..\Source\Common\CnIni.pas" FORMNAME="" UNITNAME="CnIni" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Common\CnIniCfg.pas" FORMNAME="" UNITNAME="CnIniCfg" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Common\CnIniStrUtils.pas" FORMNAME="" UNITNAME="CnIniStrUtils" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
+      <FILE FILENAME="..\..\Source\Common\CnIntfMethodHook.pas" FORMNAME="" UNITNAME="CnIntfMethodHook" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Common\CnJSON.pas" FORMNAME="" UNITNAME="CnJSON" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Common\CnLinkedList.pas" FORMNAME="" UNITNAME="CnLinkedList" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Common\CnLockFree.pas" FORMNAME="" UNITNAME="CnLockFree" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
@@ -372,6 +377,7 @@
       <FILE FILENAME="..\..\Source\Crypto\CnBits.pas" FORMNAME="" UNITNAME="CnBits" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnBLAKE.pas" FORMNAME="" UNITNAME="CnBLAKE" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnBLAKE2.pas" FORMNAME="" UNITNAME="CnBLAKE2" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
+      <FILE FILENAME="..\..\Source\Crypto\CnBLAKE3.pas" FORMNAME="" UNITNAME="CnBLAKE3" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnCertificateAuthority.pas" FORMNAME="" UNITNAME="CnCertificateAuthority" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnComplex.pas" FORMNAME="" UNITNAME="CnComplex" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnCRC32.pas" FORMNAME="" UNITNAME="CnCRC32" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
@@ -403,6 +409,7 @@
       <FILE FILENAME="..\..\Source\Crypto\CnSHA1.pas" FORMNAME="" UNITNAME="CnSHA1" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnSHA2.pas" FORMNAME="" UNITNAME="CnSHA2" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnSHA3.pas" FORMNAME="" UNITNAME="CnSHA3" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
+      <FILE FILENAME="..\..\Source\Crypto\CnSLHDSA.pas" FORMNAME="" UNITNAME="CnSLHDSA" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnSM2.pas" FORMNAME="" UNITNAME="CnSM2" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnSM3.pas" FORMNAME="" UNITNAME="CnSM3" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Crypto\CnSM4.pas" FORMNAME="" UNITNAME="CnSM4" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
@@ -538,6 +545,7 @@
       <FILE FILENAME="..\..\Source\NonVisual\CnOuterControls.pas" FORMNAME="" UNITNAME="CnOuterControls" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\NonVisual\CnRawInput.pas" FORMNAME="" UNITNAME="CnRawInput" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\NonVisual\CnRestoreSystemMenu.pas" FORMNAME="" UNITNAME="CnRestoreSystemMenu" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
+      <FILE FILENAME="..\..\Source\NonVisual\CnStdio.pas" FORMNAME="" UNITNAME="CnStdio" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\NonVisual\CnSystemDebugControl.pas" FORMNAME="" UNITNAME="CnSystemDebugControl" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\NonVisual\CnTaskBar.pas" FORMNAME="" UNITNAME="CnTaskBar" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\NonVisual\CnThreadPool.pas" FORMNAME="" UNITNAME="CnThreadPool" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>

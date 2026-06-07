@@ -392,7 +392,17 @@ procedure PinAppToWin7Taskbar(const Path, App: string);
 
 {$ENDIF}
 
+{$IFDEF SUPPORT_UINT64}
+{$IFNDEF DELPHIXE6_UP}
+
+function TryStrToUInt64(const S: string; out Value: UInt64): Boolean;
+{* XE6 下才有尝试将字符串转为 UInt64 的函数，低版本下补一个}
+
+{$ENDIF}
+{$ENDIF}
+
 {$IFDEF COMPILER5}
+
 type
   TValueRelationship = -1..1;
 
@@ -402,14 +412,17 @@ function AnsiStartsText(const ASubText, AText: string): Boolean;
 {* AText 是否以 ASubText 开头 }
 
 function AnsiReplaceText(const AText, AFromText, AToText: string): string;
+
 {$ENDIF}
 
 function ReplaceAllInString(const S: string; OldPattern, NewPattern: string): string;
 {* StringReplace 无法处理字符串中的 #0，新写一个全替换的版本，不处理大小写}
 
 {$IFNDEF COMPILER7_UP}
+
 function AnsiContainsText(const AText, ASubText: string): Boolean;
 {* AText 是否包含 ASubText }
+
 {$ENDIF}
 
 function AnsiCompareTextPos(const ASubText, AText1, AText2: string): TValueRelationship;
@@ -656,7 +669,7 @@ function StrContainsRegExpr(const Str: string): Boolean;
 function BoolToStr(B: Boolean; UseBoolStrs: Boolean = False): string;
 {* Delphi 5 没有实现布尔型转换为字符串，类似于Delphi 6/7 的实现}
 
-{$ENDIF COMPILER5}
+{$ENDIF}
 
 function LinesToStr(const Lines: string): string;
 {* 多行文本转单行（换行符转'\n'）}
@@ -739,6 +752,15 @@ function ExtractSubstr(const S: string; var Pos: Integer;
 function WildcardCompare(const FileWildcard, FileName: string; const IgnoreCase:
   Boolean = True): Boolean;
 {* 文件名通配符比较}
+
+function GlobMatch(const Pattern, FileName: string): Boolean;
+{* Glob 式模式匹配，支持 ** 跨目录匹配。
+   ** 匹配任意目录层，* 匹配单个目录层内的任意字符，? 匹配单个字符。
+
+   示例：
+     "**/*.pas"       匹配任意目录下的 .pas 文件
+     "src/**/*.h"     匹配 src/ 下递归目录中的 .h 文件
+     "Forms/Form*.pas" 匹配 Forms/ 目录中 Form 开头的 .pas 文件 }
 
 {$IFDEF MSWINDOWS}
 
@@ -3524,7 +3546,7 @@ end;
 function SetFileDate(const FileName: string; CreationTime, LastWriteTime, LastAccessTime:
   TFileTime): Boolean;
 var
-  FileHandle: Integer;
+  FileHandle: THandle;
 begin
   FileHandle := FileOpen(FileName, fmOpenWrite or fmShareDenyNone);
   if FileHandle > 0 then
@@ -3541,7 +3563,7 @@ end;
 function GetFileDate(const FileName: string; var CreationTime, LastWriteTime, LastAccessTime:
   TFileTime): Boolean;
 var
-  FileHandle: Integer;
+  FileHandle: THandle;
 begin
   FileHandle := FileOpen(FileName, fmOpenRead or fmShareDenyNone);
   if FileHandle > 0 then
@@ -3556,21 +3578,19 @@ end;
 
 // 取得与文件相关的图标
 // FileName: e.g. "e:\hao\a.txt"
-// 成功则返回True
+// 成功则返回 True
 function GetFileIcon(const FileName: string; var Icon: TIcon): Boolean;
 var
   SHFileInfo: TSHFileInfo;
-  h: HWND;
+  H: HWND;
 begin
   if not Assigned(Icon) then
     Icon := TIcon.Create;
-  h := SHGetFileInfo(PChar(FileName),
-    0,
-    SHFileInfo,
-    SizeOf(SHFileInfo),
-    SHGFI_ICON or SHGFI_SYSICONINDEX);
+
+  H := SHGetFileInfo(PChar(FileName), 0, SHFileInfo,
+    SizeOf(SHFileInfo), SHGFI_ICON or SHGFI_SYSICONINDEX);
   Icon.Handle := SHFileInfo.hIcon;
-  Result := (h <> 0);
+  Result := (H <> 0);
 end;
 
 // 文件时间转本地日期时间
@@ -3676,7 +3696,22 @@ end;
 
 {$ENDIF}
 
+{$IFDEF SUPPORT_UINT64}
+{$IFNDEF DELPHIXE6_UP}
+
+function TryStrToUInt64(const S: string; out Value: UInt64): Boolean;
+var
+  E: Integer;
+begin
+  Val(S, Value, E);
+  Result := E = 0;
+end;
+
+{$ENDIF}
+{$ENDIF}
+
 {$IFDEF COMPILER5}
+
 const
   LessThanValue = Low(TValueRelationship);
   EqualsValue = 0;
@@ -3702,6 +3737,7 @@ function AnsiReplaceText(const AText, AFromText, AToText: string): string;
 begin
   Result := StringReplace(AText, AFromText, AToText, [rfReplaceAll, rfIgnoreCase]);
 end;
+
 {$ENDIF}
 
 // StringReplace 无法处理字符串中的 #0，新写一个全替换的版本，不处理大小写}
@@ -5112,7 +5148,7 @@ begin
     Result := cSimpleBoolStrs[B];
 end;
 
-{$ENDIF COMPILER5}
+{$ENDIF}
 
 // 多行文本转单行（换行符转'\n'）
 function LinesToStr(const Lines: string): string;
@@ -5645,6 +5681,88 @@ begin
   Result := WildCompare(NameWild, NameFile) and WildCompare(ExtWild, ExtFile);
 end;
 
+function GlobMatch(const Pattern, FileName: string): Boolean;
+
+  function MatchSegments(PatternSegs, NameSegs: TStringList; PIdx, NIdx: Integer): Boolean;
+  var
+    I: Integer;
+    Seg: string;
+  begin
+    Result := False;
+    // 两个都到头 => 匹配
+    if (PIdx >= PatternSegs.Count) and (NIdx >= NameSegs.Count) then
+    begin
+      Result := True;
+      Exit;
+    end;
+    // Pattern 到头但名字还有 => 不匹配
+    if PIdx >= PatternSegs.Count then
+      Exit;
+    // 名字到头但 Pattern 还有 => 仅当剩余 Pattern 全是 ** 时匹配
+    if NIdx >= NameSegs.Count then
+    begin
+      for I := PIdx to PatternSegs.Count - 1 do
+        if PatternSegs[I] <> '**' then
+          Exit;
+      Result := True;
+      Exit;
+    end;
+
+    Seg := PatternSegs[PIdx];
+    if Seg = '**' then
+    begin
+      // ** 匹配 0 个或多个段
+      // 尝试匹配 0 个段
+      if MatchSegments(PatternSegs, NameSegs, PIdx + 1, NIdx) then
+      begin
+        Result := True;
+        Exit;
+      end;
+      // 尝试匹配当前段并继续用 **
+      if MatchSegments(PatternSegs, NameSegs, PIdx, NIdx + 1) then
+      begin
+        Result := True;
+        Exit;
+      end;
+    end
+    else
+    begin
+      // 普通段：用 WildcardCompare 匹配
+      if not WildcardCompare(Seg, NameSegs[NIdx], True) then
+        Exit;
+      Result := MatchSegments(PatternSegs, NameSegs, PIdx + 1, NIdx + 1);
+    end;
+  end;
+
+var
+  PatternSegs, NameSegs: TStringList;
+  Sep: Char;
+begin
+  Result := False;
+  // 确定路径分隔符
+  if Pos('/', Pattern) > 0 then
+    Sep := '/'
+  else if Pos('\', Pattern) > 0 then
+    Sep := '\'
+  else
+  begin
+    // 无路径分隔符，直接使用 WildcardCompare
+    Result := WildcardCompare(Pattern, FileName, True);
+    Exit;
+  end;
+
+  PatternSegs := TStringList.Create;
+  NameSegs := TStringList.Create;
+  try
+    ExtractStrings([Sep], [], PChar(Pattern), PatternSegs);
+    ExtractStrings([Sep], [], PChar(FileName), NameSegs);
+    Result := MatchSegments(PatternSegs, NameSegs, 0, 0);
+  finally
+    NameSegs.Free;
+    PatternSegs.Free;
+  end;
+end;
+
 {$IFDEF MSWINDOWS}
 
 // 根据当前键盘布局将键盘扫描码转换成 ASCII 字符，可在 WM_KEYDOWN 等处使用
@@ -6170,6 +6288,7 @@ begin
 
   Form := TForm.Create(Application);
   with Form do
+  begin
     try
       Scaled := False;
       Font.Handle := GetStockObject(DEFAULT_GUI_FONT);
@@ -6177,7 +6296,7 @@ begin
       DialogUnits := GetAveCharSize(Canvas);
       BorderStyle := bsDialog;
       Caption := ACaption;
-      ClientWidth := MulDiv(180, DialogUnits.X, 4);
+      ClientWidth := MulDiv(200, DialogUnits.X, 4);
       ClientHeight := MulDiv(63, DialogUnits.Y, 8);
       Position := poScreenCenter;
 
@@ -6199,7 +6318,7 @@ begin
           Parent := Form;
           Left := Prompt.Left;
           Top := MulDiv(19, DialogUnits.Y, 8);
-          Width := MulDiv(164, DialogUnits.X, 4);
+          Width := MulDiv(184, DialogUnits.X, 4);
           // MaxLength := 1024;
           ReadStringsFromIni(Ini, Section, ComboBox.Items);
           if (Value = '') and (ComboBox.Items.Count > 0) then
@@ -6217,7 +6336,7 @@ begin
           Parent := Form;
           Left := Prompt.Left;
           Top := MulDiv(19, DialogUnits.Y, 8);
-          Width := MulDiv(164, DialogUnits.X, 4);
+          Width := MulDiv(184, DialogUnits.X, 4);
           // MaxLength := 1024;
           if APassword then
             PasswordChar := '*';
@@ -6236,7 +6355,7 @@ begin
         Caption := SCnMsgDlgOK;
         ModalResult := mrOk;
         Default := True;
-        SetBounds(MulDiv(38, DialogUnits.X, 4), ButtonTop, ButtonWidth,
+        SetBounds(MulDiv(48, DialogUnits.X, 4), ButtonTop, ButtonWidth,
           ButtonHeight);
       end;
 
@@ -6246,7 +6365,7 @@ begin
         Caption := SCnMsgDlgCancel;
         ModalResult := mrCancel;
         Cancel := True;
-        SetBounds(MulDiv(92, DialogUnits.X, 4), ButtonTop, ButtonWidth,
+        SetBounds(MulDiv(102, DialogUnits.X, 4), ButtonTop, ButtonWidth,
           ButtonHeight);
       end;
 
@@ -6282,6 +6401,7 @@ begin
 {$ENDIF}
       Form.Free;
     end;
+  end;
 end;
 
 {$ENDIF}
@@ -8101,7 +8221,7 @@ function AdjustDebugPrivilege(Enable: Boolean): Boolean;
 var
   Token: THandle;
 
-  function InternalEnablePrivilege(Token: Cardinal; PrivName: string; Enable: Boolean): Boolean;
+  function InternalEnablePrivilege(Token: THandle; PrivName: string; Enable: Boolean): Boolean;
   var
     TP {$IFDEF FPC}, Prev {$ENDIF}: TOKEN_PRIVILEGES;
     Dummy: Cardinal;

@@ -8,8 +8,8 @@
       ..\..\..\Source\Crypto\CnAES.obj ..\..\..\Source\Crypto\CnBase64.obj 
       ..\..\..\Source\Crypto\CnBerUtils.obj ..\..\..\Source\Crypto\CnBigNumber.obj 
       ..\..\..\Source\Crypto\CnBits.obj ..\..\..\Source\Crypto\CnBLAKE.obj 
-      ..\..\..\Source\Crypto\CnBLAKE2.obj ..\..\..\Source\Crypto\CnCalendar.obj 
-      ..\..\..\Source\Crypto\CnCertificateAuthority.obj 
+      ..\..\..\Source\Crypto\CnBLAKE2.obj ..\..\..\Source\Crypto\CnBLAKE3.obj 
+      ..\..\..\Source\Crypto\CnCalendar.obj ..\..\..\Source\Crypto\CnCertificateAuthority.obj 
       ..\..\..\Source\Crypto\CnChaCha20.obj ..\..\..\Source\Crypto\CnComplex.obj 
       ..\..\..\Source\Crypto\CnCRC32.obj ..\..\..\Source\Crypto\CnDES.obj 
       ..\..\..\Source\Crypto\CnDFT.obj ..\..\..\Source\Crypto\CnECC.obj 
@@ -26,10 +26,10 @@
       ..\..\..\Source\Crypto\CnRC4.obj ..\..\..\Source\Crypto\CnRSA.obj 
       ..\..\..\Source\Crypto\CnSecretSharing.obj ..\..\..\Source\Crypto\CnSHA1.obj 
       ..\..\..\Source\Crypto\CnSHA2.obj ..\..\..\Source\Crypto\CnSHA3.obj 
-      ..\..\..\Source\Crypto\CnSM2.obj ..\..\..\Source\Crypto\CnSM3.obj 
-      ..\..\..\Source\Crypto\CnSM4.obj ..\..\..\Source\Crypto\CnSM9.obj 
-      ..\..\..\Source\Crypto\CnTEA.obj ..\..\..\Source\Crypto\CnVector.obj 
-      ..\..\..\Source\Crypto\CnXXH.obj 
+      ..\..\..\Source\Crypto\CnSLHDSA.obj ..\..\..\Source\Crypto\CnSM2.obj 
+      ..\..\..\Source\Crypto\CnSM3.obj ..\..\..\Source\Crypto\CnSM4.obj 
+      ..\..\..\Source\Crypto\CnSM9.obj ..\..\..\Source\Crypto\CnTEA.obj 
+      ..\..\..\Source\Crypto\CnVector.obj ..\..\..\Source\Crypto\CnXXH.obj 
       ..\..\..\Source\Crypto\CnZUC.obj ..\..\..\Source\Common\CnBigDecimal.obj 
       ..\..\..\Source\Common\CnBigRational.obj 
       ..\..\..\Source\Common\CnConsts.obj ..\..\..\Source\Common\CnContainers.obj 

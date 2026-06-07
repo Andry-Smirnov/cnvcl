@@ -11,6 +11,7 @@ object FormOneTimePassword: TFormOneTimePassword
   Font.Name = 'MS Sans Serif'
   Font.Style = []
   OldCreateOrder = False
+  OnDestroy = FormDestroy
   PixelsPerInch = 96
   TextHeight = 13
   object btnGenerate: TButton
@@ -39,5 +40,51 @@ object FormOneTimePassword: TFormOneTimePassword
     Caption = 'Generate TOTP rfc6238'
     TabOrder = 2
     OnClick = btnGen3Click
+  end
+  object grpTOTP: TGroupBox
+    Left = 24
+    Top = 176
+    Width = 289
+    Height = 321
+    Caption = 'TOTP Authenticator(SHA1)'
+    TabOrder = 3
+    object lblTOTP: TLabel
+      Left = 32
+      Top = 32
+      Width = 108
+      Height = 13
+      Caption = 'TOTP Secret(Base32):'
+    end
+    object edtTOTPSecret: TEdit
+      Left = 32
+      Top = 64
+      Width = 169
+      Height = 21
+      TabOrder = 0
+    end
+    object btnTOTPGen: TButton
+      Left = 30
+      Top = 104
+      Width = 75
+      Height = 25
+      Caption = 'Generate'
+      TabOrder = 1
+      OnClick = btnTOTPGenClick
+    end
+    object pnlTOTP: TPanel
+      Left = 32
+      Top = 152
+      Width = 209
+      Height = 81
+      BevelOuter = bvNone
+      Caption = '000000'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -32
+      Font.Name = 'MS Sans Serif'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 2
+    end
   end
 end

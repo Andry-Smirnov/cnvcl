@@ -77,12 +77,13 @@ type
     procedure SetLanguageID(Value: LongWord);
     procedure SetLanguageName(Value: TCnLangString);
     procedure DoLanguageIDChanged; virtual;
-
+{$IFNDEF MSWINDOWS}
     procedure ReadDefaultFontCharset(Reader: TReader);
     procedure ReadDefaultFontColor(Reader: TReader);
     procedure ReadDefaultFontHeight(Reader: TReader);
     procedure ReadDefaultFontName(Reader: TReader);
     procedure ReadDefaultFontStyle(Reader: TReader);
+{$ENDIF}
     procedure DefineProperties(Filer: TFiler); override;
   public
     constructor Create(Collection: TCollection); override;
@@ -263,6 +264,8 @@ begin
   FDefaultFont := TFont.Create;
 end;
 
+{$IFNDEF MSWINDOWS}
+
 // 读取并丢弃 VCL 特有的 Charset 属性
 procedure TCnLanguageItem.ReadDefaultFontCharset(Reader: TReader);
 begin
@@ -300,12 +303,14 @@ type
 // 读取并跳过 Style 属性
 procedure TCnLanguageItem.ReadDefaultFontStyle(Reader: TReader);
 begin
-{$IFDEF COMPILER5}
+{$IF DEFINE(COMPILER5) OR DEFINE(FPC)}
   TReaderAccess(Reader).SkipValue;
 {$ELSE}
   Reader.SkipValue;
 {$ENDIF}
 end;
+
+{$ENDIF}
 
 procedure TCnLanguageItem.DefineProperties(Filer: TFiler);
 begin

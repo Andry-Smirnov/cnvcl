@@ -75,6 +75,9 @@ const
   {* 编码转换遇到错误时的默认替换字符}
 
 type
+  ECnWideStringException = class(Exception);
+  {* 宽字符串相关异常}
+
 {$IFDEF UNICODE}
   TCnWideString = string;
 {$ELSE}
@@ -120,6 +123,7 @@ type
     FList: TList;
     FUseSingleLF: Boolean;
     FLoadFormat: TCnWideListFormat;
+    FWriteBOM: Boolean;
     function GetName(Index: Integer): WideString;
     function GetValue(const Name: WideString): WideString;
     procedure SetValue(const Name, Value: WideString);
@@ -162,6 +166,8 @@ type
     {* 控制 GetTextStr 时使用的换行是否是单个 #10 而不是常规的 #13#10}
     property LoadFormat: TCnWideListFormat read FLoadFormat;
     {* LoadFromStream 时识别出的格式}
+    property WriteBOM: Boolean read FWriteBOM write FWriteBOM;
+    {* 是否写 BOM 头}
   end;
 
   TCnWideCharDisplayWideLengthCalculator = function(AWChar: WideChar): Boolean;
@@ -530,6 +536,97 @@ function CnAnsiToUtf82(const Text: string): string;
    返回值：string                         - 返回转换后的 UTF-8 字符串
 }
 
+{$IFDEF COMPILER5}
+
+function WideCompareText(const S1, S2: WideString): Integer;
+{* Delphi 5 中没有宽字符串比较函数，此处补充实现一个。
+
+   参数：
+     const S1: WideString                 - 待比较的宽字符串一
+     const S2: WideString                 - 待比较的宽字符串二
+
+   返回值：Integer                        - 返回比较结果
+
+}
+
+{$ENDIF}
+
+// =============================================================================
+//
+// 文件编码检测相关
+//
+// =============================================================================
+
+type
+  TCnFileEncoding = (cfeUnknown, cfeUtf8, cfeUtf8Bom, cfeUtf16LE, cfeUtf16BE, cfeAnsi);
+  {* 文件编码类型。
+
+     cfeUnknown                           - 未知编码
+     cfeUtf8                              - UTF-8 无 BOM
+     cfeUtf8Bom                           - UTF-8 with BOM
+     cfeUtf16LE                           - UTF-16 Little Endian
+     cfeUtf16BE                           - UTF-16 Big Endian
+     cfeAnsi                              - 系统代码页编码（非 Unicode）
+  }
+
+function CnDetectFileEncoding(const Bytes: TBytes): TCnFileEncoding;
+{* 从字节数组检测文件编码。检测优先级：BOM → UTF-8 启发式 → Ansi。
+   仅检查前 4 字节的 BOM 标记，无 BOM 时做 UTF-8 合法性检查。
+
+   参数：
+     const Bytes: TBytes                  - 文件内容的字节数组
+
+   返回值：TCnFileEncoding                - 检测到的编码类型
+}
+
+function CnIsValidUtf8(const Bytes: TBytes): Boolean;
+{* 启发式判断字节数组是否为合法的 UTF-8 序列。遍历每个字节检查 UTF-8 编码规范：
+   - 单字节：0xxxxxxx
+   - 双字节：110xxxxx 10xxxxxx
+   - 三字节：1110xxxx 10xxxxxx 10xxxxxx
+   - 四字节：11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+
+   参数：
+     const Bytes: TBytes                  - 待检测的字节数组
+
+   返回值：Boolean                        - True 表示合法 UTF-8 序列
+}
+
+function CnStripBomBytes(const Bytes: TBytes): TBytes;
+{* 移除字节数组开头的 BOM 前缀（UTF-8 BOM #EF#BB#BF / UTF-16 LE BOM #FF#FE / UTF-16 BE BOM #FE#FF）。
+   无 BOM 时返回原始数组副本。
+
+   参数：
+     const Bytes: TBytes                  - 原始字节数组
+
+   返回值：TBytes                         - 去除 BOM 后的字节数组
+}
+
+// =============================================================================
+//
+// TBytes 与 string 编码转换（跨 Delphi 版本安全的 UTF-8 工具）
+//
+// =============================================================================
+
+function CnUtf8BytesToString(const Bytes: TBytes): string;
+{* 将 UTF-8 编码的字节数组转换为 string，支持 Unicode 和非 Unicode 编译器。
+   注意 Delphi 2007 或以下版本最终转换成 AnsiString 时可能丢字符。
+
+   参数：
+     const Bytes: TBytes                  - UTF-8 编码的字节数组
+
+   返回值：string                         - 转换后的字符串
+}
+
+function CnStringToUtf8Bytes(const S: string): TBytes;
+{* 将 string 转换为 UTF-8 编码的字节数组，支持 Unicode 和非 Unicode 编译器。
+
+   参数：
+     const S: string                      - 待转换的字符串
+
+   返回值：TBytes                         - UTF-8 编码的字节数组
+}
+
 implementation
 
 const
@@ -548,6 +645,7 @@ const
 
 resourcestring
   SCnErrorInvalidUtf8CharLength = 'More than UTF8-MB4 NOT Support.';
+  SCnErrorInvalidModeLength = 'More than UTF32 NOT Support.';
 
 { TCnWideStringList }
 
@@ -588,6 +686,9 @@ begin
   begin
     Clear;
     AddStrings(TCnWideStringList(Source));
+    FLoadFormat := TCnWideStringList(Source).LoadFormat;
+    FUseSingleLF := TCnWideStringList(Source).UseSingleLF;
+    FWriteBOM := TCnWideStringList(Source).WriteBOM;
     Exit;
   end;
   inherited Assign(Source);
@@ -611,6 +712,7 @@ begin
   inherited;
   FList := TList.Create;
   FLoadFormat := wlfUnicode;
+  FWriteBOM := True;
 end;
 
 procedure TCnWideStringList.CustomSort(Compare: TCnWideStringListSortCompare);
@@ -880,8 +982,11 @@ begin
   end
   else if AFormat = wlfUtf8 then
   begin
-    HeaderStr := #$EF#$BB#$BF;
-    Stream.WriteBuffer(Pointer(HeaderStr)^, Length(HeaderStr) * SizeOf(AnsiChar));
+    if FWriteBOM then
+    begin
+      HeaderStr := #$EF#$BB#$BF;
+      Stream.WriteBuffer(Pointer(HeaderStr)^, Length(HeaderStr) * SizeOf(AnsiChar));
+    end;
 {$IFDEF MSWINDOWS}
     Len := WideCharToMultiByte(CP_UTF8, 0, PWideChar(S), -1, nil, 0, nil, nil);
     SetLength(SA, Len);
@@ -893,8 +998,11 @@ begin
   end
   else if AFormat = wlfUnicode then
   begin
-    HeaderStr := #$FF#$FE;
-    Stream.WriteBuffer(Pointer(HeaderStr)^, Length(HeaderStr) * SizeOf(AnsiChar));
+    if FWriteBOM then
+    begin
+      HeaderStr := #$FF#$FE;
+      Stream.WriteBuffer(Pointer(HeaderStr)^, Length(HeaderStr) * SizeOf(AnsiChar));
+    end;
     Stream.WriteBuffer(Pointer(S)^, Length(S) * SizeOf(WideChar));
   end;
 end;
@@ -907,6 +1015,7 @@ begin
   Clear;
   P := Pointer(Value);
   if P <> nil then
+  begin
     while P^ <> #0 do
     begin
       Start := P;
@@ -916,6 +1025,7 @@ begin
       if P^ = #13 then Inc(P);
       if P^ = #10 then Inc(P);
     end;
+  end;
 end;
 
 procedure TCnWideStringList.SetValue(const Name, Value: WideString);
@@ -927,7 +1037,8 @@ begin
   begin
     if I < 0 then I := Add('');
     Put(I, Name + '=' + Value);
-  end else
+  end
+  else
   begin
     if I >= 0 then Delete(I);
   end;
@@ -1488,7 +1599,7 @@ begin
   else if B and $F8 = $F0 then // 1111 0xxx 10xxxxxx 10xxxxxx 10xxxxxx
     Result := 4
   else
-    raise Exception.Create(SCnErrorInvalidUtf8CharLength);
+    raise ECnWideStringException.Create(SCnErrorInvalidUtf8CharLength);
 end;
 
 // 计算 UTF-8 字符串转换成 WideSting 后指定 Wide 子串长度对应的 UTF-8 字符串长度，WideOffset 从 1 开始。
@@ -1814,7 +1925,7 @@ begin
     else if B and $F8 = $F0 then // 1111 0xxx 10xxxxxx 10xxxxxx 10xxxxxx
       ByteCount := 4
     else
-      raise Exception.Create('More than UTF32 NOT Support.');
+      raise ECnWideStringException.Create(SCnErrorInvalidModeLength);
 
     // 再计算出相应的宽字节字符
     case ByteCount of
@@ -1952,6 +2063,153 @@ begin
   {$ENDIF}
 {$ENDIF}
 {$ENDIF}
+end;
+
+// ===================== TCnFileEncoding 相关实现 ==============================
+
+function CnDetectFileEncoding(const Bytes: TBytes): TCnFileEncoding;
+begin
+  Result := cfeUnknown;
+  if Length(Bytes) = 0 then Exit;
+
+  // 检查 BOM
+  if Length(Bytes) >= 3 then
+  begin
+    if (Bytes[0] = $EF) and (Bytes[1] = $BB) and (Bytes[2] = $BF) then
+    begin
+      Result := cfeUtf8Bom;
+      Exit;
+    end;
+  end;
+
+  if Length(Bytes) >= 2 then
+  begin
+    if (Bytes[0] = $FF) and (Bytes[1] = $FE) then
+    begin
+      Result := cfeUtf16LE;
+      Exit;
+    end;
+    if (Bytes[0] = $FE) and (Bytes[1] = $FF) then
+    begin
+      Result := cfeUtf16BE;
+      Exit;
+    end;
+  end;
+
+  // 无 BOM，启发式检测 UTF-8
+  if CnIsValidUtf8(Bytes) then
+    Result := cfeUtf8
+  else
+    Result := cfeAnsi;
+end;
+
+function CnIsValidUtf8(const Bytes: TBytes): Boolean;
+var
+  I, Len, Remain: Integer;
+  B: Byte;
+begin
+  Result := True;
+  Len := Length(Bytes);
+  I := 0;
+  while I < Len do
+  begin
+    B := Bytes[I];
+    if B and $80 = 0 then
+      // 单字节: 0xxxxxxx
+      Inc(I)
+    else if B and $E0 = $C0 then
+    begin
+      // 双字节: 110xxxxx 10xxxxxx
+      Inc(I);
+      Remain := 1;
+    end
+    else if B and $F0 = $E0 then
+    begin
+      // 三字节: 1110xxxx 10xxxxxx 10xxxxxx
+      Inc(I);
+      Remain := 2;
+    end
+    else if B and $F8 = $F0 then
+    begin
+      // 四字节: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+      Inc(I);
+      Remain := 3;
+    end
+    else
+    begin
+      // 无效前缀
+      Result := False;
+      Exit;
+    end;
+
+    // 检查后续字节是否都是 10xxxxxx
+    while (Remain > 0) and (I < Len) do
+    begin
+      if Bytes[I] and $C0 <> $80 then
+      begin
+        Result := False;
+        Exit;
+      end;
+      Inc(I);
+      Dec(Remain);
+    end;
+
+    // 字节不足
+    if Remain > 0 then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+end;
+
+function CnStripBomBytes(const Bytes: TBytes): TBytes;
+var
+  Offset: Integer;
+begin
+  Offset := 0;
+  if Length(Bytes) >= 3 then
+  begin
+    if (Bytes[0] = $EF) and (Bytes[1] = $BB) and (Bytes[2] = $BF) then
+      Offset := 3;
+  end;
+  if (Offset = 0) and (Length(Bytes) >= 2) then
+  begin
+    if ((Bytes[0] = $FF) and (Bytes[1] = $FE))
+      or ((Bytes[0] = $FE) and (Bytes[1] = $FF)) then
+      Offset := 2;
+  end;
+
+  if Offset > 0 then
+  begin
+    SetLength(Result, Length(Bytes) - Offset);
+    if Length(Result) > 0 then
+      Move(Bytes[Offset], Result[0], Length(Result));
+  end
+  else
+    Result := Copy(Bytes);
+end;
+
+// ================= TBytes 与 string 之间的转换实现 ===========================
+
+function CnUtf8BytesToString(const Bytes: TBytes): string;
+var
+  Utf8Str: AnsiString;
+begin
+  SetLength(Utf8Str, Length(Bytes));
+  if Length(Bytes) > 0 then
+    Move(Bytes[0], Utf8Str[1], Length(Bytes));
+  Result := string(CnUtf8DecodeToWideString(Utf8Str));
+end;
+
+function CnStringToUtf8Bytes(const S: string): TBytes;
+var
+  Utf8Str: AnsiString;
+begin
+  Utf8Str := CnUtf8EncodeWideString(TCnWideString(S));
+  SetLength(Result, Length(Utf8Str));
+  if Length(Utf8Str) > 0 then
+    Move(Utf8Str[1], Result[0], Length(Utf8Str));
 end;
 
 end.

@@ -51,17 +51,29 @@ type
   TLangTransFilter = (tfFont, tfCaption, tfCategory, tfHelpKeyword, tfHint,
     tfText, tfImeName, tfTitle, tfDefaultExt, tfFilter, tfInitialDir,
     tfSubItemsText, tfOthers);
+  {* 过滤器集合}
 
   TLangTransFilterSet = set of TLangTransFilter;
+  {* 过滤器集合}
+
+  TCnNoNameProcessType = (cnptIndex, cnptAtClassName);
+  {* 无组件名时，使用组件索引还是 @组件类名作为引用}
 
   TCnLangAllowItemEvent = procedure (AObject: TObject; const PropName: string; var Allow: Boolean) of object;
+  {* 遍历某条目时触发的事件，事件处理程序中给 Allow 赋值 False 代表忽略该条目。
+    注意 PropName 可能为空，代表此轮仅检查该 Object，后续可能有多轮重复调用。
+    PropName 不为空时，对应的属性类型不一定是 String，可能是 Items 以及其他 Object}
 
   TCnLangStringExtractor = class
   private
     FFilterOptions: TLangTransFilterSet;
     FOnAllowItem: TCnLangAllowItemEvent;
     FSkipEmptyComponentName: Boolean;
+    FIgnoreRootFont: Boolean;
+    FNoNameProcessType: TCnNoNameProcessType;
+    FForceFrameToForm: Boolean;
     function CRLFStringToBRString(const CRLFStr: string): string;
+    function GetComponentNameForLang(Comp: TComponent): string;
   protected
     function DoAllowItem(AObject: TObject; const PropName: string = ''): Boolean; virtual;
 
@@ -78,15 +90,23 @@ type
     {* 构造方法}
     procedure GetFormStrings(AForm: TComponent; Strings: TStrings; SkipEmptyStr: Boolean = False);
     {* 获得一 Form 上的所有字串，支持 VCL 和 FMX 的 Form
-      如 AForm 是设计期的独立 TFrame，行为如何？}
+      如 AForm 是设计期的独立 TFrame，则也能获取到类似于 TFrame1.Button1.Caption 这种字符串}
     procedure GetComponentStrings(AComponent: TComponent; Strings: TStrings;
       const BaseName: string = ''; SkipEmptyStr: Boolean = False);
     {* 获得一 Component 的所有字串 }
     procedure SetFilterOptions(const AFilterOptions: TLangTransFilterSet);
-    {* 设置过滤 *}
+    {* 设置过滤}
 
+    property FilterOptions: TLangTransFilterSet read FFilterOptions write SetFilterOptions;
+    {* 过滤选项}
     property SkipEmptyComponentName: Boolean read FSkipEmptyComponentName write FSkipEmptyComponentName;
     {* 是否跳过名称为空的组件，默认跳过}
+    property IgnoreRootFont: Boolean read FIgnoreRootFont write FIgnoreRootFont;
+    {* 是否不生成窗体字体}
+    property NoNameProcessType: TCnNoNameProcessType read FNoNameProcessType write FNoNameProcessType;
+    {* 无组件名时的引用方法，默认使用组件索引值}
+    property ForceFrameToForm: Boolean read FForceFrameToForm write FForceFrameToForm;
+    {* 是否强制将 GetFormStrings 的 AForm 参数当是 Frame 时当顶层 Form 处理，一般无需设置，内部自动判断}
     property OnAllowItem: TCnLangAllowItemEvent read FOnAllowItem write FOnAllowItem;
     {* 遍历某条目时触发的事件，事件处理程序中给 Allow 赋值 False 代表忽略该条目}
   end;
@@ -350,6 +370,19 @@ begin
   SetFilterOptions([]);
 end;
 
+function TCnLangStringExtractor.GetComponentNameForLang(Comp: TComponent): string;
+begin
+  if Comp.Name = '' then
+  begin
+    if FNoNameProcessType = cnptIndex then
+      Result := '[' + IntToStr(Comp.ComponentIndex) + ']'
+    else
+      Result := DefClassPrefix + Comp.ClassName;
+  end
+  else
+    Result := Comp.Name;
+end;
+
 function TCnLangStringExtractor.CRLFStringToBRString(
   const CRLFStr: string): string;
 begin
@@ -442,20 +475,20 @@ begin
           Exit;
       end;
 
+{$IFDEF DEBUG_MULTILANG}
+      CnDebugger.LogFmt('GetRecurComponentStrings for %s #%d Sub Components %s %s.',
+        [BaseName, I, GetComponentNameForLang(T), CnDebugger.ObjectAddressToString(T)]);
+{$ENDIF}
+
       if (AComponent is TCustomForm) // 是顶层 VCL Form 或 顶层 Frame
 {$IFDEF SUPPORT_FMX}
         or CnFmxIsInheritedFromCommonCustomForm(AComponent) // 还要加上 FMX 的顶层 FORM 判断
 {$ENDIF}
 {$IFDEF MSWINDOWS}
-        or ((AComponent is TCustomFrame) and IsTopDesignFrame(AComponent as TCustomFrame)) {$ENDIF} then
+        or ((AComponent is TCustomFrame) and (FForceFrameToForm or IsTopDesignFrame(AComponent as TCustomFrame))) {$ENDIF} then
         GetRecurComponentStrings(AOwner, T, AList, Strings, BaseName, SkipEmptyStr)
       else
-      begin
-        if AComponent.Name <> '' then
-          GetRecurComponentStrings(AOwner, T, AList, Strings, BaseName + DefDelimeter + AComponent.Name, SkipEmptyStr)
-        else
-          GetRecurComponentStrings(AOwner, T, AList, Strings, BaseName + DefDelimeter + '[' + IntToStr(AComponent.ComponentIndex) + ']', SkipEmptyStr)
-      end;
+        GetRecurComponentStrings(AOwner, T, AList, Strings, BaseName + DefDelimeter + GetComponentNameForLang(AComponent), SkipEmptyStr);
     end;
   end;
 end;
@@ -485,14 +518,6 @@ var
   procedure AddToStrings(const Str: string);
   begin
     Strings.Add(Str);
-  end;
-
-  function GetComponentNameForLang(Comp: TComponent): string;
-  begin
-    if Comp.Name = '' then
-      Result := '[' + IntToStr(Comp.ComponentIndex) + ']'
-    else
-      Result := Comp.Name;
   end;
 
 begin
@@ -671,8 +696,8 @@ begin
 {$IFDEF SUPPORT_FMX}
       or CnFmxIsInheritedFromCommonCustomForm(AObject)// 还要加上 FMX 的顶层 FORM 判断
 {$ENDIF}
-{$IFDEF MSWINDOWS}
-      or ((AObject is TCustomFrame) and IsTopDesignFrame(AObject as TCustomFrame)) {$ENDIF} ;
+{$IFDEF MSWINDOWS}                      // 外界有强制将 Frame 当成 Form 进行顶层抽取的机会
+      or ((AObject is TCustomFrame) and (FForceFrameToForm or IsTopDesignFrame(AObject as TCustomFrame))) {$ENDIF} ;
 
     try
       Data := GetTypeData(AObject.Classinfo);
@@ -811,6 +836,9 @@ begin
         if SubObj = nil then
           Continue;
 
+        if not DoAllowItem(AObject, APropName) then // 类似于 ComboBox1.Items 属性，先行判断
+          Continue;
+
         if (SubObj is TComponent) and (AOwner <> nil) and
           ((SubObj as TComponent).Owner = AOwner) then
         begin
@@ -820,7 +848,7 @@ begin
         begin
           if AList.IndexOf(SubObj) = -1 then
           begin
-            // 调用事件允许外部针对子对象过滤
+            // 调用事件允许外部针对子对象本身过滤
             if not DoAllowItem(SubObj) then
               Continue;
 
@@ -844,16 +872,19 @@ begin
                     AStr := BaseName + DefDelimeter + AStr;
 
                   AList.Add(SubObj);
+                  if not IsForm or not FIgnoreRootFont then
+                  begin
 {$IFDEF MSWINDOWS}
-                  AddToStrings(AStr + DefEqual + FontToStringEx(SubObj as TFont,
-                    GetParentFont(AObject as TComponent)));
+                    AddToStrings(AStr + DefEqual + FontToStringEx(SubObj as TFont,
+                      GetParentFont(AObject as TComponent)));
 {$ELSE}
-                  AddToStrings(AStr + DefEqual + FontToStringEx(SubObj as TFont,
-                    CnFmxGetControlParentFont(AObject as TComponent)));
+                    AddToStrings(AStr + DefEqual + FontToStringEx(SubObj as TFont,
+                      CnFmxGetControlParentFont(AObject as TComponent)));
 {$ENDIF}
+                  end;
                 end;
               end;
-            end // 不按常规处理 TControl的字体
+            end // 不按常规处理 TControl 的字体
             else if CnLanguageManager.TranslateOtherFont and (SubObj is TFont) then
             begin
               if (tfFont in FFilterOptions) then

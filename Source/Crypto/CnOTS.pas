@@ -1458,7 +1458,7 @@ begin
   begin
     // 检查掩码索引是否有效
     if I > High(Masks) then
-      raise Exception.Create(SCnErrorOTSInvalidParam);
+      raise ECnOTSException.Create(SCnErrorOTSInvalidParam);
 
     // WOTS+ 核心：KeyHash(k, x) = Hash(k ⊕ x)
     // 注意：这里使用掩码作为密钥，与当前值异或
@@ -1564,7 +1564,6 @@ var
   C: array[0..2] of Byte; // 3 个 4-bit 校验和块
   ComputedPublicKey: TCnWOTSPlusSM3PublicKey;
 begin
-  Result := False;
   try
     if (Data = nil) or (DataByteLen = 0) then
       Dig := SM3(nil, 0)
@@ -1650,7 +1649,7 @@ begin
   begin
     // 检查掩码索引是否有效
     if I > High(Masks) then
-      raise Exception.Create(SCnErrorOTSInvalidParam);
+      raise ECnOTSException.Create(SCnErrorOTSInvalidParam);
 
     // WOTS+ 核心：KeyHash(k, x) = Hash(k ⊕ x)
     // 注意：这里使用掩码作为密钥，与当前值异或
@@ -1756,7 +1755,6 @@ var
   C: array[0..2] of Byte; // 3 个 4-bit 校验和块
   ComputedPublicKey: TCnWOTSPlusSHA256PublicKey;
 begin
-  Result := False;
   try
     if (Data = nil) or (DataByteLen = 0) then
       Dig := SHA256(nil, 0)

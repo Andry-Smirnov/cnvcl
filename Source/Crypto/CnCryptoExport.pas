@@ -113,6 +113,7 @@ const
   CN_HASH_BLAKE512           = 23;
   CN_HASH_BLAKE2S            = 24;
   CN_HASH_BLAKE2B            = 25;
+  CN_HASH_BLAKE3             = 26;
   CN_HASH_XXH32              = 30;
   CN_HASH_XXH64              = 31;
   CN_CIPHER_AES128_CBC       = 1001;
@@ -163,6 +164,7 @@ const
   CN_ECC_KEY_PKCS8           = 2;
   CN_SM2_SEQ_C1C3C2          = 1;
   CN_SM2_SEQ_C1C2C3          = 2;
+  CN_SM2_C1_COMPRESS         = 4;
   CN_HASH_SHAKE128           = 40;
   CN_HASH_SHAKE256           = 41;
   CN_MLKEM_TYPE_512          = 5101;
@@ -211,6 +213,12 @@ function cn_base64url_encode(in_ptr: PByte; in_len: TCnSize; out_ptr: PByte; cap
   TCnSize; var out_len: TCnSize): TCnResult; cdecl;
 
 function cn_base64url_decode(in_ptr: PByte; in_len: TCnSize; out_ptr: PByte; cap:
+  TCnSize; var out_len: TCnSize): TCnResult; cdecl;
+
+function cn_base32_encode(in_ptr: PByte; in_len: TCnSize; out_ptr: PByte; cap:
+  TCnSize; var out_len: TCnSize): TCnResult; cdecl;
+
+function cn_base32_decode(in_ptr: PByte; in_len: TCnSize; out_ptr: PByte; cap:
   TCnSize; var out_len: TCnSize): TCnResult; cdecl;
 
 function cn_otp_hotp(seed: PByte; seed_len: TCnSize; counter: TUInt64; digits:
@@ -336,7 +344,7 @@ function cn_sm2_key_free(key: TCnCryptoHandle): TCnResult; cdecl;
 function cn_sm2_generate_keys(var out_priv: TCnCryptoHandle; var out_pub:
   TCnCryptoHandle): TCnResult; cdecl;
 
-function cn_sm2_encrypt(seq_type_id: TInt32; include_prefix: TBool32; pub:
+function cn_sm2_encrypt(seq_type_flag: TInt32; include_prefix: TBool32; pub:
   TCnCryptoHandle; in_ptr: PByte; in_len: TCnSize; out_ptr: PByte; cap: TCnSize;
   var out_len: TCnSize): TCnResult; cdecl;
 
@@ -2481,12 +2489,12 @@ begin
   Result := CN_OK;
 end;
 
-function cn_sm2_encrypt(seq_type_id: TInt32; include_prefix: TBool32; pub:
+function cn_sm2_encrypt(seq_type_flag: TInt32; include_prefix: TBool32; pub:
   TCnCryptoHandle; in_ptr: PByte; in_len: TCnSize; out_ptr: PByte; cap: TCnSize;
   var out_len: TCnSize): TCnResult; cdecl;
 var
   ST: TCnSM2CryptSequenceType;
-  IncludePrefix: Boolean;
+  IncludePrefix, C1Compress: Boolean;
   Plain: TBytes;
   En: TBytes;
 begin
@@ -2495,7 +2503,9 @@ begin
     Result := CN_E_INVALID_ARG;
     Exit;
   end;
-  case seq_type_id of
+  C1Compress := (seq_type_flag and CN_SM2_C1_COMPRESS) <> 0;
+
+  case seq_type_flag and 3 of
     CN_SM2_SEQ_C1C3C2:
       ST := cstC1C3C2;
     CN_SM2_SEQ_C1C2C3:
@@ -2508,7 +2518,7 @@ begin
   SetLength(Plain, in_len);
   if in_len > 0 then
     Move(in_ptr^, Plain[0], in_len);
-  En := CnSM2EncryptData(Plain, TCnSM2PublicKey(pub), nil, ST, IncludePrefix, '');
+  En := CnSM2EncryptData(Plain, TCnSM2PublicKey(pub), nil, ST, IncludePrefix, '', C1Compress);
   out_len := Length(En);
   if cap < out_len then
   begin
@@ -2809,7 +2819,7 @@ begin
   SetLength(BB, len);
   Move(a^, BA[0], len);
   Move(b^, BB[0], len);
-  if ConstTimeBytesEqual(BA, BB) then
+  if ConstTimeCompareBytes(BA, BB) then
     Result := 1
   else
     Result := 0;
@@ -2974,6 +2984,68 @@ begin
   Result := CN_OK;
 end;
 
+function cn_base32_encode(in_ptr: PByte; in_len: TCnSize; out_ptr: PByte; cap:
+  TCnSize; var out_len: TCnSize): TCnResult; cdecl;
+var
+  S: string;
+  R: Integer;
+begin
+  if (in_ptr = nil) and (in_len <> 0) then
+  begin
+    Result := CN_E_INVALID_ARG;
+    Exit;
+  end;
+  R := Base32Encode(in_ptr, in_len, S, False);
+  if R <> 0 then
+  begin
+    Result := CN_E_INTERNAL;
+    Exit;
+  end;
+  out_len := Length(S) * SizeOf(Char);
+  if cap < out_len then
+  begin
+    Result := CN_E_BUFFER_TOO_SMALL;
+    Exit;
+  end;
+  if out_len > 0 then
+    Move(S[1], out_ptr^, out_len);
+  Result := CN_OK;
+end;
+
+function cn_base32_decode(in_ptr: PByte; in_len: TCnSize; out_ptr: PByte; cap:
+  TCnSize; var out_len: TCnSize): TCnResult; cdecl;
+var
+  S: string;
+  R: Integer;
+  Data: TBytes;
+begin
+  if (in_ptr = nil) or (in_len = 0) then
+  begin
+    Result := CN_E_INVALID_ARG;
+    Exit;
+  end;
+  SetString(S, PChar(in_ptr), in_len div SizeOf(Char));
+
+  R := Base32Decode(S, Data, False);
+  if R <> 0 then
+  begin
+    Result := CN_E_INTERNAL;
+    Exit;
+  end;
+
+  out_len := Length(Data);
+  if cap < out_len then
+  begin
+    Result := CN_E_BUFFER_TOO_SMALL;
+    Exit;
+  end;
+
+  if out_len > 0 then
+    Move(Data[0], out_ptr^, out_len);
+
+  Result := CN_OK;
+end;
+
 function cn_otp_hotp(seed: PByte; seed_len: TCnSize; counter: TUInt64; digits:
   TInt32; out_code_ascii: PByte; cap: TCnSize; var out_len: TCnSize): TCnResult; cdecl;
 var
@@ -3066,6 +3138,7 @@ var
   BK512: TCnBLAKE512Digest;
   B2S: TCnBLAKE2SDigest;
   B2B: TCnBLAKE2BDigest;
+  B3: TCnBLAKE3Digest;
   XX32: TCnXXH32Digest;
   XX64: TCnXXH64Digest;
 begin
@@ -3253,6 +3326,18 @@ begin
         end;
         B2B := BLAKE2B(PAnsiChar(data), len, nil, 0, CN_BLAKE2B_OUTBYTES);
         Move(B2B[0], out_digest^, out_len);
+        Result := CN_OK;
+      end;
+    CN_HASH_BLAKE3:
+      begin
+        out_len := SizeOf(B3);
+        if cap < out_len then
+        begin
+          Result := CN_E_BUFFER_TOO_SMALL;
+          Exit;
+        end;
+        B3 := BLAKE3(PAnsiChar(data), len, nil, 0);
+        Move(B3[0], out_digest^, out_len);
         Result := CN_OK;
       end;
     CN_HASH_XXH32:

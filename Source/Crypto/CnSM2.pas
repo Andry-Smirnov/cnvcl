@@ -186,11 +186,14 @@ function CnSM2CheckKeys(PrivateKey: TCnSM2PrivateKey; PublicKey: TCnSM2PublicKey
 function CnSM2EncryptData(PlainData: Pointer; DataByteLen: Integer; OutStream:
   TStream; PublicKey: TCnSM2PublicKey; SM2: TCnSM2 = nil;
   SequenceType: TCnSM2CryptSequenceType = cstC1C3C2;
-  IncludePrefixByte: Boolean = True; const RandHex: string = ''): Boolean; overload;
+  IncludePrefixByte: Boolean = True; const RandHex: string = '';
+  C1UseCompress: Boolean = False): Boolean; overload;
 {* 用公钥对数据块进行加密，参考 GM/T0003.4-2012《SM2椭圆曲线公钥密码算法
    第4部分:公钥加密算法》中的运算规则，不同于普通 ECC 与 RSA 的对齐规则。
    SequenceType 用来指明内部拼接采用默认国标的 C1C3C2 还是想当然的 C1C2C3，
-   IncludePrefixByte 用来声明是否包括 C1 前导的 $04 一字节，默认包括。
+   IncludePrefixByte 用来声明是否包括 C1 前导的 $02/$03/$04 一字节，默认包括。
+   如 IncludePrefixByte 为 True，则 C1UseCompress 控制 C1 是否使用压缩模式，默认不压缩。
+   返回密文字节数组，如果加密失败则返回空。
    返回加密是否成功，加密结果写入 OutStream 中。
 
    参数：
@@ -202,17 +205,20 @@ function CnSM2EncryptData(PlainData: Pointer; DataByteLen: Integer; OutStream:
      SequenceType: TCnSM2CryptSequenceType                - 输出密文的内部拼接顺序，默认国标的 C1C3C2
      IncludePrefixByte: Boolean                           - 是否包括 C1 的前导字节 $04，默认包括
      const RandHex: string                                - 可外部指定随机数的十六进制字符串，默认为空，空则内部生成
+     C1UseCompress: Boolean                               - IncludePrefixByte 为 True 时 C1 是否使用压缩模式，此时前缀会变成 02 或 03
 
    返回值：Boolean                                        - 返回加密是否成功
 }
 
 function CnSM2EncryptData(const PlainData: TBytes; PublicKey: TCnSM2PublicKey; SM2: TCnSM2 = nil;
   SequenceType: TCnSM2CryptSequenceType = cstC1C3C2;
-  IncludePrefixByte: Boolean = True; const RandHex: string = ''): TBytes; overload;
+  IncludePrefixByte: Boolean = True; const RandHex: string = '';
+  C1UseCompress: Boolean = False): TBytes; overload;
 {* 用公钥对字节数组进行加密，参考 GM/T0003.4-2012《SM2椭圆曲线公钥密码算法
    第4部分:公钥加密算法》中的运算规则，不同于普通 ECC 与 RSA 的对齐规则。
    SequenceType 用来指明内部拼接采用默认国标的 C1C3C2 还是想当然的 C1C2C3，
-   IncludePrefixByte 用来声明是否包括 C1 前导的 $04 一字节，默认包括。
+   IncludePrefixByte 用来声明是否包括 C1 前导的 $02/$03/$04 一字节，默认包括。
+   如 IncludePrefixByte 为 True，则 C1UseCompress 控制 C1 是否使用压缩模式，默认不压缩。
    返回密文字节数组，如果加密失败则返回空。
 
    参数：
@@ -222,6 +228,7 @@ function CnSM2EncryptData(const PlainData: TBytes; PublicKey: TCnSM2PublicKey; S
      SequenceType: TCnSM2CryptSequenceType                - 输出密文的内部拼接顺序，默认国标的 C1C3C2
      IncludePrefixByte: Boolean                           - 输出密文中是否要包括 C1 的前导字节 $04，默认包括
      const RandHex: string                                - 可外部指定随机数的十六进制字符串，默认为空，空则内部生成
+     C1UseCompress: Boolean                               - IncludePrefixByte 为 True 时 C1 是否使用压缩模式，此时前缀会变成 02 或 03
 
    返回值：TBytes                                         - 如果成功则返回密文字节数组，失败则返回空
 }
@@ -265,10 +272,11 @@ function CnSM2DecryptData(const EnData: TBytes; PrivateKey: TCnSM2PrivateKey;
 
 function CnSM2EncryptFile(const InFile: string; const OutFile: string; PublicKey: TCnSM2PublicKey;
   SM2: TCnSM2 = nil; SequenceType: TCnSM2CryptSequenceType = cstC1C3C2;
-  IncludePrefixByte: Boolean = True; const RandHex: string = ''): Boolean;
+  IncludePrefixByte: Boolean = True; const RandHex: string = ''; C1UseCompress: Boolean = False): Boolean;
 {* 用公钥加密 InFile 文件内容，加密结果存 OutFile 里，返回是否加密成功。
    SequenceType 用来指明内部拼接采用默认国标的 C1C3C2 还是想当然的 C1C2C3。
-   IncludePrefixByte 用来声明是否包括 C1 前导的 $04 一字节，默认包括。
+   IncludePrefixByte 用来声明是否包括 C1 前导的 $02/$03/$04 一字节，默认包括。
+   如 IncludePrefixByte 为 True，则 C1UseCompress 控制 C1 是否使用压缩模式，默认不压缩。
 
    参数：
      const InFile: string                                 - 待加密的明文原始文件名
@@ -278,6 +286,7 @@ function CnSM2EncryptFile(const InFile: string; const OutFile: string; PublicKey
      SequenceType: TCnSM2CryptSequenceType                - 输出密文的内部拼接顺序，默认国标的 C1C3C2
      IncludePrefixByte: Boolean                           - 输出密文中是否要包括 C1 的前导字节 $04，默认包括
      const RandHex: string                                - 可外部指定随机数的十六进制字符串，默认为空，空则内部生成
+     C1UseCompress: Boolean                               - IncludePrefixByte 为 True 时 C1 是否使用压缩模式，此时前缀会变成 02 或 03
 
    返回值：Boolean                                        - 返回加密是否成功
 }
@@ -987,7 +996,7 @@ end;
 procedure TCnSM2.AffineMultiplePoint(K: TCnBigNumber; Point: TCnEcc3Point);
 var
   I, C, Row, Col: Integer;
-  E, R: TCnEcc3Point;
+  E, R, Q: TCnEcc3Point;
   IsG: Boolean;
   M: TCnBigNumber;
   Naf: TShortInts;
@@ -1012,12 +1021,14 @@ begin
   IsG := Point.Z.IsOne and BigNumberEqual(Point.X, FLocalSM2Generator.X) and
     BigNumberEqual(Point.Y, FLocalSM2Generator.Y);
 
+  Q := nil;
   R := nil;
   E := nil;
   M := nil;
   Naf := nil;
 
   try
+    Q := TCnEcc3Point.Create;
     R := TCnEcc3Point.Create;
     E := TCnEcc3Point.Create;
 
@@ -1051,8 +1062,9 @@ begin
       begin
         for I := 0 to C - 1 do
         begin
-          if BigNumberIsBitSet(K, I) then
-            AffinePointAddPoint(R, E, R);
+          AffinePointAddPoint(R, E, Q);
+          if BigNumberIsBitSet(K, I) then // 始终加，但只置位时 R <- Q，以防止侧信道攻击
+            R.Assign(Q);
 
           // P 是 G 点，无需点加，直接取出
           if I < FSM2AffineGPower2KList.Count - 1 then
@@ -1078,8 +1090,9 @@ begin
 //      原始点乘平均一半，改用 NAF 缩小到大概 1/3
 //      for I := 0 to C - 1 do
 //      begin
-//        if BigNumberIsBitSet(K, I) then
-//          AffinePointAddPoint(R, E, R);
+//        AffinePointAddPoint(R, E, Q);
+//        if BigNumberIsBitSet(K, I) then // 始终加，但只置位时 R <- Q，以防止侧信道攻击
+//          R.Assign(Q);
 //
 //        if I < C - 1 then // 最后一轮不用自加
 //          AffinePointAddPoint(E, E, E);
@@ -1094,6 +1107,7 @@ begin
     M.Free;
     E.Free;
     R.Free;
+    Q.Free;
   end;
 end;
 
@@ -1166,19 +1180,19 @@ end;
 {
   传入明文 M，长 MLen 字节，随机生成 k，计算
 
-  C1 = k * G => (x1, y1)         // 非压缩存储，长度为两个数字位长加 1，在 SM2 中也就是 32 * 2 + 1 = 65 字节
-
+  C1 = k * G => (x1, y1)         // 如果是非压缩存储，长度为两个数字位长加 1，在 SM2 中也就是 32 * 2 + 1 = 65 字节
+                                 // 如果是压缩存储，长度为一个数字位长加 1，在 SM2 中也就是 32 + 1 = 33 字节
   k * PublicKey => (x2, y2)
   t <= KDF(x2‖y2, MLen)
   C2 <= M xor t                  // 长度 MLen
 
   C3 <= SM3(x2‖M‖y2)           // 长度 32 字节
 
-  密文为：C1‖C3‖C2             // 总长 MLen + 97 字节
+  密文为：C1‖C3‖C2             // 总长 MLen + 97 字节（非压缩）或 + 65 字节（压缩）
 }
 function CnSM2EncryptData(PlainData: Pointer; DataByteLen: Integer; OutStream:
   TStream; PublicKey: TCnSM2PublicKey; SM2: TCnSM2; SequenceType: TCnSM2CryptSequenceType;
-  IncludePrefixByte: Boolean; const RandHex: string): Boolean;
+  IncludePrefixByte: Boolean; const RandHex: string; C1UseCompress: Boolean): Boolean;
 var
   Py, P1, P2: TCnEccPoint;
   K: TCnBigNumber;
@@ -1237,16 +1251,28 @@ begin
     OutStream.Position := 0;
     if IncludePrefixByte then
     begin
-      B := 4;
+      if C1UseCompress then
+      begin
+        if P1.Y.IsOdd then
+          B := 03
+        else
+          B := 02
+      end
+      else
+        B := 04;
       OutStream.Write(B, 1);
     end;
 
     SetLength(Buf, CN_SM2_FINITEFIELD_BYTESIZE);
     P1.X.ToBinary(@Buf[0], CN_SM2_FINITEFIELD_BYTESIZE);
-    OutStream.Write(Buf[0], CN_SM2_FINITEFIELD_BYTESIZE);
-    SetLength(Buf, CN_SM2_FINITEFIELD_BYTESIZE);
-    P1.Y.ToBinary(@Buf[0], CN_SM2_FINITEFIELD_BYTESIZE);
-    OutStream.Write(Buf[0], CN_SM2_FINITEFIELD_BYTESIZE);    // 拼成 C1
+    OutStream.Write(Buf[0], CN_SM2_FINITEFIELD_BYTESIZE);      // 写 X
+
+    if not C1UseCompress then                                  // 不压缩则写 Y
+    begin
+      SetLength(Buf, CN_SM2_FINITEFIELD_BYTESIZE);
+      P1.Y.ToBinary(@Buf[0], CN_SM2_FINITEFIELD_BYTESIZE);
+      OutStream.Write(Buf[0], CN_SM2_FINITEFIELD_BYTESIZE);    // 拼成 C1
+    end;
 
     P2 := TCnEccPoint.Create;
     P2.Assign(PublicKey);
@@ -1281,17 +1307,22 @@ begin
     Result := True;
     _CnSetLastError(ECN_SM2_OK);
   finally
+    P2.Clear;
     P2.Free;
+    P1.Clear;
     P1.Free;
+    Py.Clear;
     Py.Free;
+    K.Clear;
     K.Free;
     if SM2IsNil then
       SM2.Free;
   end;
 end;
 
-function CnSM2EncryptData(const PlainData: TBytes; PublicKey: TCnSM2PublicKey; SM2: TCnSM2;
-  SequenceType: TCnSM2CryptSequenceType; IncludePrefixByte: Boolean; const RandHex: string): TBytes;
+function CnSM2EncryptData(const PlainData: TBytes; PublicKey: TCnSM2PublicKey;
+  SM2: TCnSM2; SequenceType: TCnSM2CryptSequenceType; IncludePrefixByte: Boolean;
+  const RandHex: string; C1UseCompress: Boolean): TBytes;
 var
   Stream: TMemoryStream;
 begin
@@ -1299,7 +1330,7 @@ begin
   Stream := TMemoryStream.Create;
   try
     if CnSM2EncryptData(@PlainData[0], Length(PlainData), Stream, PublicKey, SM2,
-      SequenceType, IncludePrefixByte, RandHex) then
+      SequenceType, IncludePrefixByte, RandHex, C1UseCompress) then
     begin
       SetLength(Result, Stream.Size);
       Move(Stream.Memory^, Result[0], Stream.Size);
@@ -1310,7 +1341,7 @@ begin
 end;
 
 {
-  MLen <= DataLen - SM3DigLength - 2 * Sm2ByteLength - 1，劈开拿到 C1 C2 C3
+  MLen <= DataLen - SM3DigLength - 2 * Sm2ByteLength - 1，劈开拿到 C1 C2 C3，注意 C1 长度有压缩或非压缩两种
 
   PrivateKey * C1 => (x2, y2)
 
@@ -1329,8 +1360,10 @@ var
   KDFB, T: TBytes;
   C3H: AnsiString;
   SM2IsNil: Boolean;
-  P2: TCnEccPoint;
-  I, PrefixLen: Integer;
+  P, P2: TCnEccPoint;
+  I, PrefixLen, C1Len: Integer;
+  PrefixByte: Byte;
+  IsCompressed: Boolean;
   Sm3Dig: TCnSM3Digest;
 begin
   Result := False;
@@ -1340,6 +1373,7 @@ begin
     Exit;
   end;
 
+  P := nil;
   P2 := nil;
   SM2IsNil := SM2 = nil;
 
@@ -1347,34 +1381,53 @@ begin
     if SM2IsNil then
       SM2 := TCnSM2.Create;
 
-    MLen := DataByteLen - CN_SM2_MIN_ENCRYPT_BYTESIZE;
+    P2 := TCnEccPoint.Create;
+    M := PAnsiChar(EnData);
+    PrefixLen := 0;
+    PrefixByte := 0;
+    C1Len := CN_SM2_FINITEFIELD_BYTESIZE * 2;
+    IsCompressed := False;
+    if (M^ = #$02) or (M^ = #$03) or (M^ = #$04) then
+    begin
+      PrefixLen := 1;
+      PrefixByte := Byte(M^);
+      if (PrefixByte = $02) or (PrefixByte = $03) then
+      begin
+        IsCompressed := True;
+        C1Len := CN_SM2_FINITEFIELD_BYTESIZE;
+      end;
+      Inc(M);
+    end;
+
+    MLen := DataByteLen - SizeOf(TCnSM3Digest) - PrefixLen - C1Len;
     if MLen <= 0 then
     begin
       _CnSetLastError(ECN_SM2_INVALID_INPUT);
       Exit;
     end;
 
-    P2 := TCnEccPoint.Create;
-    M := PAnsiChar(EnData);
-    if M^ = #$04 then  // 跳过可能的前导字节 $04
+    P2.X.SetBinary(M, CN_SM2_FINITEFIELD_BYTESIZE);
+    Inc(M, CN_SM2_FINITEFIELD_BYTESIZE);
+    if IsCompressed then
     begin
-      Dec(MLen);
-      if MLen <= 0 then
+      P := TCnEccPoint.Create;
+      if not SM2.PlainToPoint(P2.X, P) then
       begin
         _CnSetLastError(ECN_SM2_INVALID_INPUT);
         Exit;
       end;
 
-      PrefixLen := 1;
-      Inc(M);
+      if (P.Y.IsOdd and (PrefixByte = $03)) or ((not P.Y.IsOdd) and (PrefixByte = $02)) then
+        BigNumberCopy(P2.Y, P.Y)
+      else
+      begin
+        SM2.PointInverse(P);
+        BigNumberCopy(P2.Y, P.Y);
+      end;
     end
     else
-      PrefixLen := 0;
+      P2.Y.SetBinary(M, CN_SM2_FINITEFIELD_BYTESIZE);
 
-    // 读出 C1
-    P2.X.SetBinary(M, CN_SM2_FINITEFIELD_BYTESIZE);
-    Inc(M, CN_SM2_FINITEFIELD_BYTESIZE);
-    P2.Y.SetBinary(M, CN_SM2_FINITEFIELD_BYTESIZE);
     if P2.IsZero then
     begin
       _CnSetLastError(ECN_SM2_DECRYPT_INFINITE_ERROR);
@@ -1392,7 +1445,7 @@ begin
     begin
       SetLength(MP, MLen);
       M := PAnsiChar(EnData);
-      Inc(M, SizeOf(TCnSM3Digest) + CN_SM2_FINITEFIELD_BYTESIZE * 2 + PrefixLen); // 跳过 C3 指向 C2
+      Inc(M, SizeOf(TCnSM3Digest) + C1Len + PrefixLen);        // 跳过 C3 指向 C2
       for I := 1 to MLen do
         MP[I] := AnsiChar(Byte(M[I - 1]) xor Byte(T[I - 1]));  // 和 KDF 做异或，在 MP 里得到明文
 
@@ -1403,8 +1456,8 @@ begin
       Sm3Dig := SM3(@C3H[1], Length(C3H));                             // 算出 C3
 
       M := PAnsiChar(EnData);
-      Inc(M, CN_SM2_FINITEFIELD_BYTESIZE * 2 + PrefixLen);             // M 指向 C3
-      if ConstTimeCompareMem(@Sm3Dig[0], M, SizeOf(TCnSM3Digest)) then // 比对杂凑值是否相等
+      Inc(M, C1Len + PrefixLen);                                       // M 指向 C3
+      if ConstTimeCompareMem(@Sm3Dig[0], M, SizeOf(TCnSM3Digest)) then
       begin
         OutStream.Write(MP[1], Length(MP));
 
@@ -1416,7 +1469,7 @@ begin
     begin
       SetLength(MP, MLen);
       M := PAnsiChar(EnData);
-      Inc(M, CN_SM2_FINITEFIELD_BYTESIZE * 2 + PrefixLen);     // 指向 C2
+      Inc(M, C1Len + PrefixLen);                               // 指向 C2
 
       for I := 1 to MLen do
         MP[I] := AnsiChar(Byte(M[I - 1]) xor Byte(T[I - 1]));  // 和 KDF 做异或，在 MP 里得到明文
@@ -1428,7 +1481,7 @@ begin
       Sm3Dig := SM3(@C3H[1], Length(C3H));                             // 算出 C3
 
       M := PAnsiChar(EnData);
-      Inc(M, CN_SM2_FINITEFIELD_BYTESIZE * 2 + PrefixLen + MLen);      // 指向 C3
+      Inc(M, C1Len + PrefixLen + MLen);                                // 指向 C3
       if ConstTimeCompareMem(@Sm3Dig[0], M, SizeOf(TCnSM3Digest)) then // 比对杂凑值是否相等
       begin
         OutStream.Write(MP[1], Length(MP));
@@ -1438,6 +1491,7 @@ begin
       end;
     end;
   finally
+    P.Free;
     P2.Free;
     if SM2IsNil then
       SM2.Free;
@@ -1465,7 +1519,7 @@ end;
 
 function CnSM2EncryptFile(const InFile, OutFile: string; PublicKey: TCnSM2PublicKey;
   SM2: TCnSM2; SequenceType: TCnSM2CryptSequenceType; IncludePrefixByte: Boolean;
-  const RandHex: string): Boolean;
+  const RandHex: string; C1UseCompress: Boolean): Boolean;
 var
   Stream: TMemoryStream;
   F: TFileStream;
@@ -1479,7 +1533,7 @@ begin
 
     F := TFileStream.Create(OutFile, fmCreate);
     Result := CnSM2EncryptData(Stream.Memory, Stream.Size, F, PublicKey, SM2,
-      SequenceType, IncludePrefixByte, RandHex);
+      SequenceType, IncludePrefixByte, RandHex, C1UseCompress);
   finally
     F.Free;
     Stream.Free;
@@ -1879,9 +1933,13 @@ begin
       Break;
     end;
   finally
+    K.Clear;
     K.Free;
+    P.Clear;
     P.Free;
+    R.Clear;
     R.Free;
+    E.Clear;
     E.Free;
     if PubIsNil then
       PublicKey.Free;
@@ -2254,9 +2312,13 @@ begin
     OutOptionalS2 := CalcSM2OptionalSig(V, InRA, OutRB, Za, Zb, False);
     Result := True;
   finally
+    V.Clear;
     V.Free;
+    T.Clear;
     T.Free;
+    X.Clear;
     X.Free;
+    R.Clear;
     R.Free;
     if SM2IsNil then
       SM2.Free;
@@ -2339,8 +2401,11 @@ begin
     OutOptionalSA := CalcSM2OptionalSig(U, MyRA, InRB, Za, Zb, False);
     Result := True;
   finally
+    U.Clear;
     U.Free;
+    T.Clear;
     T.Free;
+    X.Clear;
     X.Free;
     if SM2IsNil then
       SM2.Free;
@@ -2418,6 +2483,7 @@ begin
     _CnSetLastError(ECN_SM2_OK);
   finally
     Stream.Free;
+    R.Clear;
     R.Free;
     if SM2IsNil then
       SM2.Free;
@@ -2704,10 +2770,15 @@ begin
       Break;
     end;
   finally
+    Inv.Clear;
     Inv.Free;
+    P.Clear;
     P.Free;
+    Q.Clear;
     Q.Free;
+    K2.Clear;
     K2.Free;
+    K1.Clear;
     K1.Free;
     if SM2IsNil then
       SM2.Free;
@@ -2775,7 +2846,9 @@ begin
       _CnSetLastError(ECN_SM2_OK);
     end;
   finally
+    T.Clear;
     T.Free;
+    Inv.Clear;
     Inv.Free;
     if SM2IsNil then
       SM2.Free;
@@ -3260,10 +3333,15 @@ begin
       Break;
     end;
   finally
+    Inv.Clear;
     Inv.Free;
+    Q.Clear;
     Q.Free;
+    P.Clear;
     P.Free;
+    RandKC.Clear;
     RandKC.Free;
+    K1.Clear;
     K1.Free;
     if SM2IsNil then
       SM2.Free;
@@ -3311,7 +3389,9 @@ begin
     Result := True;
     _CnSetLastError(ECN_SM2_OK);
   finally
+    Inv.Clear;
     Inv.Free;
+    K2.Clear;
     K2.Free;
     if SM2IsNil then
       SM2.Free;
@@ -3373,8 +3453,11 @@ begin
     Result := True;
     _CnSetLastError(ECN_SM2_OK);
   finally
+    Inv.Clear;
     Inv.Free;
+    S2.Clear;
     S2.Free;
+    S1.Clear;
     S1.Free;
     if SM2IsNil then
       SM2.Free;

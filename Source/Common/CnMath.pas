@@ -531,6 +531,11 @@ resourcestring
   SCnErrorMathSqrtRange = 'Sqrt Range Error.';
   SCnErrorMathLogRange = 'Log Range Error.';
   SCnErrorMathFractionError = 'Error Length for Continue Fraction';
+  SCnErrorMathHexCharFmt = 'Error: Not a Hex PChar: %c';
+  SCnErrorExpTaylorSeriesDidNotConverge = 'Exp: Taylor Series did Not Converge';
+  SCnErrorLnInvalidInput = 'Ln: Invalid Input';
+  SCnErrorSinTaylorSeriesDidNotConverge = 'Sin: Taylor Series did Not Converge';
+  SCnErrorCosTaylorSeriesDidNotConverge = 'Cos: Taylor Series did Not Converge';
 
 var
   FLocalBigDecimalPool: TCnBigDecimalPool = nil;
@@ -1050,7 +1055,7 @@ var
       else if (C >= 'a') and (C <= 'f') then
         Result := Result * 16 + Ord(C) - Ord('a') + 10
       else
-        raise Exception.CreateFmt('Error: not a Hex PChar: %c', [C]);
+        raise ECnMathException.CreateFmt(SCnErrorMathHexCharFmt, [C]);
     end;
   end;
 
@@ -1073,7 +1078,7 @@ var
       else if (C >= 'a') and (C <= 'f') then
         Result := Result + (Ord(C) - Ord('a') + 10) * R
       else
-        raise Exception.CreateFmt('Error: not a Hex PChar: %c', [C]);
+        raise ECnMathException.CreateFmt(SCnErrorMathHexCharFmt, [C]);
     end;
   end;
 
@@ -1262,8 +1267,6 @@ var
   X, Term, Sum, Factorial, Gap: TCnBigDecimal;
   Neg: Boolean;
 begin
-  Result := False;
-
   if Precision <= 0 then
     Precision := CN_BIG_DECIMAL_DEFAULT_PRECISION;
 
@@ -1325,7 +1328,7 @@ begin
     end;
 
     if I > CN_TAYLOR_MAX_ITERATIONS then
-      raise ECnBigDecimalException.Create('Exp: Taylor series did not converge');
+      raise ECnBigDecimalException.Create(SCnErrorExpTaylorSeriesDidNotConverge);
 
     // 如果做了范围归约，需要平方 k 次：(e^(x/2^k))^(2^k) = e^x
     for I := 1 to K do
@@ -1364,7 +1367,7 @@ begin
     Precision := CN_BIG_DECIMAL_DEFAULT_PRECISION;
 
   if (Num.IsNegative) or (Num.IsZero) then
-    raise ECnBigDecimalException.Create('Ln: Invalid input');
+    raise ECnBigDecimalException.Create(SCnErrorLnInvalidInput);
 
   if Num.IsOne then
   begin
@@ -1487,8 +1490,6 @@ var
   X, X2, Term, Sum, Factorial, Gap, Pi, PiOver2, TwoPi: TCnBigDecimal;
   TN: Boolean;
 begin
-  Result := False;
-
   if Precision <= 0 then
     Precision := CN_BIG_DECIMAL_DEFAULT_PRECISION;
 
@@ -1578,7 +1579,7 @@ begin
     end;
 
     if I > CN_TAYLOR_MAX_ITERATIONS then
-      raise ECnBigDecimalException.Create('Sin: Taylor series did not converge');
+      raise ECnBigDecimalException.Create(SCnErrorSinTaylorSeriesDidNotConverge);
 
     BigDecimalCopy(Res, Sum);
     if Sign < 0 then
@@ -1611,8 +1612,6 @@ var
   X, X2, Term, Sum, Gap, Pi, TwoPi: TCnBigDecimal;
   TN: Boolean;
 begin
-  Result := False;
-
   if Precision <= 0 then
     Precision := CN_BIG_DECIMAL_DEFAULT_PRECISION;
 
@@ -1685,7 +1684,7 @@ begin
     end;
 
     if I > CN_TAYLOR_MAX_ITERATIONS then
-      raise ECnBigDecimalException.Create('Cos: Taylor series did not converge');
+      raise ECnBigDecimalException.Create(SCnErrorCosTaylorSeriesDidNotConverge);
 
     BigDecimalCopy(Res, Sum);
     if Sign < 0 then

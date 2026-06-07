@@ -117,6 +117,7 @@
         <DCCReference Include="..\..\Source\Common\CnIni.pas"/>
         <DCCReference Include="..\..\Source\Common\CnIniCfg.pas"/>
         <DCCReference Include="..\..\Source\Common\CnIniStrUtils.pas"/>
+        <DCCReference Include="..\..\Source\Common\CnIntfMethodHook.pas"/>
         <DCCReference Include="..\..\Source\Common\CnJSON.pas"/>
         <DCCReference Include="..\..\Source\Common\CnLinkedList.pas"/>
         <DCCReference Include="..\..\Source\Common\CnLockFree.pas"/>
@@ -156,6 +157,7 @@
         <DCCReference Include="..\..\Source\Crypto\CnBits.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnBLAKE.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnBLAKE2.pas"/>
+        <DCCReference Include="..\..\Source\Crypto\CnBLAKE3.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnCertificateAuthority.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnComplex.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnCRC32.pas"/>
@@ -187,6 +189,7 @@
         <DCCReference Include="..\..\Source\Crypto\CnSHA1.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnSHA2.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnSHA3.pas"/>
+        <DCCReference Include="..\..\Source\Crypto\CnSLHDSA.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnSM2.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnSM3.pas"/>
         <DCCReference Include="..\..\Source\Crypto\CnSM4.pas"/>
@@ -332,6 +335,7 @@
         <DCCReference Include="..\..\Source\NonVisual\CnOuterControls.pas"/>
         <DCCReference Include="..\..\Source\NonVisual\CnRawInput.pas"/>
         <DCCReference Include="..\..\Source\NonVisual\CnRestoreSystemMenu.pas"/>
+        <DCCReference Include="..\..\Source\NonVisual\CnStdio.pas"/>
         <DCCReference Include="..\..\Source\NonVisual\CnSystemDebugControl.pas"/>
         <DCCReference Include="..\..\Source\NonVisual\CnTaskBar.pas"/>
         <DCCReference Include="..\..\Source\NonVisual\CnThreadPool.pas"/>

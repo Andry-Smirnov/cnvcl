@@ -33,6 +33,7 @@
       ..\..\Source\Common\CnIni.obj 
       ..\..\Source\Common\CnIniCfg.obj 
       ..\..\Source\Common\CnIniStrUtils.obj 
+      ..\..\Source\Common\CnIntfMethodHook.obj 
       ..\..\Source\Common\CnJSON.obj 
       ..\..\Source\Common\CnLinkedList.obj 
       ..\..\Source\Common\CnLockFree.obj 
@@ -68,6 +69,7 @@
       ..\..\Source\Crypto\CnBits.obj 
       ..\..\Source\Crypto\CnBLAKE.obj 
       ..\..\Source\Crypto\CnBLAKE2.obj 
+      ..\..\Source\Crypto\CnBLAKE3.obj 
       ..\..\Source\Crypto\CnCertificateAuthority.obj 
       ..\..\Source\Crypto\CnComplex.obj 
       ..\..\Source\Crypto\CnCRC32.obj 
@@ -99,6 +101,7 @@
       ..\..\Source\Crypto\CnSHA1.obj 
       ..\..\Source\Crypto\CnSHA2.obj 
       ..\..\Source\Crypto\CnSHA3.obj 
+      ..\..\Source\Crypto\CnSLHDSA.obj 
       ..\..\Source\Crypto\CnSM2.obj 
       ..\..\Source\Crypto\CnSM3.obj 
       ..\..\Source\Crypto\CnSM4.obj 
@@ -205,6 +208,7 @@
       ..\..\Source\NonVisual\CnOuterControls.obj 
       ..\..\Source\NonVisual\CnRawInput.obj 
       ..\..\Source\NonVisual\CnRestoreSystemMenu.obj 
+      ..\..\Source\NonVisual\CnStdio.obj 
       ..\..\Source\NonVisual\CnSystemDebugControl.obj 
       ..\..\Source\NonVisual\CnTaskBar.obj 
       ..\..\Source\NonVisual\CnThreadPool.obj 

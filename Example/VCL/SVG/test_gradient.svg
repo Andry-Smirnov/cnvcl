@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1300" viewBox="0 0 900 1300">
+
+  <defs>
+    <!-- 线性渐变: objectBoundingBox (默认) -->
+    <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF0000"/>
+      <stop offset="50%" stop-color="#FFFF00"/>
+      <stop offset="100%" stop-color="#0000FF"/>
+    </linearGradient>
+
+    <!-- 线性渐变: userSpaceOnUse -->
+    <linearGradient id="lg2" gradientUnits="userSpaceOnUse" x1="30" y1="50" x2="280" y2="150">
+      <stop offset="0%" stop-color="#FF00FF"/>
+      <stop offset="100%" stop-color="#00FF00"/>
+    </linearGradient>
+
+    <!-- 径向渐变: objectBoundingBox (默认) -->
+    <radialGradient id="rg1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0066FF"/>
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </radialGradient>
+
+    <!-- 径向渐变: userSpaceOnUse -->
+    <radialGradient id="rg2" gradientUnits="userSpaceOnUse" cx="600" cy="100" r="70">
+      <stop offset="0%" stop-color="#FFFF00"/>
+      <stop offset="100%" stop-color="#FF0000"/>
+    </radialGradient>
+
+    <!-- 渐变描边: userSpaceOnUse -->
+    <linearGradient id="lg3" gradientUnits="userSpaceOnUse" x1="620" y1="40" x2="820" y2="160">
+      <stop offset="0%" stop-color="#FF00FF"/>
+      <stop offset="100%" stop-color="#00FF00"/>
+    </linearGradient>
+
+    <!-- Clip Path -->
+    <clipPath id="clip1">
+      <rect x="30" y="380" width="200" height="80" rx="10"/>
+    </clipPath>
+
+    <clipPath id="clip2">
+      <circle cx="600" cy="420" r="60"/>
+    </clipPath>
+
+    <clipPath id="clip3">
+      <ellipse cx="450" cy="950" rx="120" ry="40"/>
+    </clipPath>
+
+    <clipPath id="clipGroup">
+      <rect x="50" y="500" width="300" height="120"/>
+    </clipPath>
+
+    <!-- 新增 ClipPath: polygon -->
+    <clipPath id="clipPolygon">
+      <polygon points="30,1150 150,1110 270,1150 250,1230 50,1230"/>
+    </clipPath>
+
+    <!-- 新增 ClipPath: polyline -->
+    <clipPath id="clipPolyline">
+      <polyline points="360,1140 450,1100 540,1140 510,1230 390,1230"/>
+    </clipPath>
+
+    <!-- 供 clipPath use 引用的多边形（五角星） -->
+    <polygon id="star" points="0,-30 8,-9 30,-9 13,6 18,30 0,16 -18,30 -13,6 -30,-9 -8,-9"/>
+
+    <!-- 新增 ClipPath: use 引用 -->
+    <clipPath id="clipUse">
+      <use href="#star"/>
+    </clipPath>
+
+    <!-- 新增: 径向渐变描边 -->
+    <radialGradient id="rgStroke" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF0000"/>
+      <stop offset="50%" stop-color="#FF9900"/>
+      <stop offset="100%" stop-color="#0000FF"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 标题 -->
+  <text x="450" y="30" font-size="20" text-anchor="middle" fill="#333">CnSVG GDI+ 渲染改动测试</text>
+
+  <!-- ===== 测试1: objectBoundingBox 线性渐变填充矩形 ===== -->
+  <rect x="30" y="50" width="250" height="100" rx="10" fill="url(#lg1)"/>
+  <text x="155" y="170" font-size="12" text-anchor="middle" fill="#666">objBBox 线性渐变矩形</text>
+
+  <!-- ===== 测试2: userSpaceOnUse 线性渐变填充矩形 ===== -->
+  <rect x="30" y="185" width="250" height="80" fill="url(#lg2)"/>
+  <text x="155" y="285" font-size="12" text-anchor="middle" fill="#666">userSpace 线性渐变矩形</text>
+
+  <!-- ===== 测试3: objectBoundingBox 径向渐变填充圆 ===== -->
+  <circle cx="450" cy="100" r="70" fill="url(#rg1)"/>
+  <text x="450" y="190" font-size="12" text-anchor="middle" fill="#666">objBBox 径向渐变圆</text>
+
+  <!-- ===== 测试4: userSpaceOnUse 径向渐变填充圆 ===== -->
+  <circle cx="600" cy="100" r="70" fill="url(#rg2)"/>
+  <text x="600" y="190" font-size="12" text-anchor="middle" fill="#666">userSpace 径向渐变圆</text>
+
+  <!-- ===== 测试5: 渐变描边椭圆 ===== -->
+  <ellipse cx="780" cy="100" rx="100" ry="60" fill="none" stroke="url(#lg3)" stroke-width="6"/>
+  <text x="780" y="180" font-size="12" text-anchor="middle" fill="#666">渐变描边椭圆</text>
+
+  <!-- ===== 测试6: 带变换的矩形 ===== -->
+  <rect x="30" y="300" width="120" height="60" fill="#FF8800" transform="translate(50,10) rotate(15)"/>
+  <text x="120" y="390" font-size="12" text-anchor="middle" fill="#666">变换矩形</text>
+
+  <!-- ===== 测试7: 多段 Path（直线+弧线） ===== -->
+  <path d="M 350 300 L 450 300 A 50 50 0 0 1 500 350 L 500 380" fill="none" stroke="#9900CC" stroke-width="3"/>
+  <text x="425" y="400" font-size="12" text-anchor="middle" fill="#666">Path: 直线+弧线</text>
+
+  <!-- ===== 测试8: 二次贝塞尔曲线 ===== -->
+  <path d="M 600 300 Q 700 240 800 300 T 900 300" fill="none" stroke="#CC3300" stroke-width="3"/>
+  <text x="750" y="320" font-size="12" text-anchor="middle" fill="#666">二次贝塞尔 (Q/T)</text>
+
+  <!-- ===== 测试9: Clip Path - 矩形裁切 ===== -->
+  <g clip-path="url(#clip1)">
+    <rect x="10" y="370" width="300" height="120" fill="url(#lg2)"/>
+    <circle cx="180" cy="420" r="50" fill="url(#rg1)"/>
+  </g>
+  <text x="130" y="475" font-size="12" text-anchor="middle" fill="#666">矩形 ClipPath</text>
+
+  <!-- ===== 测试10: Clip Path - 圆形裁切 ===== -->
+  <g clip-path="url(#clip2)">
+    <rect x="520" y="360" width="160" height="120" fill="url(#lg2)"/>
+    <rect x="540" y="380" width="120" height="80" fill="url(#rg1)" opacity="0.7"/>
+  </g>
+  <text x="600" y="495" font-size="12" text-anchor="middle" fill="#666">圆形 ClipPath</text>
+
+  <!-- ===== 测试11: Group 带 Clip Path ===== -->
+  <g clip-path="url(#clipGroup)">
+    <rect x="30" y="490" width="200" height="60" fill="#00CC66"/>
+    <rect x="100" y="510" width="200" height="60" fill="#CC6600"/>
+    <circle cx="250" cy="540" r="50" fill="url(#rg1)"/>
+  </g>
+  <text x="200" y="635" font-size="12" text-anchor="middle" fill="#666">Group 带 ClipPath</text>
+
+  <!-- ===== 测试12: 渐变填充文字 ===== -->
+  <text x="500" y="550" font-size="36" font-weight="bold" fill="url(#lg2)">渐变文字</text>
+  <text x="500" y="575" font-size="12" text-anchor="middle" fill="#666">渐变填充文字</text>
+
+  <!-- ===== 测试13: 渐变填充多边形 ===== -->
+  <polygon points="100,700 150,660 200,700 180,750 120,750" fill="url(#lg1)" stroke="url(#lg3)" stroke-width="2"/>
+  <text x="150" y="775" font-size="12" text-anchor="middle" fill="#666">渐变填充+描边多边形</text>
+
+  <!-- ===== 测试14: 带变换的三次贝塞尔 Path ===== -->
+  <g transform="translate(400,700) rotate(-10)">
+    <path d="M 0 0 C 30 -40 70 -40 100 0 C 130 40 170 40 200 0" fill="none" stroke="url(#lg2)" stroke-width="4"/>
+    <text x="100" y="30" font-size="12" text-anchor="middle" fill="#666">变换下的三次贝塞尔</text>
+  </g>
+
+  <!-- ===== 测试15: 弧线闭合路径 + 渐变 ===== -->
+  <path d="M 650 680 L 750 680 A 50 50 0 0 1 800 730 L 800 780 L 650 780 Z"
+        fill="url(#rg1)" stroke="#333" stroke-width="2"/>
+  <text x="725" y="800" font-size="12" text-anchor="middle" fill="#666">弧线闭合路径+渐变</text>
+
+  <!-- ===== 测试16: 椭圆弧（大弧+小弧对比） ===== -->
+  <path d="M 50 850 A 80 40 0 0 0 250 850" fill="none" stroke="#FF4400" stroke-width="3"/>
+  <path d="M 50 870 A 80 40 0 0 1 250 870" fill="none" stroke="#0044FF" stroke-width="3"/>
+  <text x="150" y="920" font-size="12" text-anchor="middle" fill="#666">椭圆弧: 小弧(红) vs 大弧(蓝)</text>
+
+  <!-- ===== 测试17: 带变换的渐变圆 ===== -->
+  <circle cx="450" cy="880" r="40" fill="url(#rg1)" transform="scale(1.5) translate(-100,-100)"/>
+  <text x="450" y="960" font-size="12" text-anchor="middle" fill="#666">缩放+平移渐变圆</text>
+
+  <!-- ===== 测试18: 椭圆 ClipPath + 渐变叠加 ===== -->
+  <g clip-path="url(#clip3)">
+    <rect x="280" y="920" width="340" height="80" fill="url(#lg2)"/>
+    <rect x="300" y="930" width="300" height="60" fill="url(#rg1)" opacity="0.6"/>
+  </g>
+  <text x="450" y="1020" font-size="12" text-anchor="middle" fill="#666">椭圆 ClipPath + 渐变叠加</text>
+
+  <!-- ===== 测试19: 折线 + 渐变描边 ===== -->
+  <polyline points="650,850 700,830 750,860 800,820 850,870" fill="none" stroke="url(#lg3)" stroke-width="4"/>
+  <text x="750" y="900" font-size="12" text-anchor="middle" fill="#666">渐变描边折线</text>
+
+  <!-- ===== 测试20: 多重变换组合 ===== -->
+  <g transform="translate(100,1000)">
+    <g transform="rotate(5)">
+      <rect x="0" y="0" width="100" height="50" fill="url(#lg1)" rx="5"/>
+    </g>
+  </g>
+  <g transform="translate(300,1000) scale(0.7)">
+    <circle cx="50" cy="30" r="30" fill="url(#rg1)"/>
+  </g>
+  <g transform="translate(500,1000) skewX(10)">
+    <ellipse cx="60" cy="30" rx="60" ry="25" fill="url(#lg1)" stroke="url(#lg3)" stroke-width="2"/>
+  </g>
+  <text x="350" y="1070" font-size="12" text-anchor="middle" fill="#666">多重变换: translate+rotate / scale / skewX</text>
+
+  <!-- ===== 测试21: 径向渐变描边椭圆 ===== -->
+  <ellipse cx="150" cy="1130" rx="100" ry="50" fill="none" stroke="url(#rgStroke)" stroke-width="8"/>
+  <text x="150" y="1200" font-size="12" text-anchor="middle" fill="#666">径向渐变描边椭圆</text>
+
+  <!-- ===== 测试22: ClipPath 多边形裁切 ===== -->
+  <g clip-path="url(#clipPolygon)">
+    <rect x="10" y="1100" width="300" height="80" fill="url(#lg2)"/>
+    <circle cx="150" cy="1170" r="50" fill="url(#rg1)"/>
+  </g>
+  <text x="150" y="1250" font-size="12" text-anchor="middle" fill="#666">多边形 ClipPath</text>
+
+  <!-- ===== 测试23: ClipPath 折线裁切 ===== -->
+  <g clip-path="url(#clipPolyline)">
+    <rect x="340" y="1090" width="240" height="100" fill="url(#lg1)"/>
+    <rect x="380" y="1110" width="160" height="80" fill="url(#rg1)" opacity="0.7"/>
+  </g>
+  <text x="450" y="1250" font-size="12" text-anchor="middle" fill="#666">折线 ClipPath</text>
+
+  <!-- ===== 测试24: ClipPath use 引用裁切 ===== -->
+  <g clip-path="url(#clipUse)" transform="translate(660,1160) scale(2.5)">
+    <rect x="-40" y="-40" width="80" height="80" fill="url(#lg2)"/>
+    <circle cx="0" cy="0" r="30" fill="url(#rg1)" opacity="0.6"/>
+  </g>
+  <text x="660" y="1250" font-size="12" text-anchor="middle" fill="#666">use 引用 ClipPath</text>
+
+  <!-- 底线 -->
+  <line x1="20" y1="1290" x2="880" y2="1290" stroke="#CCCCCC" stroke-width="1"/>
+</svg>

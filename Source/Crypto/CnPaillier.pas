@@ -341,11 +341,11 @@ begin
   end;
 
 {$IFDEF SUPPORT_UINT64}
-  T1 := MontgomeryPowerMod(PublicKey.G, UInt64(Data), N2);
+  T1 := PowerMod(PublicKey.G, UInt64(Data), N2);
 {$ELSE}
-  T1 := MontgomeryPowerMod(PublicKey.G, Data, N2);
+  T1 := PowerMod(PublicKey.G, Data, N2);
 {$ENDIF}
-  T2 := MontgomeryPowerMod(R, PublicKey.N, N2);
+  T2 := PowerMod(R, PublicKey.N, N2);
   Res := UInt64NonNegativeMulMod(T1, T2, N2); // 不怕溢出，变负也行
 
   Result := True;
@@ -360,9 +360,9 @@ begin
   N2 := UInt64Mul(PublicKey.N, PublicKey.N);
 
 {$IFDEF SUPPORT_UINT64}
-  T := MontgomeryPowerMod(UInt64(EnData), PrivateKey.Lambda, N2);
+  T := PowerMod(UInt64(EnData), PrivateKey.Lambda, N2);
 {$ELSE}
-  T := MontgomeryPowerMod(EnData, PrivateKey.Lambda, N2);
+  T := PowerMod(EnData, PrivateKey.Lambda, N2);
 {$ENDIF}
 
   T := UInt64Div(T - 1, PublicKey.N); // 这里按 G 的设定，能整除
@@ -409,9 +409,13 @@ end;
 
 destructor TCnPaillierPrivateKey.Destroy;
 begin
+  FMu.Clear;
   FMu.Free;
+  FLambda.Clear;
   FLambda.Free;
+  FQ.Clear;
   FQ.Free;
+  FP.Clear;
   FP.Free;
   inherited;
 end;
@@ -523,10 +527,14 @@ begin
     Result := True;
     _CnSetLastError(ECN_PAILLIER_OK);
   finally
+    Lam.Clear;
     Lam.Free;
+    T.Clear;
     T.Free;
     AN.Free;
+    AQ.Clear;
     AQ.Free;
+    AP.Clear;
     AP.Free;
   end;
 end;
@@ -629,6 +637,7 @@ begin
     T2.Free;
     G.Free;
     M.Free;
+    R.Clear;
     R.Free;
     T1.Free;
   end;
@@ -659,6 +668,7 @@ begin
     Result := True;
     _CnSetLastError(ECN_PAILLIER_OK);
   finally
+    T.Clear;
     T.Free;
   end;
 end;

@@ -1255,10 +1255,6 @@ type
   TSHA3Type = (stSHA3_224, stSHA3_256, stSHA3_384, stSHA3_512, stSHAKE128, stSHAKE256);
 
 const
-  MAX_FILE_SIZE = 512 * 1024 * 1024;
-  STREAM_BUF_SIZE = 4096 * 1024;
-  // If file size <= this size (bytes), using Mapping, else stream
-
   SHA3_ROUNDS = 24;
   SHA3_STATE_LEN = 25;
 
@@ -2270,7 +2266,7 @@ function SHA3_224Stream(Stream: TStream; CallBack: TCnSHA3CalcProgressFunc):
 var
   Dig: TCnSHA3GeneralDigest;
 begin
-  InternalSHA3Stream(Stream, STREAM_BUF_SIZE, Dig, stSHA3_224, CallBack);
+  InternalSHA3Stream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, Dig, stSHA3_224, CallBack);
   Move(Dig[0], Result[0], SizeOf(TCnSHA3_224Digest));
 end;
 
@@ -2280,7 +2276,7 @@ function SHA3_256Stream(Stream: TStream; CallBack: TCnSHA3CalcProgressFunc):
 var
   Dig: TCnSHA3GeneralDigest;
 begin
-  InternalSHA3Stream(Stream, STREAM_BUF_SIZE, Dig, stSHA3_256, CallBack);
+  InternalSHA3Stream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, Dig, stSHA3_256, CallBack);
   Move(Dig[0], Result[0], SizeOf(TCnSHA3_256Digest));
 end;
 
@@ -2290,7 +2286,7 @@ function SHA3_384Stream(Stream: TStream; CallBack: TCnSHA3CalcProgressFunc):
 var
   Dig: TCnSHA3GeneralDigest;
 begin
-  InternalSHA3Stream(Stream, STREAM_BUF_SIZE, Dig, stSHA3_384, CallBack);
+  InternalSHA3Stream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, Dig, stSHA3_384, CallBack);
   Move(Dig[0], Result[0], SizeOf(TCnSHA3_384Digest));
 end;
 
@@ -2300,7 +2296,7 @@ function SHA3_512Stream(Stream: TStream; CallBack: TCnSHA3CalcProgressFunc):
 var
   Dig: TCnSHA3GeneralDigest;
 begin
-  InternalSHA3Stream(Stream, STREAM_BUF_SIZE, Dig, stSHA3_512, CallBack);
+  InternalSHA3Stream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, Dig, stSHA3_512, CallBack);
   Move(Dig[0], Result[0], SizeOf(TCnSHA3_512Digest));
 end;
 
@@ -2308,14 +2304,14 @@ end;
 function SHAKE128Stream(Stream: TStream; DigestByteLength: Cardinal;
   CallBack: TCnSHA3CalcProgressFunc): TBytes;
 begin
-  InternalSHA3Stream(Stream, STREAM_BUF_SIZE, stSHAKE128, DigestByteLength, Result, CallBack);
+  InternalSHA3Stream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, stSHAKE128, DigestByteLength, Result, CallBack);
 end;
 
 // 对指定数据流进行杂凑长度可变的 SHAKE256 计算
 function SHAKE256Stream(Stream: TStream; DigestByteLength: Cardinal;
   CallBack: TCnSHA3CalcProgressFunc): TBytes;
 begin
-  InternalSHA3Stream(Stream, STREAM_BUF_SIZE, stSHAKE256, DigestByteLength, Result, CallBack);
+  InternalSHA3Stream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, stSHAKE256, DigestByteLength, Result, CallBack);
 end;
 
 function FileSizeIsLargeThanMaxOrCanNotMap(const AFileName: string; out IsEmpty: Boolean): Boolean;
@@ -2341,7 +2337,7 @@ begin
   end;
   Rec.Lo := Info.nFileSizeLow;
   Rec.Hi := Info.nFileSizeHigh;
-  Result := (Rec.Hi > 0) or (Rec.Lo > MAX_FILE_SIZE);
+  Result := (Rec.Hi > 0) or (Rec.Lo > CN_CRYPTO_MAX_FILE_SIZE_MAPPING);
   IsEmpty := (Rec.Hi = 0) and (Rec.Lo = 0);
 {$ELSE}
   Result := True; // 非 Windows 平台返回 True，表示不 Mapping
@@ -2366,7 +2362,7 @@ begin
     // 大于 2G 的文件可能 Map 失败，采用流方式循环处理
     Stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
     try
-      InternalSHA3Stream(Stream, STREAM_BUF_SIZE, Result, SHA3Type, CallBack);
+      InternalSHA3Stream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, Result, SHA3Type, CallBack);
     finally
       Stream.Free;
     end;
@@ -2434,7 +2430,7 @@ begin
     // 大于 2G 的文件可能 Map 失败，采用流方式循环处理
     Stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
     try
-      InternalSHA3Stream(Stream, STREAM_BUF_SIZE, SHA3Type, DigestByteLength, Result, CallBack);
+      InternalSHA3Stream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, SHA3Type, DigestByteLength, Result, CallBack);
     finally
       Stream.Free;
     end;
@@ -2781,6 +2777,10 @@ begin
   SHA3Update(Context, @(Context.Opad[0]), HMAC_SHA3_224_BLOCK_SIZE_BYTE);
   SHA3Update(Context, @(TmpBuf[0]), Len);
   SHA3Final(Context, Output);
+
+  // 清除 Ipad 和 Opad 避免 Key 相关信息泄露
+  MemorySafeZero(@(Context.Ipad[0]), HMAC_SHA3_224_BLOCK_SIZE_BYTE);
+  MemorySafeZero(@(Context.Opad[0]), HMAC_SHA3_224_BLOCK_SIZE_BYTE);
 end;
 
 procedure SHA3_256HmacFinal(var Context: TCnSHA3Context; var Output: TCnSHA3GeneralDigest);
@@ -2794,6 +2794,10 @@ begin
   SHA3Update(Context, @(Context.Opad[0]), HMAC_SHA3_256_BLOCK_SIZE_BYTE);
   SHA3Update(Context, @(TmpBuf[0]), Len);
   SHA3Final(Context, Output);
+
+  // 清除 Ipad 和 Opad 避免 Key 相关信息泄露
+  MemorySafeZero(@(Context.Ipad[0]), HMAC_SHA3_256_BLOCK_SIZE_BYTE);
+  MemorySafeZero(@(Context.Opad[0]), HMAC_SHA3_256_BLOCK_SIZE_BYTE);
 end;
 
 procedure SHA3_384HmacFinal(var Context: TCnSHA3Context; var Output: TCnSHA3GeneralDigest);
@@ -2807,6 +2811,10 @@ begin
   SHA3Update(Context, @(Context.Opad[0]), HMAC_SHA3_384_BLOCK_SIZE_BYTE);
   SHA3Update(Context, @(TmpBuf[0]), Len);
   SHA3Final(Context, Output);
+
+  // 清除 Ipad 和 Opad 避免 Key 相关信息泄露
+  MemorySafeZero(@(Context.Ipad[0]), HMAC_SHA3_384_BLOCK_SIZE_BYTE);
+  MemorySafeZero(@(Context.Opad[0]), HMAC_SHA3_384_BLOCK_SIZE_BYTE);
 end;
 
 procedure SHA3_512HmacFinal(var Context: TCnSHA3Context; var Output: TCnSHA3GeneralDigest);
@@ -2820,6 +2828,10 @@ begin
   SHA3Update(Context, @(Context.Opad[0]), HMAC_SHA3_512_BLOCK_SIZE_BYTE);
   SHA3Update(Context, @(TmpBuf[0]), Len);
   SHA3Final(Context, Output);
+
+  // 清除 Ipad 和 Opad 避免 Key 相关信息泄露
+  MemorySafeZero(@(Context.Ipad[0]), HMAC_SHA3_512_BLOCK_SIZE_BYTE);
+  MemorySafeZero(@(Context.Opad[0]), HMAC_SHA3_512_BLOCK_SIZE_BYTE);
 end;
 
 procedure SHA3_224Hmac(Key: PAnsiChar; KeyByteLength: Integer; Input: PAnsiChar;

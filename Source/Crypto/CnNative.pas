@@ -306,7 +306,6 @@ type
   TCnUInt64Array = array[0..(MaxInt div SizeOf(TUInt64) - 1)] of TUInt64;
   {* 静态 64 位无符号整数数组}
 
-type
   TCnMemSortCompareProc = function (P1, P2: Pointer; ElementByteSize: Integer): Integer;
   {* 内存固定块尺寸的数组排序比较函数原型}
 
@@ -344,6 +343,12 @@ const
   {* 最大的 64 位无符号数}
   CN_MAX_SIGNED_INT64_IN_TUINT64: TUInt64   = $7FFFFFFFFFFFFFFF;
   {* 64 位无符号数范围内最大的 64 位有符号数}
+
+  CN_CRYPTO_MAX_FILE_SIZE_MAPPING           = 512 * 1024 * 1024;
+  {* 密码库中用来判断是走 Stream 还是 Mapping 的文件大小阈值}
+
+  CN_CRYPTO_STREAM_BUF_SIZE                 = 4096 * 1024;
+  {* 密码库中文件 Stream 的统一缓冲区大小}
 
 {*
   对于 D567 等不支持 UInt64 的编译器，虽然可以用 Int64 代替 UInt64 进行加减、存储
@@ -1383,6 +1388,28 @@ procedure MemoryQuickSort(Mem: Pointer; ElementByteSize: Integer;
    返回值：（无）
 }
 
+function MemorySafeZero(Buffer: Pointer; ByteLength: Integer): Boolean; {$IFDEF SUPPORT_INLINE} inline; {$ENDIF}
+{* 安全地将内存块填充为零，确保不被编译器的死存储优化消除。
+   用于擦除密钥、私钥等敏感数据，防止残留于栈或堆中。
+   返回值用于函数内部防止编译器优化，调用者可无需处理返回值。
+
+   参数：
+     Buffer: Pointer                      - 待清零的内存块地址
+     ByteLength: Integer                  - 待清零的字节长度
+
+   返回值：Boolean                        - 是否安全擦除完毕
+}
+
+function MemoryCheckZero(Buffer: Pointer; ByteLength: Integer): Boolean;
+{* 检查内存块内容是否全零。
+
+   参数：
+     Buffer: Pointer                      - 待检查的内存块地址
+     ByteLength: Integer                  - 待检查的字节长度
+
+   返回值：Boolean                        - 是否内容全零
+}
+
 function UInt8ToBinStr(V: Byte): string;
 {* 将一 8 位无符号整数转换为二进制字符串。
 
@@ -2009,6 +2036,50 @@ function ConstTimeConditionalSelect64(Condition: Boolean; A: TUInt64; B: TUInt64
      B: TUInt64                           - 待选择的 64 位整数二
 
    返回值：TUInt64                        - 返回选择的 64 位整数
+}
+
+procedure ConstTimeConditionalAssign8(CanAssign: Boolean; Source: Byte; var Dest: Byte);
+{* 针对两个单字节变量执行时间固定的赋值，CanAssign 为 True 时执行 Dest := Source，否则什么都不做。
+
+   参数：
+     CanAssign: Boolean                   - 是否选择 A 也就是参数一
+     Source: Byte                         - 待赋值的 8 位整数源值
+     var Dest: Byte                       - 待赋值的 8 位整数目标变量
+
+   返回值：（无）
+}
+
+procedure ConstTimeConditionalAssign16(CanAssign: Boolean; Source: Word; var Dest: Word);
+{* 针对两个双字节变量执行时间固定的赋值，CanAssign 为 True 时执行 Dest := Source，否则什么都不做。
+
+   参数：
+     CanAssign: Boolean                   - 是否选择 A 也就是参数一
+     Source: Word                         - 待赋值的 16 位整数源值
+     var Dest: Word                       - 待赋值的 16 位整数目标变量
+
+   返回值：（无）
+}
+
+procedure ConstTimeConditionalAssign32(CanAssign: Boolean; Source: Cardinal; var Dest: Cardinal);
+{* 针对两个四字节变量执行时间固定的赋值，CanAssign 为 True 时执行 Dest := Source，否则什么都不做。
+
+   参数：
+     CanAssign: Boolean                   - 是否选择 A 也就是参数一
+     Source: Cardinal                     - 待赋值的 32 位整数源值
+     var Dest: Cardinal                   - 待赋值的 32 位整数目标变量
+
+   返回值：（无）
+}
+
+procedure ConstTimeConditionalAssign64(CanAssign: Boolean; Source: TUInt64; var Dest: TUInt64);
+{* 针对两个八字节变量执行时间固定的赋值，CanAssign 为 True 时执行 Dest := Source，否则什么都不做。
+
+   参数：
+     CanAssign: Boolean                   - 是否选择 A 也就是参数一
+     Source: TUInt64                      - 待赋值的 64 位整数源值
+     var Dest: TUInt64                    - 待赋值的 64 位整数目标变量
+
+   返回值：（无）
 }
 
 // ================ 以上是执行时间固定的无 if 判断的部分逻辑函数 ===============
@@ -3025,6 +3096,101 @@ begin
   end;
 end;
 
+procedure InternalQuickSort(Mem: Pointer; L, R: Integer; ElementByteSize: Integer;
+  CompareProc: TCnMemSortCompareProc);
+var
+  I, J, P: Integer;
+begin
+  repeat
+    I := L;
+    J := R;
+    P := (L + R) shr 1;
+    repeat
+      while CompareProc(Pointer(TCnIntAddress(Mem) + I * ElementByteSize),
+        Pointer(TCnIntAddress(Mem) + P * ElementByteSize), ElementByteSize) < 0 do
+        Inc(I);
+      while CompareProc(Pointer(TCnIntAddress(Mem) + J * ElementByteSize),
+        Pointer(TCnIntAddress(Mem) + P * ElementByteSize), ElementByteSize) > 0 do
+        Dec(J);
+
+      if I <= J then
+      begin
+        MemorySwap(Pointer(TCnIntAddress(Mem) + I * ElementByteSize),
+          Pointer(TCnIntAddress(Mem) + J * ElementByteSize), ElementByteSize);
+
+        if P = I then
+          P := J
+        else if P = J then
+          P := I;
+        Inc(I);
+        Dec(J);
+      end;
+    until I > J;
+
+    if L < J then
+      InternalQuickSort(Mem, L, J, ElementByteSize, CompareProc);
+    L := I;
+  until I >= R;
+end;
+
+function DefaultCompareProc(P1, P2: Pointer; ElementByteSize: Integer): Integer;
+begin
+  Result := MemoryCompare(P1, P2, ElementByteSize);
+end;
+
+procedure MemoryQuickSort(Mem: Pointer; ElementByteSize: Integer;
+  ElementCount: Integer; CompareProc: TCnMemSortCompareProc);
+begin
+  if (Mem <> nil) and (ElementCount > 0) and (ElementCount > 0) then
+  begin
+    if Assigned(CompareProc) then
+      InternalQuickSort(Mem, 0, ElementCount - 1, ElementByteSize, CompareProc)
+    else
+      InternalQuickSort(Mem, 0, ElementCount - 1, ElementByteSize, DefaultCompareProc);
+  end;
+end;
+
+function MemorySafeZero(Buffer: Pointer; ByteLength: Integer): Boolean;
+var
+  P: PByte;
+  I: Integer;
+  VolatileSink: Byte;
+begin
+  Result := False;
+  if (Buffer = nil) or (ByteLength <= 0) then
+    Exit;
+
+  P := PByte(Buffer);
+  for I := 0 to ByteLength - 1 do
+  begin
+    P^ := 0;
+    Inc(P);
+  end;
+
+  VolatileSink := PByte(Buffer)^;
+  Result := VolatileSink = 0;
+end;
+
+function MemoryCheckZero(Buffer: Pointer; ByteLength: Integer): Boolean;
+var
+  P: PByte;
+  I: Integer;
+begin
+  Result := False;
+  if (Buffer = nil) or (ByteLength <= 0) then
+    Exit;
+
+  P := PByte(Buffer);
+  for I := 0 to ByteLength - 1 do
+  begin
+    if P^ <> 0 then
+      Exit;
+    Inc(P);
+  end;
+
+  Result := True;
+end;
+
 function UInt8ToBinStr(V: Byte): string;
 const
   M = $80;
@@ -3937,6 +4103,38 @@ function ConstTimeConditionalSelect64(Condition: Boolean; A, B: TUInt64): TUInt6
 begin
   ConstTimeConditionalSwap64(Condition, A, B);
   Result := B;
+end;
+
+procedure ConstTimeConditionalAssign8(CanAssign: Boolean; Source: Byte; var Dest: Byte);
+var
+  Mask: Byte;
+begin
+  Mask := ConstTimeExpandBoolean8(CanAssign);
+  Dest := (Dest and (not Mask)) or (Source and Mask);
+end;
+
+procedure ConstTimeConditionalAssign16(CanAssign: Boolean; Source: Word; var Dest: Word);
+var
+  Mask: Word;
+begin
+  Mask := ConstTimeExpandBoolean16(CanAssign);
+  Dest := (Dest and (not Mask)) or (Source and Mask);
+end;
+
+procedure ConstTimeConditionalAssign32(CanAssign: Boolean; Source: Cardinal; var Dest: Cardinal);
+var
+  Mask: Cardinal;
+begin
+  Mask := ConstTimeExpandBoolean32(CanAssign);
+  Dest := (Dest and (not Mask)) or (Source and Mask);
+end;
+
+procedure ConstTimeConditionalAssign64(CanAssign: Boolean; Source: TUInt64; var Dest: TUInt64);
+var
+  Mask: TUInt64;
+begin
+  Mask := ConstTimeExpandBoolean64(CanAssign);
+  Dest := (Dest and (not Mask)) or (Source and Mask);
 end;
 
 {$IFDEF MSWINDOWS}
@@ -5383,60 +5581,6 @@ begin
   end
   else
     Result := 0;
-end;
-
-procedure InternalQuickSort(Mem: Pointer; L, R: Integer; ElementByteSize: Integer;
-  CompareProc: TCnMemSortCompareProc);
-var
-  I, J, P: Integer;
-begin
-  repeat
-    I := L;
-    J := R;
-    P := (L + R) shr 1;
-    repeat
-      while CompareProc(Pointer(TCnIntAddress(Mem) + I * ElementByteSize),
-        Pointer(TCnIntAddress(Mem) + P * ElementByteSize), ElementByteSize) < 0 do
-        Inc(I);
-      while CompareProc(Pointer(TCnIntAddress(Mem) + J * ElementByteSize),
-        Pointer(TCnIntAddress(Mem) + P * ElementByteSize), ElementByteSize) > 0 do
-        Dec(J);
-
-      if I <= J then
-      begin
-        MemorySwap(Pointer(TCnIntAddress(Mem) + I * ElementByteSize),
-          Pointer(TCnIntAddress(Mem) + J * ElementByteSize), ElementByteSize);
-
-        if P = I then
-          P := J
-        else if P = J then
-          P := I;
-        Inc(I);
-        Dec(J);
-      end;
-    until I > J;
-
-    if L < J then
-      InternalQuickSort(Mem, L, J, ElementByteSize, CompareProc);
-    L := I;
-  until I >= R;
-end;
-
-function DefaultCompareProc(P1, P2: Pointer; ElementByteSize: Integer): Integer;
-begin
-  Result := MemoryCompare(P1, P2, ElementByteSize);
-end;
-
-procedure MemoryQuickSort(Mem: Pointer; ElementByteSize: Integer;
-  ElementCount: Integer; CompareProc: TCnMemSortCompareProc);
-begin
-  if (Mem <> nil) and (ElementCount > 0) and (ElementCount > 0) then
-  begin
-    if Assigned(CompareProc) then
-      InternalQuickSort(Mem, 0, ElementCount - 1, ElementByteSize, CompareProc)
-    else
-      InternalQuickSort(Mem, 0, ElementCount - 1, ElementByteSize, DefaultCompareProc);
-  end;
 end;
 
 {$IFDEF COMPILER5}

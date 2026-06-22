@@ -487,7 +487,7 @@ begin
   T := TCnBigNumber.Create;
   try
     if BigNumberPowerMod(T, DSAParameter.G, PrivateKey, DSAParameter.P) then
-      Result := BigNumberEqual(T, PublicKey);
+      Result := BigNumberConstTimeEqual(T, PublicKey);
   finally
     T.Free;
   end;
@@ -509,8 +509,8 @@ begin
     repeat
       if not BigNumberRandRange(K, DSAParameter.Q) then Exit;
 
-      if K.IsZero then
-        K.SetOne;
+      if K.IsZero then // 如果随机数取到全 0 则重试
+        Continue;
 
       // r = (g^k mod p) mod q
       if not BigNumberPowerMod(OutSignature.R, DSAParameter.G, K, DSAParameter.P) then Exit;
@@ -584,7 +584,7 @@ begin
     if not BigNumberMod(W, W, DSAParameter.Q) then Exit;
 
     // 结果比对 W 和 R
-    Result := BigNumberEqual(W, Signature.R);
+    Result := BigNumberConstTimeEqual(W, Signature.R);
   finally
     P2.Free;
     P1.Free;

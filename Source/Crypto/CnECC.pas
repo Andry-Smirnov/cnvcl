@@ -556,8 +556,12 @@ type
   TCnEccPublicKey = class(TCnEccPoint);
   {* 椭圆曲线的公钥，G 点计算 k 次后的点坐标}
 
-  TCnEccPrivateKey = class(TCnBigNumber);
+  TCnEccPrivateKey = class(TCnBigNumber)
   {* 椭圆曲线的私钥，计算次数 k 次}
+  public
+    destructor Destroy; override;
+    {* 析构函数，内部强行调用安全清除内部数据的机制}
+  end;
 
   TCnEccSignature = class(TPersistent)
   {* 椭圆曲线的签名，两个大数 R S}
@@ -801,6 +805,7 @@ type
 
        返回值：（无）
     }
+
     procedure JacobianMultiplePoint(K: TCnBigNumber; Point: TCnEcc3Point); virtual;
     {* 使用雅可比坐标系进行点乘，避免取模逆元导致的开销。
 
@@ -820,6 +825,7 @@ type
 
        返回值：（无）
     }
+
     procedure MultiplePoint(K: TCnBigNumber; Point: TCnEccPoint); overload;
     {* 计算某点 P 的 k * P 值，值重新放入 P，内部用仿射坐标点乘进行加速。
 
@@ -888,6 +894,7 @@ type
 
        返回值：（无）
     }
+
     function IsPointOnCurve(P: TCnEccPoint): Boolean;
     {* 判断 P 点是否在本曲线上。
 
@@ -1691,7 +1698,9 @@ function CnEccFastSchoof(Res: TCnBigNumber; A: TCnBigNumber; B: TCnBigNumber;
 
 function CnInt64EccGenerateParams(out FiniteFieldSize: Int64; out CoefficientA: Int64;
   out CoefficientB: Int64; out GX: Int64; out GY: Int64; out Order: Int64): Boolean;
-{* 生成椭圆曲线 y^2 = x^3 + Ax + B mod p 的各个参数，难以完整实现，只能先生成系数很小的。
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
+{* 生成椭圆曲线 y^2 = x^3 + Ax + B mod p 的各个参数。
+   注意，该机制难以完整实现，只能先靠系统随机库生成系数很小的，也不涉及密码应用。
 
    参数：
      out FiniteFieldSize: Int64           - 生成的魏尔斯特拉斯椭圆曲线方程的有限域上界
@@ -1743,6 +1752,16 @@ function CnInt64EccPointsEqual(var P1: TCnInt64EccPoint; var P2: TCnInt64EccPoin
 
 function CnEccPointsEqual(P1: TCnEccPoint; P2: TCnEccPoint): Boolean;
 {* 判断两个 TCnEccPoint 点是否相等。
+
+   参数：
+     P1: TCnEccPoint                      - 待比较的坐标点一
+     P2: TCnEccPoint                      - 待比较的坐标点二
+
+   返回值：Boolean                        - 返回是否相等
+}
+
+function CnEccPointsConstTimeEqual(P1: TCnEccPoint; P2: TCnEccPoint): Boolean;
+{* 使用固定时间判断两个 TCnEccPoint 点是否相等。
 
    参数：
      P1: TCnEccPoint                      - 待比较的坐标点一
@@ -2801,7 +2820,21 @@ begin
   if P1 = P2 then
     Result := True
   else
-    Result := (BigNumberCompare(P1.X, P2.X) = 0) and (BigNumberCompare(P1.Y, P2.Y) = 0);
+    Result := BigNumberEqual(P1.X, P2.X) and (BigNumberEqual(P1.Y, P2.Y));
+end;
+
+function CnEccPointsConstTimeEqual(P1: TCnEccPoint; P2: TCnEccPoint): Boolean;
+var
+  B1, B2: Boolean;
+begin
+  if P1 = P2 then
+    Result := True
+  else
+  begin
+    B1 := BigNumberConstTimeEqual(P1.X, P2.X);
+    B2 := BigNumberConstTimeEqual(P1.Y, P2.Y);
+    Result := B1 and B2;
+  end;
 end;
 
 function CnInt64EccPointsEqual(var P1, P2: TCnInt64EccPoint): Boolean;
@@ -2899,7 +2932,7 @@ end;
 procedure TCnInt64Ecc.AffineMultiplePoint(K: Int64;
   var Point: TCnInt64Ecc3Point);
 var
-  E, R: TCnInt64Ecc3Point;
+  E, R, Q: TCnInt64Ecc3Point;
 begin
   if K < 0 then
   begin
@@ -2925,8 +2958,9 @@ begin
 
     while K <> 0 do
     begin
+      AffinePointAddPoint(R, E, Q);
       if (K and 1) <> 0 then
-        AffinePointAddPoint(R, E, R);
+        R := Q;
 
       AffinePointAddPoint(E, E, E);
       K := K shr 1;
@@ -3148,10 +3182,7 @@ procedure TCnInt64Ecc.Encrypt(var PlainPoint: TCnInt64EccPoint;
   OutDataPoint2: TCnInt64EccPoint; RandomKey: Int64);
 begin
   if RandomKey = 0 then
-  begin
-    Randomize;
-    RandomKey := Trunc(Random * (FOrder - 1)) + 1; // 比 0 大但比基点阶小的随机数
-  end;
+    RandomKey := RandomInt64LessThan(FOrder); // 比 0 大但比基点阶小的随机数
 
   if RandomKey mod FOrder = 0 then
     raise ECnEccException.CreateFmt(SCnErrorEccRandomkeyDForOrder, [RandomKey]);
@@ -3169,8 +3200,7 @@ end;
 procedure TCnInt64Ecc.GenerateKeys(out PrivateKey: TCnInt64PrivateKey;
   out PublicKey: TCnInt64PublicKey);
 begin
-  Randomize;
-  PrivateKey := Trunc(Random * (FOrder - 1)) + 1; // 比 0 大但比基点阶小的随机数
+  PrivateKey := RandomInt64LessThan(FOrder);      // 比 0 大但比基点阶小的随机数
   PublicKey := FGenerator;
   MultiplePoint(PrivateKey, PublicKey);           // 基点乘 PrivateKey 次
 end;
@@ -3181,8 +3211,8 @@ var
 begin
   // 计算 (Y^2 - X^3 - A*X - B) mod p 是否等于 0，应用分配律
   // 也就是计算(Y^2 mod p - X^3 mod p - A*X mod p - B mod p) mod p
-  Y2 := MontgomeryPowerMod(P.Y, 2, FFiniteFieldSize);
-  X3 := MontgomeryPowerMod(P.X, 3, FFiniteFieldSize);
+  Y2 := PowerMod(P.Y, 2, FFiniteFieldSize);
+  X3 := PowerMod(P.X, 3, FFiniteFieldSize);
   AX := Int64MultipleMod(FCoefficientA, P.X, FFiniteFieldSize);
   B := FCoefficientB mod FFiniteFieldSize;
 
@@ -3192,7 +3222,7 @@ end;
 procedure TCnInt64Ecc.JacobianMultiplePoint(K: Int64;
   var Point: TCnInt64Ecc3Point);
 var
-  E, R: TCnInt64Ecc3Point;
+  E, R, Q: TCnInt64Ecc3Point;
 begin
   if K < 0 then
   begin
@@ -3217,8 +3247,9 @@ begin
 
     while K <> 0 do
     begin
+      JacobianPointAddPoint(R, E, Q);
       if (K and 1) <> 0 then
-        JacobianPointAddPoint(R, E, R);
+        R := Q;
 
       JacobianPointAddPoint(E, E, E);
       K := K shr 1;
@@ -3391,7 +3422,7 @@ end;
 
 procedure TCnInt64Ecc.MultiplePoint(K: Int64; var Point: TCnInt64EccPoint);
 var
-  E, R: TCnInt64EccPoint;
+  E, R, Q: TCnInt64EccPoint;
 begin
   if K < 0 then
   begin
@@ -3414,8 +3445,9 @@ begin
 
     while K <> 0 do
     begin
+      PointAddPoint(R, E, Q);    // Q = R + E，始终执行
       if (K and 1) <> 0 then
-        PointAddPoint(R, E, R);
+        R := Q;                  // 位为 1 时更新结果
 
       PointAddPoint(E, E, E);
       K := K shr 1;
@@ -3444,7 +3476,7 @@ begin
   // 解方程求 Y： (y^2 - (Plain^3 + A * Plain + B)) mod p = 0
   // 注意 Plain 如果太大，计算过程中会溢出，不好处理，只能用分配律。
   // (Y^2 mod p - Plain ^ 3 mod p - A * Plain mod p - B mod p) mod p = 0;
-  X3 := MontgomeryPowerMod(Plain, 3, FFiniteFieldSize);
+  X3 := PowerMod(Plain, 3, FFiniteFieldSize);
   AX := Int64MultipleMod(FCoefficientA, Plain, FFiniteFieldSize);
   B := FCoefficientB mod FFiniteFieldSize;
 
@@ -3464,7 +3496,7 @@ begin
   case FSizePrimeType of
   pt4U3:  // 参考自《SM2椭圆曲线公钥密码算法》附录 B 中的“模素数平方根的求解”一节
     begin
-      Y := MontgomeryPowerMod(G, FSizeUFactor + 1, FFiniteFieldSize);
+      Y := PowerMod(G, FSizeUFactor + 1, FFiniteFieldSize);
       Z := Int64MultipleMod(Y, Y, FFiniteFieldSize);
       if Z = G then
       begin
@@ -3475,10 +3507,10 @@ begin
     end;
   pt8U5:  // 参考自《SM2椭圆曲线公钥密码算法》附录 B 中的“模素数平方根的求解”一节
     begin
-      Z := MontgomeryPowerMod(G, 2 * FSizeUFactor + 1, FFiniteFieldSize);
+      Z := PowerMod(G, 2 * FSizeUFactor + 1, FFiniteFieldSize);
       if Z = 1 then
       begin
-        Y := MontgomeryPowerMod(G, FSizeUFactor + 1, FFiniteFieldSize);
+        Y := PowerMod(G, FSizeUFactor + 1, FFiniteFieldSize);
         OutPoint.X := Plain;
         OutPoint.Y := Y;
         Result := True;
@@ -3490,8 +3522,8 @@ begin
         begin
           // y = (2g * (4g)^u) mod p = (2g mod p * (4^u * g^u) mod p) mod p
           Y := (Int64MultipleMod(G, 2, FFiniteFieldSize) *
-            MontgomeryPowerMod(4, FSizeUFactor, FFiniteFieldSize) *
-            MontgomeryPowerMod(G, FSizeUFactor, FFiniteFieldSize)) mod FFiniteFieldSize;
+            PowerMod(4, FSizeUFactor, FFiniteFieldSize) *
+            PowerMod(G, FSizeUFactor, FFiniteFieldSize)) mod FFiniteFieldSize;
           OutPoint.X := Plain;
           OutPoint.Y := Y;
           Result := True;
@@ -3689,9 +3721,9 @@ begin
   end;
 
   // 先找一个 Z 满足 针对 P 的勒让德符号为 -1
-  C := MontgomeryPowerMod(Z, Q, P);
-  R := MontgomeryPowerMod(X, (Q + 1) div 2, P);
-  T := MontgomeryPowerMod(X, Q, P);
+  C := PowerMod(Z, Q, P);
+  R := PowerMod(X, (Q + 1) div 2, P);
+  T := PowerMod(X, Q, P);
   M := S;
 
   while True do
@@ -3701,11 +3733,11 @@ begin
 
     for I := 1 to M - 1 do
     begin
-      if MontgomeryPowerMod(T, 1 shl I, P) = 1 then
+      if PowerMod(T, 1 shl I, P) = 1 then
         Break;
     end;
 
-    B := MontgomeryPowerMod(C, 1 shl (M - I - 1), P);
+    B := PowerMod(C, 1 shl (M - I - 1), P);
     M := I; // M 每回都会减小，算法收敛
 
     R := Int64MultipleMod(R, B, P);
@@ -4169,6 +4201,7 @@ end;
 procedure TCnEcc.Load(const A, B, FieldPrime, GX, GY, Order: AnsiString; H: Integer);
 var
   R: Cardinal;
+  Discriminant, T: TCnBigNumber;
 begin
   FGenerator.X.SetHex(GX);
   FGenerator.Y.SetHex(GY);
@@ -4178,7 +4211,36 @@ begin
   FOrder.SetHex(Order);
   FCoFactor := H;
 
-  // TODO: 要确保 4*a^3+27*b^2 <> 0
+  // 确保 4*a^3+27*b^2 <> 0
+  Discriminant := TCnBigNumber.Create;
+  T := TCnBigNumber.Create;
+  try
+    // a^3 = a * a * a (mod p)
+    BigNumberMul(Discriminant, FCoefficientA, FCoefficientA);
+    BigNumberMod(Discriminant, Discriminant, FFiniteFieldSize);
+    BigNumberMul(Discriminant, Discriminant, FCoefficientA);
+    BigNumberMod(Discriminant, Discriminant, FFiniteFieldSize);
+
+    // 4 * a^3 (mod p)
+    BigNumberMulWordNonNegativeMod(Discriminant, Discriminant, 4, FFiniteFieldSize);
+
+    // b^2 (mod p)
+    BigNumberSqr(T, FCoefficientB);
+    BigNumberMod(T, T, FFiniteFieldSize);
+
+    // 27 * b^2 (mod p)
+    BigNumberMulWordNonNegativeMod(T, T, 27, FFiniteFieldSize);
+
+    // 4*a^3 + 27*b^2 (mod p)
+    BigNumberAdd(Discriminant, Discriminant, T);
+    BigNumberMod(Discriminant, Discriminant, FFiniteFieldSize);
+
+    if BigNumberIsZero(Discriminant) then
+      raise ECnEccException.Create(SCnErrorEcc4A327B2);
+  finally
+    T.Free;
+    Discriminant.Free;
+  end;
 
 //  由调用者保证有限域边界为素数
 //  if not BigNumberIsProbablyPrime(FFiniteFieldSize) then
@@ -4460,19 +4522,21 @@ begin
   try
     BK := FEccBigNumberPool.Obtain;
     BigNumberCopy(BK, K);
+
     if (BigNumberCompare(FOrder, CnBigNumberZero) > 0) and (not BigNumberIsNegative(BK)) then
     begin
       BigNumberMod(BK, BK, FOrder);
       Rnd := FEccBigNumberPool.Obtain;
       Tmp := FEccBigNumberPool.Obtain;
 
-      // 盲化，乘数增加 16 位随机的价的倍数，最终值会抵消，但运算随机化了能更抗攻击，尤其是 NAF 部分
-      if BigNumberRandBits(Rnd, 16) then
+      // 盲化，乘数增加 64 位随机的价的倍数，最终值会抵消，但运算随机化了能更抗攻击，尤其是 NAF 部分
+      if BigNumberRandBits(Rnd, 64) then
       begin
         BigNumberMul(Tmp, Rnd, FOrder);
         BigNumberAdd(BK, BK, Tmp);
       end;
     end;
+
     CnEccPointToEcc3Point(Point, P3);
     AffineMultiplePoint(BK, P3);
     CnAffinePointToEccPoint(P3, Point, FFiniteFieldSize);
@@ -4488,6 +4552,7 @@ function TCnEcc.PlainToPoint(Plain: TCnBigNumber;
   OutPoint: TCnEccPoint): Boolean;
 var
   X, Y, Z, U, R, T, X3: TCnBigNumber;
+  P: TCnEccPoint;
 begin
   Result := False;
   if Plain.IsNegative then
@@ -4532,7 +4597,7 @@ begin
         begin
           // 结果是 g^(u+1) mod p
           BigNumberAddWord(U, 1);
-          BigNumberMontgomeryPowerMod(Y, X, U, FFiniteFieldSize);
+          BigNumberPowerMod(Y, X, U, FFiniteFieldSize);
           BigNumberDirectMulMod(Z, Y, Y, FFiniteFieldSize);
           if BigNumberCompare(Z, X) = 0 then
           begin
@@ -4546,7 +4611,7 @@ begin
         begin
           BigNumberMulWord(U, 2);
           BigNumberAddWord(U, 1);
-          BigNumberMontgomeryPowerMod(Z, X, U, FFiniteFieldSize);
+          BigNumberPowerMod(Z, X, U, FFiniteFieldSize);
           R := FEccBigNumberPool.Obtain;
           BigNumberMod(R, Z, FFiniteFieldSize);
 
@@ -4555,7 +4620,7 @@ begin
             // 结果是 g^(u+1) mod p
             BigNumberCopy(U, FSizeUFactor);
             BigNumberAddWord(U, 1);
-            BigNumberMontgomeryPowerMod(Y, X, U, FFiniteFieldSize);
+            BigNumberPowerMod(Y, X, U, FFiniteFieldSize);
 
             BigNumberCopy(OutPoint.X, Plain);
             BigNumberCopy(OutPoint.Y, Y);
@@ -4576,7 +4641,7 @@ begin
               BigNumberCopy(X, X3);
               BigNumberMulWord(X, 4);
               T := FEccBigNumberPool.Obtain;
-              BigNumberMontgomeryPowerMod(T, X, FSizeUFactor, FFiniteFieldSize); // T: (4g)^u mod p
+              BigNumberPowerMod(T, X, FSizeUFactor, FFiniteFieldSize); // T: (4g)^u mod p
               BigNumberDirectMulMod(Y, R, T, FFiniteFieldSize);
 
               BigNumberCopy(OutPoint.X, Plain);
@@ -4602,6 +4667,22 @@ begin
 {$ENDIF}
         end;
     end;
+
+    // 对于余因子 > 1 的曲线，要验证 n * P = 0，防止小子群攻击
+    // 如果 n * P <> 0，说明会有 FCoFactor 的因数 * P = 0，这小子群就太明显了，2/4/8
+    if Result and (FCoFactor > 1) then
+    begin
+      P := TCnEccPoint.Create;
+      try
+        P.Assign(OutPoint);
+        MultiplePoint(FOrder, P);
+        if not P.IsZero then
+          Result := False;
+      finally
+        P.Free;
+      end;
+    end;
+
   finally
     FEccBigNumberPool.Recycle(X);
     FEccBigNumberPool.Recycle(Y);
@@ -5206,6 +5287,9 @@ begin
   Result := False;
   if (Ecc <> nil) and (SelfPrivateKey <> nil) and not BigNumberIsNegative(SelfPrivateKey) then
   begin
+    if not CheckEccPublicKey(Ecc, OtherPublicKey) then // 对方公钥必须是椭圆曲线上的点，防止经典的无效曲线攻击
+      Exit;
+
     SharedSecretKey.Assign(OtherPublicKey);
     Ecc.MultiplePoint(SelfPrivateKey, SharedSecretKey);
     Result := True;
@@ -5328,7 +5412,7 @@ begin
   try
     P.Assign(Ecc.Generator);
     Ecc.MultiplePoint(PrivateKey, P);
-    Result := CnEccPointsEqual(P, PublicKey);
+    Result := CnEccPointsConstTimeEqual(P, PublicKey);
   finally
     P.Free;
   end;
@@ -10151,6 +10235,14 @@ end;
 function TCnEcc3Point.ToString: string;
 begin
   Result := CnEcc3PointToHex(Self);
+end;
+
+{ TCnEccPrivateKey }
+
+destructor TCnEccPrivateKey.Destroy;
+begin
+  Clear;
+  inherited;
 end;
 
 { TCnEccSignature }

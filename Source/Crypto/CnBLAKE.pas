@@ -971,7 +971,7 @@ begin
 
   V^[A] := V^[A] + (M[Sigma[I][E]] xor U256[Sigma[I][E + 1]]) + V^[B];
   V^[D] := ROTRight256(V^[D] xor V^[A], 16);
-  V^[C] := V^[C] + V[D];
+  V^[C] := V^[C] + V^[D];
   V^[B] := ROTRight256(V^[B] xor V^[C], 12);
   V^[A] := V^[A] + (M[Sigma[I][E + 1]] xor U256[Sigma[I][E]]) + V^[B];
   V^[D] := ROTRight256(V^[D] xor V^[A], 8);
@@ -989,7 +989,7 @@ begin
 
   V^[A] := V^[A] + (M[Sigma[I][E]] xor U512[Sigma[I][E + 1]]) + V^[B];
   V^[D] := ROTRight512(V^[D] xor V^[A], 32);
-  V^[C] := V^[C] + V[D];
+  V^[C] := V^[C] + V^[D];
   V^[B] := ROTRight512(V^[B] xor V^[C], 25);
   V^[A] := V^[A] + (M[Sigma[I][E + 1]] xor U512[Sigma[I][E]]) + V^[B];
   V^[D] := ROTRight512(V^[D] xor V^[A], 16);
@@ -1974,7 +1974,7 @@ function BLAKE224Stream(Stream: TStream; CallBack: TCnBLAKECalcProgressFunc):
 var
   Dig: TCnBLAKEGeneralDigest;
 begin
-  InternalBLAKEStream(Stream, 4096 * 1024, Dig, btBLAKE224, CallBack);
+  InternalBLAKEStream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, Dig, btBLAKE224, CallBack);
   Move(Dig[0], Result[0], SizeOf(TCnBLAKE224Digest));
 end;
 
@@ -1984,7 +1984,7 @@ function BLAKE256Stream(Stream: TStream; CallBack: TCnBLAKECalcProgressFunc):
 var
   Dig: TCnBLAKEGeneralDigest;
 begin
-  InternalBLAKEStream(Stream, 4096 * 1024, Dig, btBLAKE256, CallBack);
+  InternalBLAKEStream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, Dig, btBLAKE256, CallBack);
   Move(Dig[0], Result[0], SizeOf(TCnBLAKE256Digest));
 end;
 
@@ -1994,7 +1994,7 @@ function BLAKE384Stream(Stream: TStream; CallBack: TCnBLAKECalcProgressFunc):
 var
   Dig: TCnBLAKEGeneralDigest;
 begin
-  InternalBLAKEStream(Stream, 4096 * 1024, Dig, btBLAKE384, CallBack);
+  InternalBLAKEStream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, Dig, btBLAKE384, CallBack);
   Move(Dig[0], Result[0], SizeOf(TCnBLAKE384Digest));
 end;
 
@@ -2004,7 +2004,7 @@ function BLAKE512Stream(Stream: TStream; CallBack: TCnBLAKECalcProgressFunc):
 var
   Dig: TCnBLAKEGeneralDigest;
 begin
-  InternalBLAKEStream(Stream, 4096 * 1024, Dig, btBLAKE512, CallBack);
+  InternalBLAKEStream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, Dig, btBLAKE512, CallBack);
   Move(Dig[0], Result[0], SizeOf(TCnBLAKE512Digest));
 end;
 
@@ -2031,7 +2031,7 @@ begin
   end;
   Rec.Lo := Info.nFileSizeLow;
   Rec.Hi := Info.nFileSizeHigh;
-  Result := (Rec.Hi > 0) or (Rec.Lo > MAX_FILE_SIZE);
+  Result := (Rec.Hi > 0) or (Rec.Lo > CN_CRYPTO_MAX_FILE_SIZE_MAPPING);
   IsEmpty := (Rec.Hi = 0) and (Rec.Lo = 0);
 {$ELSE}
   Result := True; // 非 Windows 平台返回 True，表示不 Mapping
@@ -2123,7 +2123,7 @@ begin
     // 大于 2G 的文件可能 Map 失败，或非 Windows 平台，采用流方式循环处理
     Stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
     try
-      InternalBLAKEStream(Stream, 4096 * 1024, Result, BLAKEType, CallBack);
+      InternalBLAKEStream(Stream, CN_CRYPTO_STREAM_BUF_SIZE, Result, BLAKEType, CallBack);
     finally
       Stream.Free;
     end;
@@ -2240,58 +2240,26 @@ end;
 
 // 比较两个 BLAKE224 杂凑值是否相等
 function BLAKE224Match(const D1, D2: TCnBLAKE224Digest): Boolean;
-var
-  I: Integer;
 begin
-  I := 0;
-  Result := True;
-  while Result and (I < 28) do
-  begin
-    Result := D1[I] = D2[I];
-    Inc(I);
-  end;
+  Result := ConstTimeCompareMem(@D1[0], @D2[0], SizeOf(TCnBLAKE224Digest));
 end;
 
 // 比较两个 BLAKE256 杂凑值是否相等
 function BLAKE256Match(const D1, D2: TCnBLAKE256Digest): Boolean;
-var
-  I: Integer;
 begin
-  I := 0;
-  Result := True;
-  while Result and (I < 32) do
-  begin
-    Result := D1[I] = D2[I];
-    Inc(I);
-  end;
+  Result := ConstTimeCompareMem(@D1[0], @D2[0], SizeOf(TCnBLAKE256Digest));
 end;
 
 // 比较两个 BLAKE384 杂凑值是否相等
 function BLAKE384Match(const D1, D2: TCnBLAKE384Digest): Boolean;
-var
-  I: Integer;
 begin
-  I := 0;
-  Result := True;
-  while Result and (I < 48) do
-  begin
-    Result := D1[I] = D2[I];
-    Inc(I);
-  end;
+  Result := ConstTimeCompareMem(@D1[0], @D2[0], SizeOf(TCnBLAKE384Digest));
 end;
 
 // 比较两个 BLAKE512 杂凑值是否相等
 function BLAKE512Match(const D1, D2: TCnBLAKE512Digest): Boolean;
-var
-  I: Integer;
 begin
-  I := 0;
-  Result := True;
-  while Result and (I < 64) do
-  begin
-    Result := D1[I] = D2[I];
-    Inc(I);
-  end;
+  Result := ConstTimeCompareMem(@D1[0], @D2[0], SizeOf(TCnBLAKE512Digest));
 end;
 
 // BLAKE224 杂凑值转 string
@@ -2360,6 +2328,10 @@ begin
   BLAKE224Update(Context, @(Context.Opad[0]), HMAC_BLAKE_224_256_BLOCK_SIZE_BYTE);
   BLAKE224Update(Context, @(TmpBuf[0]), Len);
   BLAKE224Final(Context, Output);
+
+  // 清除 Ipad 和 Opad 避免 Key 相关信息泄露
+  MemorySafeZero(@(Context.Ipad[0]), HMAC_BLAKE_224_256_BLOCK_SIZE_BYTE);
+  MemorySafeZero(@(Context.Opad[0]), HMAC_BLAKE_224_256_BLOCK_SIZE_BYTE);
 end;
 
 procedure BLAKE256HmacInit(var Context: TCnBLAKE256Context; Key: PAnsiChar; KeyLength: Integer);
@@ -2404,6 +2376,10 @@ begin
   BLAKE256Update(Context, @(Context.Opad[0]), HMAC_BLAKE_224_256_BLOCK_SIZE_BYTE);
   BLAKE256Update(Context, @(TmpBuf[0]), Len);
   BLAKE256Final(Context, Output);
+
+  // 清除 Ipad 和 Opad 避免 Key 相关信息泄露
+  MemorySafeZero(@(Context.Ipad[0]), HMAC_BLAKE_224_256_BLOCK_SIZE_BYTE);
+  MemorySafeZero(@(Context.Opad[0]), HMAC_BLAKE_224_256_BLOCK_SIZE_BYTE);
 end;
 
 procedure BLAKE224Hmac(Key: PAnsiChar; KeyByteLength: Integer; Input: PAnsiChar;
@@ -2486,6 +2462,10 @@ begin
   BLAKE384Update(Context, @(Context.Opad[0]), HMAC_BLAKE_384_512_BLOCK_SIZE_BYTE);
   BLAKE384Update(Context, @(TmpBuf[0]), Len);
   BLAKE384Final(Context, Output);
+
+  // 清除 Ipad 和 Opad 避免 Key 相关信息泄露
+  MemorySafeZero(@(Context.Ipad[0]), HMAC_BLAKE_384_512_BLOCK_SIZE_BYTE);
+  MemorySafeZero(@(Context.Opad[0]), HMAC_BLAKE_384_512_BLOCK_SIZE_BYTE);
 end;
 
 procedure BLAKE384Hmac(Key: PAnsiChar; KeyByteLength: Integer; Input: PAnsiChar;
@@ -2549,6 +2529,10 @@ begin
   BLAKE512Update(Context, @(Context.Opad[0]), HMAC_BLAKE_384_512_BLOCK_SIZE_BYTE);
   BLAKE512Update(Context, @(TmpBuf[0]), Len);
   BLAKE512Final(Context, Output);
+
+  // 清除 Ipad 和 Opad 避免 Key 相关信息泄露
+  MemorySafeZero(@(Context.Ipad[0]), HMAC_BLAKE_384_512_BLOCK_SIZE_BYTE);
+  MemorySafeZero(@(Context.Opad[0]), HMAC_BLAKE_384_512_BLOCK_SIZE_BYTE);
 end;
 
 procedure BLAKE512Hmac(Key: PAnsiChar; KeyByteLength: Integer; Input: PAnsiChar;

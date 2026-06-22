@@ -1104,6 +1104,7 @@ begin
     Point.Z := R.Z;
   finally
     SetLength(Naf, 0);
+    M.Clear;
     M.Free;
     E.Free;
     R.Free;
@@ -1168,7 +1169,7 @@ begin
     Pub.Assign(SM2.Generator);
     SM2.MultiplePoint(PrivateKey, Pub);
 
-    Result := CnEccPointsEqual(Pub, PublicKey);
+    Result := CnEccPointsConstTimeEqual(Pub, PublicKey);
     _CnSetLastError(ECN_SM2_OK);
   finally
     Pub.Free;
@@ -1290,6 +1291,13 @@ begin
     P2.X.ToBinary(@KDFB[0], CN_SM2_FINITEFIELD_BYTESIZE);
     P2.Y.ToBinary(@KDFB[CN_SM2_FINITEFIELD_BYTESIZE], CN_SM2_FINITEFIELD_BYTESIZE);
     T := CnSM2KDFBytes(KDFB, DataByteLen);
+
+    // 加密时万一此步出现全 0，会导致密文等于明文，所以要出错
+    if (T = nil) or MemoryCheckZero(@T[0], Length(T)) then
+    begin
+      _CnSetLastError(ECN_SM2_BIGNUMBER_ERROR);
+      Exit;
+    end;
 
     M := PAnsiChar(PlainData);
     for I := 1 to DataByteLen do
@@ -1455,6 +1463,8 @@ begin
     P2.X.ToBinary(@KDFB[0], CN_SM2_FINITEFIELD_BYTESIZE);
     P2.Y.ToBinary(@KDFB[CN_SM2_FINITEFIELD_BYTESIZE], CN_SM2_FINITEFIELD_BYTESIZE);
     T := CnSM2KDFBytes(KDFB, MLen);
+
+    // 解密时无需判断万一此步 T 出现全 0 的情况
 
     if SequenceType = cstC1C3C2 then
     begin
@@ -2277,7 +2287,7 @@ begin
     if SM2IsNil then
       SM2 := TCnSM2.Create;
 
-    if not SM2.IsPointOnCurve(InRA) then // 验证传过来的 RA 是否满足方程
+    if not CheckEccPublicKey(SM2, TCnEccPublicKey(InRA)) then // 验证传过来的 RA 是否满足方程
     begin
       _CnSetLastError(ECN_SM2_INVALID_INPUT);
       Exit;
@@ -2374,7 +2384,7 @@ begin
     if SM2IsNil then
       SM2 := TCnSM2.Create;
 
-    if not SM2.IsPointOnCurve(InRB) then // 验证传过来的 RB 是否满足方程
+    if not CheckEccPublicKey(SM2, TCnEccPublicKey(InRB)) then // 验证传过来的 RB 是否满足方程
     begin
       _CnSetLastError(ECN_SM2_INVALID_INPUT);
       Exit;
@@ -2478,6 +2488,10 @@ begin
     end;
 
     OutR.Assign(SM2.Generator);
+
+    // R 可能大于曲线的阶，需要 mod 一下
+    if BigNumberCompare(R, SM2.Order) > 0 then
+      BigNumberMod(R, R, SM2.Order);
     SM2.MultiplePoint(R, OutR);
 
     Stream := TMemoryStream.Create;
@@ -2569,7 +2583,7 @@ begin
     SM2.MultiplePoint(C, P2);
     SM2.PointAddPoint(P2, InR, P2);
 
-    Result := CnEccPointsEqual(P1, P2);
+    Result := CnEccPointsConstTimeEqual(P1, P2);
     _CnSetLastError(ECN_SM2_OK);
   finally
     P2.Free;

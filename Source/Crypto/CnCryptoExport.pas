@@ -506,7 +506,7 @@ implementation
 uses
   SysUtils, Classes, CnNative, CnBase64, CnMD5, CnSHA1, CnSHA2, CnAES, CnAEAD,
   CnPoly1305, CnDES, CnSM4, CnRC4, CnZUC, CnChaCha20, CnSHA3, CnSM3, CnBLAKE2,
-  CnBLAKE, CnXXH, CnRSA, CnPemUtils, CnKDF, CnOTP, CnECC, CnSM2, Cn25519,
+  CnBLAKE, CnBLAKE3, CnXXH, CnRSA, CnPemUtils, CnKDF, CnOTP, CnECC, CnSM2, Cn25519,
   CnBigNumber, CnMLKEM, CnMLDSA, CnRandom;
 
 function cn_get_version(var out_major, out_minor, out_patch: TUInt32): TCnResult; cdecl;
@@ -1482,9 +1482,13 @@ begin
   finally
     Stream.Free;
     Dom.Free;
+    HP.Clear;
     HP.Free;
+    K.Clear;
     K.Free;
+    S.Clear;
     S.Free;
+    R.Clear;
     R.Free;
     E.Free;
     Sig.Free;
@@ -2742,6 +2746,7 @@ begin
     Exit;
   end;
   GetMem(Result, size);
+  FillChar(Result^, size, 0);
 end;
 
 function cn_free(ptr: TCnCryptoHandle): TCnResult; cdecl;
@@ -2995,7 +3000,7 @@ begin
     Result := CN_E_INVALID_ARG;
     Exit;
   end;
-  R := Base32Encode(in_ptr, in_len, S, False);
+  R := Base32Encode(in_ptr, in_len, S);
   if R <> 0 then
   begin
     Result := CN_E_INTERNAL;
@@ -3026,7 +3031,7 @@ begin
   end;
   SetString(S, PChar(in_ptr), in_len div SizeOf(Char));
 
-  R := Base32Decode(S, Data, False);
+  R := Base32Decode(S, Data);
   if R <> 0 then
   begin
     Result := CN_E_INTERNAL;
@@ -4695,6 +4700,7 @@ begin
     Result := CN_OK;
   finally
     E.Free;
+    K.Clear;
     K.Free;
   end;
 end;

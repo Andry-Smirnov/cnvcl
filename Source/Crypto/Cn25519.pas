@@ -2372,21 +2372,20 @@ var
   F25519Field64One: TCn25519Field64 = (1, 0, 0, 0, 0);
   F25519Field64NegOne: TCn25519Field64 = (2251799813685228, 2251799813685247, 2251799813685247, 2251799813685247, 2251799813685247);
 
-procedure ConditionalSwapPoint(Swap: Boolean; A, B: TCnEccPoint);
+procedure ConditionalSwapPoint(CanSwap: Boolean; A, B: TCnEccPoint);
 begin
-  if Swap then
-  begin
-    BigNumberSwap(A.X, B.X);
-    BigNumberSwap(A.Y, B.Y);
-  end;
+  BigNumberConstTimeConditionalSwap(CanSwap, A.X, B.X);
+  BigNumberConstTimeConditionalSwap(CanSwap, A.Y, B.Y);
 end;
 
-procedure ConditionalSwapField64Point(Swap: Boolean; var A, B: TCn25519Field64EccPoint);
+procedure ConditionalSwapField64Point(CanSwap: Boolean; var A, B: TCn25519Field64EccPoint);
+var
+  I: Integer;
 begin
-  if Swap then
+  for I := 0 to 4 do
   begin
-    Cn25519Field64Swap(A.X, B.X);
-    Cn25519Field64Swap(A.Y, B.Y);
+    ConstTimeConditionalSwap64(CanSwap, A.X[I], B.X[I]);
+    ConstTimeConditionalSwap64(CanSwap, A.Y[I], B.Y[I]);
   end;
 end;
 
@@ -2871,7 +2870,7 @@ begin
     Ed448.MultiplePoint(T, M);      // T 乘公钥点
     Ed448.PointAddPoint(R, M, R);   // 点加
 
-    Result := CnEccPointsEqual(L, R);
+    Result := CnEccPointsConstTimeEqual(L, R);
   finally
     M.Free;
     FBigNumberPool.Recycle(T);
@@ -3063,6 +3062,8 @@ begin
   // 后 32 字节作为 Hash 的入口参数，除了未来被 Hash 外不参与计算因而可以不用倒序
   if OutHashPrefix <> nil then
     OutHashPrefix.SetBinary(@Dig[CN_25519_BLOCK_BYTESIZE], CN_25519_BLOCK_BYTESIZE);
+
+  MemorySafeZero(@Dig[0], SizeOf(TCnSHA512Digest));
 end;
 
 // 根据随机私钥，生成公钥与 Ed448 签名使用的 Hash 种子
@@ -3493,7 +3494,7 @@ begin
     MontgomeryLadderPointXDouble(X0, P);
 
     C := K.GetBitsCount;
-    for I := C - 2 downto 0 do // 内部先不考虑 Time Constant 执行时间固定的要求
+    for I := C - 2 downto 0 do // 内部执行时间固定
     begin
       ConditionalSwapPoint(K.IsBitSet(I + 1) <> K.IsBitSet(I), X0, X1); // 换
 
@@ -3962,7 +3963,7 @@ begin
   try
     P.Assign(FGenerator);
     MultiplePoint(PrivateKey, P);
-    Result := CnEccPointsEqual(P, PublicKey);
+    Result := CnEccPointsConstTimeEqual(P, PublicKey);
   finally
     P.Free;
   end;
@@ -4324,7 +4325,7 @@ begin
     P.Assign(FGenerator);
     MultiplePoint(K, P);                         // 基点乘 K 次
 
-    Result := CnEccPointsEqual(P, PublicKey);
+    Result := CnEccPointsConstTimeEqual(P, PublicKey);
   finally
     FBigNumberPool.Recycle(K);
     P.Free;
@@ -4949,6 +4950,7 @@ begin
 
     Result := True;
   finally
+    MemorySafeZero(@Dig[0], SizeOf(TCnSHA512Digest));
     Stream.Free;
     FBigNumberPool.Recycle(HP);
     FBigNumberPool.Recycle(K);
@@ -5016,7 +5018,7 @@ begin
     Ed25519.MultiplePoint(T, M);      // T 乘公钥点
     Ed25519.PointAddPoint(R, M, R);   // 点加
 
-    Result := CnEccPointsEqual(L, R);
+    Result := CnEccPointsConstTimeEqual(L, R);
   finally
     M.Free;
     FBigNumberPool.Recycle(T);
@@ -5907,7 +5909,7 @@ begin
   try
     P.Assign(FGenerator);
     MultiplePoint(PrivateKey, P);
-    Result := CnEccPointsEqual(P, PublicKey);
+    Result := CnEccPointsConstTimeEqual(P, PublicKey);
   finally
     P.Free;
   end;
@@ -6256,7 +6258,7 @@ begin
     P.Assign(FGenerator);
     MultiplePoint(K, P);                         // 基点乘 K 次
 
-    Result := CnEccPointsEqual(P, PublicKey);
+    Result := CnEccPointsConstTimeEqual(P, PublicKey);
   finally
     FBigNumberPool.Recycle(K);
     P.Free;

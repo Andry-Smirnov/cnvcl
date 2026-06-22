@@ -4671,9 +4671,10 @@ begin
     Result := True;
     _CnSetLastError(ECN_SM9_OK);
   finally
+    T2.Clear;
     T2.Free;
+    T1.Clear;
     T1.Free;
-
     if C then
       SM9.Free;
   end;
@@ -4944,7 +4945,9 @@ begin
     _CnSetLastError(ECN_SM9_OK);
   finally
     AP.Free;
+    T2.Clear;
     T2.Free;
+    T1.Clear;
     T1.Free;
     if C then
       SM9.Free;
@@ -5431,7 +5434,9 @@ begin
     _CnSetLastError(ECN_SM9_OK);
   finally
     AP.Free;
+    T2.Clear;
     T2.Free;
+    T1.Clear;
     T1.Free;
     if C then
       SM9.Free;

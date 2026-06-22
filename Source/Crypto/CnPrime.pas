@@ -42,7 +42,9 @@ unit CnPrime;
 * 开发平台：WinXP + Delphi 5.0
 * 兼容测试：暂未进行
 * 本 地 化：该单元无需本地化处理
-* 修改记录：2025.04.24 V1.8
+* 修改记录：2026.06.12 V1.9
+*               彻底弃用 Random 库函数，全改用安全随机数
+*           2025.04.24 V1.8
 *               增加 Lucas U 序列的计算，和原来 V 序列的独立，并增加 BPSW 素性检测
 *           2022.06.04 V1.7
 *               增加负模逆元与蒙哥马利约简以及基于此实现的快速模乘算法，能快一些
@@ -781,7 +783,7 @@ function Int64MultipleMod(A: Int64; B: Int64; C: Int64): Int64;
    返回值：Int64                          - 返回模乘结果
 }
 
-function MontgomeryPowerMod(A: TUInt64; B: TUInt64; C: TUInt64): TUInt64;
+function PowerMod(A: TUInt64; B: TUInt64; C: TUInt64): TUInt64;
 {* 蒙哥马利法快速计算 (A ^ B) mod C，不能直接算，容易溢出。
 
    参数：
@@ -1623,7 +1625,7 @@ begin
 end;
 
 // 蒙哥马利法快速计算 (A ^ B) mod C，不能直接算，容易溢出
-function MontgomeryPowerMod(A, B, C: TUInt64): TUInt64;
+function PowerMod(A, B, C: TUInt64): TUInt64;
 var
   T: TUInt64;
 begin
@@ -1658,14 +1660,14 @@ begin
   if C = 0 then
     Result := A
   else if C = 1 then
-    Result := MontgomeryPowerMod(A, B, N)
+    Result := PowerMod(A, B, N)
   else
   begin
     I := 0;
     Result := A;
     while UInt64Compare(I, C) < 0 do
     begin
-      Result := MontgomeryPowerMod(Result, B, N);
+      Result := PowerMod(Result, B, N);
       I := I + 1;
     end;
   end;
@@ -1676,7 +1678,7 @@ var
   I: Integer;
   R, L: TUInt64;
 begin
-  R := MontgomeryPowerMod(A, C, B);
+  R := PowerMod(A, C, B);
   L := R;
   for I := 1 to T do
   begin
@@ -1695,8 +1697,7 @@ end;
 function CnInt64IsPrime(N: TUInt64): Boolean;
 var
   I: Integer;
-  R: Real;
-  T, X, A, RA: TUInt64;
+  T, X, A: TUInt64;
 begin
   Result := False;
   if UInt64Compare(N, 1) < 0 then
@@ -1726,18 +1727,7 @@ begin
 
   for I := 1 to CN_MILLER_RABIN_DEF_COUNT do
   begin
-    R := CnRandomFloat;
-
-    // A := Trunc(Random * (N - 1)) + 1; 但 N - 1作为 Int64 可能小于 0，要拆分
-    if UInt64Compare(N - 1, CN_MAX_SIGNED_INT64_IN_TUINT64) <= 0 then // if N - 1 > 0 ?
-      A := Trunc(Random * (N - 1)) + 1
-    else
-    begin
-      // Int64(N - 1) < 0，拆成 MAX_SIGNED_INT64_IN_TUINT64 以及 N - MAX_SIGNED_INT64_IN_TUINT64 - 1
-      RA := Trunc(R * CN_MAX_SIGNED_INT64_IN_TUINT64);
-      RA := RA + Trunc(R * (N - CN_MAX_SIGNED_INT64_IN_TUINT64 - 1));
-      A := RA + 1; // 大于 Int64 上限 Trunc 会出浮点错，改成分别 Trunc 后相加
-    end;
+    A := RandomUInt64LessThan(N - 1) + 1;
     if FermatCheckComposite(A, N, X, T) then
       Exit;
   end;
@@ -1922,8 +1912,7 @@ begin
 
   for I := 1 to CN_MILLER_RABIN_DEF_COUNT do
   begin
-    Randomize;
-    A := Trunc(Random * (N - 1)) + 1;
+    A := RandomUInt64LessThan(N - 1) + 1;
     if FermatCheckComposite64(A, N, X, T) then
       Exit;
   end;
@@ -1933,13 +1922,9 @@ end;
 // 生成一个随机的 64 位无符号素数
 function CnGenerateUInt64Prime: NativeUInt;
 begin
-  Randomize;
-  Result := Trunc(Random * High(NativeUInt) - 1) + 1;
+  Result := RandomUInt64;
   while not CnUInt64IsPrime(Result) do
-  begin
-    Randomize;
-    Result := Trunc(Random * High(NativeUInt) - 1) + 1;
-  end;
+    Result := RandomUInt64;
 end;
 
 {$ENDIF}
@@ -1952,7 +1937,7 @@ begin
   Result := False;
   for I := 0 to Factors.Count - 1 do
   begin
-    if MontgomeryPowerMod(R, (Prime - 1) div Factors[I], Prime) = 1 then
+    if PowerMod(R, (Prime - 1) div Factors[I], Prime) = 1 then
       Exit;
   end;
   Result := True;
@@ -1966,7 +1951,7 @@ begin
   Result := False;
   for I := 0 to Factors.Count - 1 do
   begin
-    if MontgomeryPowerMod(R, UInt64Div((Prime - 1), Factors[I]), Prime) = 1 then
+    if PowerMod(R, UInt64Div((Prime - 1), Factors[I]), Prime) = 1 then
       Exit;
   end;
   Result := True;
@@ -2125,7 +2110,7 @@ begin
 
     for I := 2 to MaxInt do
     begin
-      if (MultipleMod(I, I, Prime) <> 1) and (MontgomeryPowerMod(I, Q, Prime) <> 1) then
+      if (MultipleMod(I, I, Prime) <> 1) and (PowerMod(I, Q, Prime) <> 1) then
       begin
         MinRoot := I;
         Result := True;
@@ -2152,7 +2137,7 @@ begin
 
     for I := 2 to MaxInt do
     begin
-      if (MultipleMod(I, I, Prime) <> 1) and (MontgomeryPowerMod(I, Q, Prime) <> 1) then
+      if (MultipleMod(I, I, Prime) <> 1) and (PowerMod(I, Q, Prime) <> 1) then
       begin
         MinRoot := I;
         Result := True;
@@ -2178,7 +2163,7 @@ begin
 
     for I := 0 to Factors.Count - 1 do
     begin
-      if MontgomeryPowerMod(Root, (Num - 1) div Factors[I], Num) = 1 then
+      if PowerMod(Root, (Num - 1) div Factors[I], Num) = 1 then
       begin
         Result := False;
         Exit;
@@ -2206,7 +2191,7 @@ begin
     I := 0;
     while UInt64Compare(I, Factors.Count) < 0 do
     begin
-      if MontgomeryPowerMod(Root, UInt64Div((Num - 1), Factors[I]), Num) = 1 then
+      if PowerMod(Root, UInt64Div((Num - 1), Factors[I]), Num) = 1 then
       begin
         Result := False;
         Exit;
@@ -2280,7 +2265,7 @@ var
 begin
   I := 1;
   K := 2;
-  X0 := Trunc(Random * (X - 1)) + 1;
+  X0 := RandomUInt32LessThan(X - 1) + 1;
   Y := X0;
 
   while True do
@@ -2361,7 +2346,7 @@ begin
   P := Num;
   while P >= Num do
   begin
-    C := Trunc(Random * (Num - 1)) + 1; // rand()%(n-1)+1
+    C := RandomUInt32LessThan(Num - 1) + 1;
     P := PollardRho32(P, C);
   end;
 
@@ -2846,7 +2831,7 @@ begin
   // 三种情况：P 能整除 A 时返回 0，不能整除时，如果存在某整数的平方 mod P 后等于 A 则返回 1，否则返回 -1
   if A mod P = 0 then
     Result := 0
-  else if MontgomeryPowerMod(A, (P - 1) shr 1, P) = 1 then // 欧拉判别法判别是否二次剩余
+  else if PowerMod(A, (P - 1) shr 1, P) = 1 then // 欧拉判别法判别是否二次剩余
     Result := 1
   else
     Result := -1;
@@ -3070,7 +3055,7 @@ begin
   case Pt of
   PT4U3: // 参考自《SM2椭圆曲线公钥密码算法》附录 B 中的“模素数平方根的求解”一节
     begin
-      Result := MontgomeryPowerMod(X, U + 1, P);   // 55, 103 得 63
+      Result := PowerMod(X, U + 1, P);   // 55, 103 得 63
     end;
   PT8U1:
     begin
@@ -3080,10 +3065,10 @@ begin
     end;
   PT8U5: // 参考自《SM2椭圆曲线公钥密码算法》附录 B 中的“模素数平方根的求解”一节
     begin
-      Z := MontgomeryPowerMod(X, 2 * U + 1, P);
+      Z := PowerMod(X, 2 * U + 1, P);
       if Z = 1 then
       begin
-        Result := MontgomeryPowerMod(X, U + 1, P);
+        Result := PowerMod(X, U + 1, P);
       end
       else
       begin
@@ -3091,9 +3076,8 @@ begin
         if Z = 1 then
         begin
           // y = (2g * (4g)^u) mod p = (2g mod p * (4^u * g^u) mod p) mod p
-          Result := (Int64MultipleMod(X, 2, P) *
-            MontgomeryPowerMod(4, U, P) *
-            MontgomeryPowerMod(X, U, P)) mod P;
+          Result := (Int64MultipleMod(X, 2, P) * PowerMod(4, U, P) *
+            PowerMod(X, U, P)) mod P;
         end;
       end;
     end;
@@ -3285,7 +3269,7 @@ begin
       C := Int64MultipleMod(A, C, M);
     end;
 
-    Q := MontgomeryPowerMod(A, T, M);
+    Q := PowerMod(A, T, M);
     N := Q;
 
     for I := 1 to T do
@@ -3477,7 +3461,7 @@ begin
   T := 1;
   while T <= C do
   begin
-    if Int64NonNegativeMod(MontgomeryPowerMod(T, N, N) - T, N) <> 0 then
+    if Int64NonNegativeMod(PowerMod(T, N, N) - T, N) <> 0 then
       Exit;
 
     Inc(T);
@@ -3557,7 +3541,7 @@ begin
 
   while UInt64Compare(R, RH) <= 0 do
   begin
-    M := MontgomeryPowerMod(A, R, N);
+    M := PowerMod(A, R, N);
     if M = M1 then
     begin
       // 找到了周期性
@@ -3606,7 +3590,7 @@ begin
     for I := 0 to F.Count - 1 do
     begin
       // 验证 N 的 F[I] 次方 mod R 是否为 1
-      T := MontgomeryPowerMod(N, F[I], R);
+      T := PowerMod(N, F[I], R);
       if T = 1 then
       begin
         Result := F[I];

@@ -2030,7 +2030,7 @@ object FormEcc: TFormEcc
         Width = 788
         Height = 479
         Anchors = [akLeft, akTop, akRight, akBottom]
-        Caption = 'Square Root'
+        Caption = 'Modular Polynomial'
         TabOrder = 0
         object lblSeaL: TLabel
           Left = 16
@@ -2039,18 +2039,110 @@ object FormEcc: TFormEcc
           Height = 13
           Caption = 'Y^2'
         end
+        object bvl3: TBevel
+          Left = 280
+          Top = 24
+          Width = 17
+          Height = 25
+          Shape = bsLeftLine
+        end
+        object lblSeaDir: TLabel
+          Left = 296
+          Top = 28
+          Width = 45
+          Height = 13
+          Caption = 'Directory:'
+        end
+        object btnSeaBrowse: TSpeedButton
+          Left = 592
+          Top = 24
+          Width = 23
+          Height = 22
+          Caption = '...'
+          OnClick = btnSeaBrowseClick
+        end
+        object lblSeaMPDir: TLabel
+          Left = 16
+          Top = 288
+          Width = 67
+          Height = 13
+          Caption = 'M.P Directory:'
+        end
+        object lblSeaEccA: TLabel
+          Left = 16
+          Top = 320
+          Width = 32
+          Height = 13
+          Caption = 'Ecc A:'
+        end
+        object lblSeaEccB: TLabel
+          Left = 408
+          Top = 320
+          Width = 32
+          Height = 13
+          Caption = 'Ecc B:'
+        end
+        object lblSeaPrime: TLabel
+          Left = 16
+          Top = 352
+          Width = 51
+          Height = 13
+          Caption = 'Ecc Prime:'
+        end
+        object btnSeaBrowseEcc: TSpeedButton
+          Left = 352
+          Top = 284
+          Width = 23
+          Height = 22
+          Caption = '...'
+          OnClick = btnSeaBrowseEccClick
+        end
+        object btnSeaSaveMp: TSpeedButton
+          Left = 248
+          Top = 24
+          Width = 24
+          Height = 24
+          Glyph.Data = {
+            36030000424D3603000000000000360000002800000010000000100000000100
+            18000000000000030000241600002416000000000000000000009595950E0E0E
+            0000000101010101010101010000000000000000000000000101010000000000
+            000000000E0E0E94949407070700000001010101010102020200000000000032
+            3232313131010101000000000000000000000000000000080808000000010101
+            0101010101010000000D0D0DADADADFEFEFEFEFEFEADADAD0D0D0D0101010000
+            00000000010101000000010101000000010101010101000000797979FFFFFFFF
+            FFFFFFFFFFFFFFFF787878000000000000000000000000000000000000000000
+            000000000000000000AAAAAAFFFFFFFEFEFEFEFEFEFFFFFFABABAB0000000000
+            000000000000000000000000000000000000000000000000006D6D6DFFFFFFFF
+            FFFFFFFFFFFFFFFF6D6D6D000000000000000000000000000000000000000000
+            000000000000000000070707969696F2F2F2F2F2F29797970707070000000000
+            000000000000000000000000000000000000000000000000000000000000001C
+            1C1C1C1C1C000000000000000000000000000000000000000000000000000000
+            0000000000000000000000000000000000000000000000000000000000000000
+            0000000000000000000000000000000000000000000000000000000000000000
+            0000000000000000000000000000000000000000000000000000000000030303
+            4444445454545454545454545454545454545454545454541B1B1B0000000101
+            01000000000000000000000000323232FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+            FFFFFFFFFFFFFFFF9E9E9E0000000101010202020202020000000000003E3E3E
+            FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFB2B2B20000000101
+            010101010000003C3C3C0000002D2D2DFBFBFBFFFFFFFFFFFFFFFFFFFFFFFFFF
+            FFFFFFFFFFFFFFFF9494940000000101010000002E2E2EE0E0E0080808000000
+            2E2E2E3B3B3B3A3A3A3A3A3A3A3A3A3A3A3A3A3A3A3A3A3A1010100101010000
+            002F2F2FDFDFDFFFFFFF9494940E0E0E00000000000000000000000000000000
+            00000000000000000000000000003D3D3DE0E0E0FFFFFFFFFFFF}
+          OnClick = btnSeaSaveMpClick
+        end
         object edtSeaL: TEdit
           Left = 48
           Top = 24
-          Width = 121
+          Width = 41
           Height = 21
           TabOrder = 0
-          Text = '4'
+          Text = '13'
         end
         object btnSeaModularPoly: TButton
-          Left = 184
+          Left = 96
           Top = 24
-          Width = 161
+          Width = 145
           Height = 25
           Caption = 'Calc Modular Polynomial'
           TabOrder = 1
@@ -2060,19 +2152,92 @@ object FormEcc: TFormEcc
           Left = 16
           Top = 56
           Width = 753
-          Height = 401
+          Height = 217
           ReadOnly = True
           TabOrder = 2
+        end
+        object edtSeaDir: TEdit
+          Left = 352
+          Top = 24
+          Width = 233
+          Height = 21
+          TabOrder = 3
+        end
+        object btnSeaSave: TButton
+          Left = 696
+          Top = 24
+          Width = 75
+          Height = 25
+          Caption = 'Save To Dir'
+          TabOrder = 4
+          OnClick = btnSeaSaveClick
+        end
+        object edtSeaTop: TEdit
+          Left = 632
+          Top = 24
+          Width = 57
+          Height = 21
+          TabOrder = 5
+          Text = '31'
+        end
+        object edtSeaMPDir: TEdit
+          Left = 88
+          Top = 284
+          Width = 257
+          Height = 21
+          TabOrder = 6
+        end
+        object edtSeaEccA: TEdit
+          Left = 88
+          Top = 316
+          Width = 305
+          Height = 21
+          TabOrder = 7
+          Text = '4451685225093714772084598273548424'
+        end
+        object edtSeaEccB: TEdit
+          Left = 448
+          Top = 316
+          Width = 321
+          Height = 21
+          TabOrder = 8
+          Text = '2061118396808653202902996166388514'
+        end
+        object edtSeaEccP: TEdit
+          Left = 88
+          Top = 348
+          Width = 321
+          Height = 21
+          TabOrder = 9
+          Text = '4451685225093714772084598273548427'
+        end
+        object btnSeaLoad: TButton
+          Left = 400
+          Top = 284
+          Width = 137
+          Height = 25
+          Caption = 'Load Modular Polynomials'
+          TabOrder = 10
+          OnClick = btnSeaLoadClick
+        end
+        object btnSeaCount: TButton
+          Left = 448
+          Top = 344
+          Width = 81
+          Height = 25
+          Caption = 'Sea Count'
+          TabOrder = 11
+          OnClick = btnSeaCountClick
         end
       end
     end
   end
   object dlgOpen1: TOpenDialog
-    Left = 396
+    Left = 364
     Top = 80
   end
   object dlgSave1: TSaveDialog
-    Left = 436
+    Left = 404
     Top = 80
   end
 end

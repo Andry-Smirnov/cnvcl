@@ -218,6 +218,11 @@ type
   TCnWord16Array = array [0..0] of Word;
   {* 16 位无符号整数数组}
 
+  PSmallIntArray = ^TSmallIntArray;
+  {* 16 位有符号整数数组指针}
+  TSmallIntArray = array [0..0] of SmallInt;
+  {* 16 位有符号整数数组}
+
 {$IFDEF POSIX64}
   TCnLongWord32 = Cardinal;
   {* 统一定义 32 位无符号 LongWord，因为 Linux64/MacOS64 或 POSIX64 下面 LongWord 竟然是 64 位无符号数}
@@ -1388,10 +1393,11 @@ procedure MemoryQuickSort(Mem: Pointer; ElementByteSize: Integer;
    返回值：（无）
 }
 
-function MemorySafeZero(Buffer: Pointer; ByteLength: Integer): Boolean; {$IFDEF SUPPORT_INLINE} inline; {$ENDIF}
+function MemorySafeZero(Buffer: Pointer; ByteLength: Integer): Boolean;
 {* 安全地将内存块填充为零，确保不被编译器的死存储优化消除。
    用于擦除密钥、私钥等敏感数据，防止残留于栈或堆中。
    返回值用于函数内部防止编译器优化，调用者可无需处理返回值。
+   且不用 inline 进一步避免被优化。
 
    参数：
      Buffer: Pointer                      - 待清零的内存块地址
@@ -2084,9 +2090,9 @@ procedure ConstTimeConditionalAssign64(CanAssign: Boolean; Source: TUInt64; var 
 
 // ================ 以上是执行时间固定的无 if 判断的部分逻辑函数 ===============
 
-{$IFDEF MSWINDOWS}
+{$IFDEF CPUX86ORX64}
 
-// 这四个函数因为用了 Intel 汇编，因而只支持 32 位和 64 位的 Intel CPU，照理应该用条件：CPUX86 或 CPUX64
+// 这四个函数因为用了 Intel 汇编，因而只支持 32 位和 64 位的 Intel CPU，用条件：CPUX86 或 CPUX64
 
 procedure Int64DivInt32Mod(A: Int64; B: Integer;
   var DivRes: Integer; var ModRes: Integer);
@@ -3153,21 +3159,27 @@ end;
 function MemorySafeZero(Buffer: Pointer; ByteLength: Integer): Boolean;
 var
   P: PByte;
-  I: Integer;
   VolatileSink: Byte;
 begin
   Result := False;
   if (Buffer = nil) or (ByteLength <= 0) then
     Exit;
 
-  P := PByte(Buffer);
-  for I := 0 to ByteLength - 1 do
-  begin
-    P^ := 0;
-    Inc(P);
-  end;
+  // 使用 FillChar 进行批量清零，其内部生成 REP STOSB（x86/x64）或等价的
+  // 向量化指令，由 CPU 硬件级优化，远快于逐字节 Pascal 循环。
+  FillChar(Buffer^, ByteLength, 0);
 
-  VolatileSink := PByte(Buffer)^;
+  // 读回首尾字节建立数据依赖，阻止编译器的死存储消除优化。
+  // 仅读首字节时，理论上一台足够激进的编译器可仅保留首字节写入而丢弃其余；
+  // 同时读取尾字节可确保整个填充范围都被观测到，安全性优于原实现。
+  // ByteLength 为 1 时首尾同址，只读一次即可。
+  P := PByte(Buffer);
+  VolatileSink := P^;
+  if ByteLength > 1 then
+  begin
+    Inc(P, ByteLength - 1);
+    VolatileSink := VolatileSink or P^;
+  end;
   Result := VolatileSink = 0;
 end;
 
@@ -3941,7 +3953,7 @@ function SarInt64(V: Int64; ShiftCount: Integer): Int64;
 begin
   Result := V shr ShiftCount;
   if (V and $8000000000000000) <> 0 then
-    Result := Result or ($FFFFFFFFFFFFFFFF shl (64 - ShiftCount));
+    Result := Result or (Int64($FFFFFFFFFFFFFFFF) shl (64 - ShiftCount));
 end;
 
 procedure ConstTimeConditionalSwap8(CanSwap: Boolean; var A, B: Byte);
@@ -4137,7 +4149,113 @@ begin
   Dest := (Dest and (not Mask)) or (Source and Mask);
 end;
 
-{$IFDEF MSWINDOWS}
+{$IFDEF CPUX86ORX64}
+
+{$IFDEF CALL_SYSV_AMD64}
+
+// 非 Windows 平台上的 x64 FPC（macOS/Linux）采用 System V AMD64 ABI：
+//   参数依次通过 RDI、RSI、RDX、RCX、R8、R9 寄存器传递。
+//
+// Delphi 以及 Windows 平台上的 FPC 采用 Microsoft x64 ABI：
+//   参数依次通过 RCX、RDX、R8、R9 寄存器传递。
+//
+// 下面已有的汇编代码是按照 Microsoft x64 ABI 编写的。
+// 如果直接运行在 System V AMD64 ABI 环境下，将会读取错误的参数寄存器，
+// 从而导致 EDivByZero（除零异常）。
+//
+// Int64DivInt32Mod、UInt64DivUInt32Mod 和 Int128DivInt64Mod
+// 均采用纯 Pascal 实现（依赖 CPU 原生 div/mod 指令，性能已经足够）。
+//
+// UInt128DivUInt64Mod 则仍采用汇编实现，并按照 System V AMD64 ABI
+// 正确映射参数寄存器，以获得更好的性能。该函数是在定义
+// BN_DATA_USE_64 时的热点路径（Hot Path），由 BigNumberDiv 调用。
+
+procedure Int64DivInt32Mod(A: Int64; B: Integer; var DivRes, ModRes: Integer);
+begin
+  if B = 0 then
+    raise EDivByZero.Create(SDivByZero);
+  DivRes := A div B;
+  ModRes := A mod B;
+end;
+
+procedure UInt64DivUInt32Mod(A: TUInt64; B: Cardinal; var DivRes, ModRes: Cardinal);
+begin
+  if B = 0 then
+    raise EDivByZero.Create(SDivByZero);
+  DivRes := A div B;
+  ModRes := A mod B;
+end;
+
+procedure Int128DivInt64Mod(ALo, AHi: Int64; B: Int64; var DivRes, ModRes: Int64);
+var
+  C: Integer;
+begin
+  if B = 0 then
+    raise EDivByZero.Create(SDivByZero);
+
+  if (AHi = 0) or (AHi = $FFFFFFFFFFFFFFFF) then
+  begin
+    DivRes := ALo div B;
+    ModRes := ALo mod B;
+  end
+  else
+  begin
+    if B < 0 then
+    begin
+      Int128DivInt64Mod(ALo, AHi, -B, DivRes, ModRes);
+      DivRes := -DivRes;
+      Exit;
+    end;
+
+    if AHi < 0 then
+    begin
+      AHi := not AHi;
+      ALo := not ALo;
+{$IFDEF SUPPORT_UINT64}
+      UInt64Add(UInt64(ALo), UInt64(ALo), 1, C);
+{$ELSE}
+      UInt64Add(ALo, ALo, 1, C);
+{$ENDIF}
+      if C > 0 then
+        AHi := AHi + C;
+
+      Int128DivInt64Mod(ALo, AHi, B, DivRes, ModRes);
+
+      if ModRes = 0 then
+        DivRes := -DivRes
+      else
+      begin
+        DivRes := -DivRes - 1;
+        ModRes := B - ModRes;
+      end;
+      Exit;
+    end;
+
+{$IFDEF SUPPORT_UINT64}
+    UInt128DivUInt64Mod(TUInt64(ALo), TUInt64(AHi), TUInt64(B), TUInt64(DivRes), TUInt64(ModRes));
+{$ELSE}
+    UInt128DivUInt64Mod(ALo, AHi, B, DivRes, ModRes);
+{$ENDIF}
+  end;
+end;
+
+procedure UInt128DivUInt64Mod(ALo, AHi: TUInt64; B: TUInt64; var DivRes, ModRes: TUInt64); assembler;
+asm
+  // System V AMD64 ABI: RDI=ALo, RSI=AHi, RDX=B, RCX=&DivRes, R8=&ModRes
+  // DIV instruction: RDX:RAX / operand -> RAX=quotient, RDX=remainder
+  MOV RAX, RDI      // ALo -> RAX (dividend low)
+  PUSH RCX          // Save &DivRes
+  PUSH R8           // Save &ModRes
+  MOV RCX, RDX      // B -> RCX (divisor)
+  MOV RDX, RSI      // AHi -> RDX (dividend high)
+  DIV RCX           // RDX:RAX / RCX -> RAX=quotient, RDX=remainder
+  POP R8            // Restore &ModRes
+  POP RCX           // Restore &DivRes
+  MOV [RCX], RAX    // *DivRes = quotient
+  MOV [R8], RDX     // *ModRes = remainder
+end;
+
+{$ELSE}
 
 {$IFDEF CPUX64}
 
@@ -4314,6 +4432,8 @@ begin
     ModRes := R;
   end;
 end;
+
+{$ENDIF}
 
 {$ENDIF}
 

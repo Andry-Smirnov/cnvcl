@@ -40,6 +40,7 @@ interface
 // 注意为了保持测试用例的纯净性，不能 {$I CnPack.inc}
 
 {$IFDEF FPC}
+{$MODE Delphi}
 // FPC 下要关闭 Range Check 以避免编译出错
 {$R-}
 {$ENDIF}
@@ -52,7 +53,7 @@ uses
   CnPolynomial, CnBits, CnBerUtils, CnCertificateAuthority, CnLattice, CnOTS,
   CnPemUtils, CnInt128, CnRC4, CnPDFCrypt, CnDSA, CnBLAKE, CnBLAKE2, CnBLAKE3,
   CnXXH, CnWideStrings, CnContainers, CnMLKEM, CnMLDSA, CnSLHDSA, CnCalendar,
-  CnBigDecimal, CnComplex, CnDFT, CnMath, CnQRCode, CnRandom, CnOTP;
+  CnBigDecimal, CnComplex, CnDFT, CnMath, CnQRCode, CnRandom, CnOTP, CnStrings;
 
 type
   TCnCryptoTestProc = function: Boolean;
@@ -85,6 +86,9 @@ function TestRandomDistribution: Boolean;
 // ============================== Strings ======================================
 
 function TestUtf8: Boolean;
+function TestStringReplace: Boolean;
+function TestStringBuilder: Boolean;
+function TestAnsiStringListDelimitedText: Boolean;
 
 // ============================== Calendar =====================================
 
@@ -171,6 +175,7 @@ function TestBigNumberAKSIsPrime: Boolean;
 function TestBigNumberBPSWIsPrime: Boolean;
 function TestBigNumberRandRangeDistribution: Boolean;
 function TestBigNumberKeepLowBits: Boolean;
+function TestBigNumberMontgomery: Boolean;
 
 // ================================ Bits =======================================
 
@@ -1702,6 +1707,8 @@ procedure MyAssert(AProc: TCnCryptoTestProc; const Msg: string);
 var
   V: Boolean;
   S: string;
+  Start: TDateTime;
+  Elapsed: Int64;
 begin
   S := FormatDateTime('yyyy-MM-dd:hh:nn:ss.zzz | ', Now) +  Msg;
   if not Assigned(AProc) then
@@ -1715,9 +1722,13 @@ begin
     S := S + StringOfChar(' ', 70 - Length(S));
   MyWrite(S);
 
+  Start := Now;
   V := AProc();
   if V then
-    MyWriteln('OK')
+  begin
+    Elapsed := Trunc((Now - Start) * MSecsPerDay);
+    MyWriteln('OK    ' + IntToStr(Elapsed) + 'ms');
+  end
   else
     MyWriteln('Fail');
 
@@ -1777,6 +1788,9 @@ begin
 // ============================== Strings ======================================
 
   MyAssert(TestUtf8, 'TestUtf8');
+  MyAssert(TestStringReplace, 'TestStringReplace');
+  MyAssert(TestStringBuilder, 'TestStringBuilder');
+  MyAssert(TestAnsiStringListDelimitedText, 'TestAnsiStringListDelimitedText');
 
 // ============================== Calendar =====================================
 
@@ -1863,6 +1877,7 @@ begin
   MyAssert(TestBigNumberBPSWIsPrime, 'TestBigNumberBPSWIsPrime');
   MyAssert(TestBigNumberRandRangeDistribution, 'TestBigNumberRandRangeDistribution');
   MyAssert(TestBigNumberKeepLowBits, 'TestBigNumberKeepLowBits');
+  MyAssert(TestBigNumberMontgomery, 'TestBigNumberMontgomery');
 
 // ================================ Bits =======================================
 
@@ -2779,6 +2794,223 @@ begin
 
   W := CnUtf8DecodeToWideString(Utf8);
   Result := DataToHex(@W[1], Length(W) * SizeOf(WideChar)) = UTF16_LE_HEXSTR;
+end;
+
+function TestStringReplace: Boolean;
+var
+  S, R: string;
+{$IFDEF UNICODE}
+  SA, RA: AnsiString;
+{$ELSE}
+  SW, RW: WideString;
+{$ENDIF}
+begin
+  // ---- string version (all compilers) ----
+  // Basic replace all
+  S := 'hello world hello';
+  R := CnStringReplace(S, 'hello', 'hi', [crfReplaceAll]);
+  Result := R = 'hi world hi';
+  if not Result then Exit;
+
+  // Replace first only
+  R := CnStringReplace(S, 'hello', 'hi', []);
+  Result := R = 'hi world hello';
+  if not Result then Exit;
+
+  // Case insensitive
+  R := CnStringReplace(S, 'HELLO', 'hi', [crfReplaceAll, crfIgnoreCase]);
+  Result := R = 'hi world hi';
+  if not Result then Exit;
+
+  // Whole word match - should replace
+  R := CnStringReplace(S, 'hello', 'hi', [crfReplaceAll, crfWholeWord]);
+  Result := R = 'hi world hi';
+  if not Result then Exit;
+
+  // Whole word match - should NOT replace (substring inside 'helloworld')
+  S := 'helloworld hello';
+  R := CnStringReplace(S, 'hello', 'hi', [crfReplaceAll, crfWholeWord]);
+  Result := R = 'helloworld hi';
+  if not Result then Exit;
+
+  // No match
+  R := CnStringReplace(S, 'xyz', 'abc', [crfReplaceAll]);
+  Result := R = S;
+  if not Result then Exit;
+
+  // Empty string
+  R := CnStringReplace('', 'a', 'b', [crfReplaceAll]);
+  Result := R = '';
+  if not Result then Exit;
+
+  // Replace with longer string
+  S := 'a,b,c';
+  R := CnStringReplace(S, ',', '---', [crfReplaceAll]);
+  Result := R = 'a---b---c';
+  if not Result then Exit;
+
+  // Replace with empty string (delete)
+  R := CnStringReplace(S, ',', '', [crfReplaceAll]);
+  Result := R = 'abc';
+  if not Result then Exit;
+
+  S := 'hello world hello';
+  // ---- Ansi version (UNICODE only) / Wide version (non-UNICODE only) ----
+{$IFDEF UNICODE}
+  SA := AnsiString(S);
+  RA := CnStringReplaceA(SA, 'hello', 'hi', [crfReplaceAll]);
+  Result := RA = 'hi world hi';
+  if not Result then Exit;
+
+  RA := CnStringReplaceA(SA, 'hello', 'hi', []);
+  Result := RA = 'hi world hello';
+  if not Result then Exit;
+
+  RA := CnStringReplaceA(SA, 'HELLO', 'hi', [crfReplaceAll, crfIgnoreCase]);
+  Result := RA = 'hi world hi';
+  if not Result then Exit;
+
+  SA := 'helloworld hello';
+  RA := CnStringReplaceA(SA, 'hello', 'hi', [crfReplaceAll, crfWholeWord]);
+  Result := RA = 'helloworld hi';
+  if not Result then Exit;
+
+  RA := CnStringReplaceA('', 'a', 'b', [crfReplaceAll]);
+  Result := RA = '';
+  if not Result then Exit;
+
+  SA := 'a,b,c';
+  RA := CnStringReplaceA(SA, ',', '', [crfReplaceAll]);
+  Result := RA = 'abc';
+{$ELSE}
+  SW := WideString(S);
+  RW := CnStringReplaceW(SW, 'hello', 'hi', [crfReplaceAll]);
+  Result := RW = 'hi world hi';
+  if not Result then Exit;
+
+  RW := CnStringReplaceW(SW, 'hello', 'hi', []);
+  Result := RW = 'hi world hello';
+  if not Result then Exit;
+
+  RW := CnStringReplaceW(SW, 'HELLO', 'hi', [crfReplaceAll, crfIgnoreCase]);
+  Result := RW = 'hi world hi';
+  if not Result then Exit;
+
+  SW := 'helloworld hello';
+  RW := CnStringReplaceW(SW, 'hello', 'hi', [crfReplaceAll, crfWholeWord]);
+  Result := RW = 'helloworld hi';
+  if not Result then Exit;
+
+  RW := CnStringReplaceW('', 'a', 'b', [crfReplaceAll]);
+  Result := RW = '';
+  if not Result then Exit;
+
+  SW := 'a,b,c';
+  RW := CnStringReplaceW(SW, ',', '', [crfReplaceAll]);
+  Result := RW = 'abc';
+{$ENDIF}
+end;
+
+function TestStringBuilder: Boolean;
+var
+  SB: TCnStringBuilder;
+  C: Char;
+  I: Integer;
+begin
+  // Basic append and toString
+  SB := TCnStringBuilder.Create;
+  try
+    SB.Append('Hello').Append(' ').Append('World');
+    Result := SB.ToString = 'Hello World';
+    if not Result then Exit;
+
+    // Append integer
+    SB.Clear;
+    I := 42;
+    SB.Append('Value: ').Append(I);
+    Result := SB.ToString = 'Value: 42';
+    if not Result then Exit;
+
+    // Append with format
+    SB.Clear;
+    SB.Append('Result: %d items', [100]);
+    Result := SB.ToString = 'Result: 100 items';
+    if not Result then Exit;
+
+    // Chained appends building a long string
+    SB.Clear;
+    SB.Append('A').Append('B').Append('C').Append('D').Append('E');
+    Result := SB.ToString = 'ABCDE';
+    if not Result then Exit;
+
+    // AppendLine
+    SB.Clear;
+    SB.Append('Line1').AppendLine.Append('Line2');
+    Result := SB.ToString = 'Line1' + #13#10 + 'Line2';
+    if not Result then Exit;
+
+    // Append char with repeat count
+    SB.Clear;
+    C := 'X';
+    SB.Append(C, 5);
+    Result := SB.ToString = 'XXXXX';
+  finally
+    SB.Free;
+  end;
+end;
+
+function TestAnsiStringListDelimitedText: Boolean;
+var
+  SL: TCnAnsiStrings;
+  R: AnsiString;
+begin
+  SL := TCnAnsiStringList.Create;
+  try
+    // Basic delimited text
+    SL.Add('apple');
+    SL.Add('banana');
+    SL.Add('cherry');
+    R := SL.DelimitedText;
+    // Delimiter defaults to ',' and QuoteChar to '"'
+    // Result should be 'apple,banana,cherry'
+    Result := R = 'apple,banana,cherry';
+    if not Result then Exit;
+
+    // Add item containing delimiter, should be quoted
+    SL.Clear;
+    SL.Add('simple');
+    SL.Add('has,comma');
+    R := SL.DelimitedText;
+    // 'has,comma' should be quoted because it contains the delimiter
+    Result := R = 'simple,"has,comma"';
+    if not Result then Exit;
+
+    // Add item containing space, should be quoted
+    SL.Clear;
+    SL.Add('has space');
+    SL.Add('normal');
+    R := SL.DelimitedText;
+    Result := R = '"has space",normal';
+    if not Result then Exit;
+
+    // Single empty item
+    SL.Clear;
+    SL.Add('');
+    R := SL.DelimitedText;
+    Result := R = '""';
+    if not Result then Exit;
+
+    // Multiple items with special chars
+    SL.Clear;
+    SL.Add('a');
+    SL.Add('b');
+    SL.Add('c');
+    SL.Delimiter := ';';
+    R := SL.DelimitedText;
+    Result := R = 'a;b;c';
+  finally
+    SL.Free;
+  end;
 end;
 
 // ================================ Calendar ======================================
@@ -4860,6 +5092,133 @@ begin
     if not Result then Exit;
   finally
     BigNumberFree(T);
+  end;
+end;
+
+function TestBigNumberMontgomery: Boolean;
+var
+  N, R, R2ModN, NNegInv, A, B, Res, Expected, Tmp: TCnBigNumber;
+  NWords, RBits, WordBits: Integer;
+begin
+  Result := False;
+  N := BigNumberNew;
+  R := BigNumberNew;
+  R2ModN := BigNumberNew;
+  NNegInv := BigNumberNew;
+  A := BigNumberNew;
+  B := BigNumberNew;
+  Res := BigNumberNew;
+  Expected := BigNumberNew;
+  Tmp := BigNumberNew;
+  // WordBits = BN_BITS2, depends on whether BN_DATA_USE_64 is defined.
+  // Use SizeOf(TCnBigNumberElement) to detect it at compile time.
+  WordBits := SizeOf(TCnBigNumberElement) * 8;
+  try
+    // ---- Test 1: 32-bit modulus (1 word in 32-bit mode) ----
+    N.SetHex('FFFFFFFB');  // 4294967291, a 32-bit prime
+    A.SetHex('5A9B7C3D');
+    B.SetHex('0E4F5A6B');
+
+    // Compute R = 2^(NWords * BN_BITS2). NWords = ceil(BitsCount / BN_BITS2).
+    // Use SizeOf(TCnBigNumberElement) to support both 32-bit and 64-bit element modes.
+    NWords := (N.GetBitsCount + WordBits - 1) div WordBits;
+    RBits := NWords * WordBits;
+    BigNumberSetOne(R);
+    BigNumberShiftLeft(R, R, RBits);
+    BigNumberMulMod(R2ModN, R, R, N);
+    BigNumberModularInverse(NNegInv, N, R, False);
+    BigNumberSub(NNegInv, R, NNegInv);
+
+    BigNumberMulMod(Expected, A, B, N);
+    if not BigNumberMontgomeryMulMod(Res, A, B, R, R2ModN, N, NNegInv) then
+      Exit;
+    Result := BigNumberCompare(Res, Expected) = 0;
+    if not Result then Exit;
+
+    // ---- Test 2: 64-bit modulus (2 words in 32-bit mode) ----
+    N.SetHex('FFFFFFFFFFFFFFC5');  // 64-bit prime
+    A.SetHex('FFFFFFFFFFFFFF00');
+    B.SetHex('FFFFFFFFFFFFF000');
+    // Ensure A, B < N
+    BigNumberMod(Tmp, A, N); BigNumberCopy(A, Tmp);
+    BigNumberMod(Tmp, B, N); BigNumberCopy(B, Tmp);
+
+    NWords := (N.GetBitsCount + WordBits - 1) div WordBits;
+    RBits := NWords * WordBits;
+    BigNumberSetOne(R);
+    BigNumberShiftLeft(R, R, RBits);
+    BigNumberMulMod(R2ModN, R, R, N);
+    BigNumberModularInverse(NNegInv, N, R, False);
+    BigNumberSub(NNegInv, R, NNegInv);
+
+    BigNumberMulMod(Expected, A, B, N);
+    if not BigNumberMontgomeryMulMod(Res, A, B, R, R2ModN, N, NNegInv) then
+      Exit;
+    Result := BigNumberCompare(Res, Expected) = 0;
+    if not Result then Exit;
+
+    // ---- Test 3: 128-bit modulus ----
+    N.SetHex('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF');
+    A.SetHex('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00');
+    B.SetHex('FFFFFFFFFFFFFFFFFFFFFFFFFFFF0000');
+    BigNumberMod(Tmp, A, N); BigNumberCopy(A, Tmp);
+    BigNumberMod(Tmp, B, N); BigNumberCopy(B, Tmp);
+
+    NWords := (N.GetBitsCount + WordBits - 1) div WordBits;
+    RBits := NWords * WordBits;
+    BigNumberSetOne(R);
+    BigNumberShiftLeft(R, R, RBits);
+    BigNumberMulMod(R2ModN, R, R, N);
+    BigNumberModularInverse(NNegInv, N, R, False);
+    BigNumberSub(NNegInv, R, NNegInv);
+
+    BigNumberMulMod(Expected, A, B, N);
+    if not BigNumberMontgomeryMulMod(Res, A, B, R, R2ModN, N, NNegInv) then
+      Exit;
+    Result := BigNumberCompare(Res, Expected) = 0;
+    if not Result then Exit;
+
+    // ---- Test 4: 256-bit modulus (secp256k1 prime) ----
+    N.SetHex('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F');
+    A.SetHex('5A9B7C3D1E2F3A4B5C6D7E8F9A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4D5E6F7A8B');
+    B.SetHex('0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF');
+    BigNumberMod(Tmp, A, N); BigNumberCopy(A, Tmp);
+    BigNumberMod(Tmp, B, N); BigNumberCopy(B, Tmp);
+
+    NWords := (N.GetBitsCount + WordBits - 1) div WordBits;
+    RBits := NWords * WordBits;
+    BigNumberSetOne(R);
+    BigNumberShiftLeft(R, R, RBits);
+    BigNumberMulMod(R2ModN, R, R, N);
+    BigNumberModularInverse(NNegInv, N, R, False);
+    BigNumberSub(NNegInv, R, NNegInv);
+
+    BigNumberMulMod(Expected, A, B, N);
+    if not BigNumberMontgomeryMulMod(Res, A, B, R, R2ModN, N, NNegInv) then
+      Exit;
+    Result := BigNumberCompare(Res, Expected) = 0;
+    if not Result then Exit;
+
+    // ---- Test 5: 256-bit, A and B both close to N ----
+    A.SetHex('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2E');
+    B.SetHex('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2D');
+    BigNumberMod(Tmp, A, N); BigNumberCopy(A, Tmp);
+    BigNumberMod(Tmp, B, N); BigNumberCopy(B, Tmp);
+
+    BigNumberMulMod(Expected, A, B, N);
+    if not BigNumberMontgomeryMulMod(Res, A, B, R, R2ModN, N, NNegInv) then
+      Exit;
+    Result := BigNumberCompare(Res, Expected) = 0;
+  finally
+    BigNumberFree(Tmp);
+    BigNumberFree(Expected);
+    BigNumberFree(Res);
+    BigNumberFree(B);
+    BigNumberFree(A);
+    BigNumberFree(NNegInv);
+    BigNumberFree(R2ModN);
+    BigNumberFree(R);
+    BigNumberFree(N);
   end;
 end;
 

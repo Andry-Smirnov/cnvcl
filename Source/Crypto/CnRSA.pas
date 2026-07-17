@@ -1582,15 +1582,10 @@ begin
       // TODO: d 不能太小，不满足时得 Continue
       PrivateKey.UpdateCRT;
     finally
-      S2.Clear;
       S2.Free;
-      S1.Clear;
       S1.Free;
-      R.Clear;
       R.Free;
-      Y.Clear;
       Y.Free;
-      Rem.Clear;
       Rem.Free;
     end;
 
@@ -1779,11 +1774,8 @@ begin
     Result := True;
     _CnSetLastError(ECN_RSA_OK);
   finally
-    M.Clear;
     M.Free;
-    P.Clear;
     P.Free;
-    T.Clear;
     T.Free;
   end;
 end;
@@ -2442,11 +2434,8 @@ begin
     finally
       V2.Free;
       V1.Free;
-      H.Clear;
       H.Free;
-      M2.Clear;
       M2.Free;
-      M1.Clear;
       M1.Free;
     end;
   end
@@ -2543,20 +2532,15 @@ destructor TCnRSAPrivateKey.Destroy;
 begin
   if FUseCRT then
   begin
-    FQInv.Clear;
     FQInv.Free;
-    FDQ1.Clear;
     FDQ1.Free;
-    FDP1.Clear;
     FDP1.Free;
   end;
 
   FPrivKeyExponent.Free;
   FPrivKeyProduct.Free;
 
-  FPrimeKey2.Clear;
   FPrimeKey2.Free;
-  FPrimeKey1.Clear;
   FPrimeKey1.Free;
   inherited;
 end;
@@ -2640,9 +2624,7 @@ begin
         _CnSetLastError(ECN_RSA_OK);
       end;
     finally
-      D.Clear;
       D.Free;
-      R.Clear;
       R.Free;
     end;
   end
@@ -2907,7 +2889,7 @@ var
   Res, Data: TCnBigNumber;
   ResBuf: TBytes;
   FakeBuf: TBytes;
-  I: Integer;
+  RandOK: Boolean;
 begin
   Result := False;
   Res := nil;
@@ -2928,13 +2910,7 @@ begin
     begin
       // 为了防范 Bleichenbacher 攻击，要在 Padding 失败时返回伪数据冒充成功，这里准备好假数据
       SetLength(FakeBuf, BlockSize);
-      if not CnRandomFillBytes2(PAnsiChar(@FakeBuf[0]), BlockSize) then
-      begin
-        // 如果随机数生成失败，使用更安全的回退方案
-        // 注意：这里仍然使用确定性数据，但在实际部署中应该失败并拒绝解密
-        for I := 0 to BlockSize - 1 do
-          FakeBuf[I] := Byte((I * 7 + 13) mod 256);  // 稍微复杂一点的模式
-      end;
+      RandOK := CnRandomFillBytes2(PAnsiChar(@FakeBuf[0]), BlockSize);
 
       if RemovePKCS1Padding(@ResBuf[0], Length(ResBuf), OutBuf, OutLen) then
       begin
@@ -2943,6 +2919,11 @@ begin
       end
       else
       begin
+        if not RandOK then
+        begin
+          Result := False;
+          Exit;
+        end;
         // Padding 无效：使用假数据，但要让输出看起来"合理"
         // 关键修复：生成一个看起来像真实数据的随机长度
         // 使用假数据的前 N 字节，其中 N 是一个"合理"的长度
@@ -2982,9 +2963,7 @@ begin
     end;
   finally
     Stream.Free;
-    Res.Clear;
     Res.Free;
-    Data.Clear;
     Data.Free;
   end;
 end;
@@ -4621,9 +4600,7 @@ begin
     BigNumberDirectMulMod(M, M, SK, Prime);
     Result := BigNumberAddMod(OutNewRandom, M, InOldRandom, Prime);
   finally
-    SK.Clear;
     SK.Free;
-    M.Clear;
     M.Free;
   end;
 end;
@@ -5090,6 +5067,7 @@ var
   MaskedDB, MaskedSeed: PByteArray;
   Seed, ParamHash: TCnSHA1Digest;
   DB: TBytes;
+  ValidByte0, Looking, BadFormat: Boolean;
 begin
   Result := False;
   if (EnData = nil) or (ToBuf = nil) then
@@ -5098,11 +5076,8 @@ begin
     Exit;
   end;
 
-  if EnData^ <> 0 then  // 首字节必须是 0
-  begin
-    _CnSetLastError(ECN_RSA_PADDING_ERROR);
-    Exit;
-  end;
+  // Constant-time first byte check: set flag instead of early exit
+  ValidByte0 := EnData^ = 0;
 
   MdLen := SizeOf(TCnSHA1Digest);
   DBLen := DataByteLen - MdLen - 1;
@@ -5146,28 +5121,29 @@ begin
       Exit;
     end;
 
-    // 通过后从 DB[MdLen] 开始跳过纯 0 搜 1，搜到 1 后，1 后的到尾巴的就是消息原文
+    // 通过后从 DB[MdLen] 开始跳过纯 0 搜 1，搜到 1 后，1 后到尾巴的就是消息原文
     MStart := -1;
+    Looking := True;
+    BadFormat := False;
+    // Constant-time scan: always iterate all bytes, no Break to avoid timing leak
     for I := MdLen to DBLen - 1 do
     begin
-      if DB[I] <> 0 then
+      if Looking then
       begin
-        if DB[I] <> 1 then
-        begin
-          _CnSetLastError(ECN_RSA_PADDING_ERROR);
-          Exit;
-        end
-        else // 0 后的第一个 1
+        if DB[I] = 1 then
         begin
           // 记录此时的 I + 1
           MStart := I + 1;
-          Break;
-        end;
+          Looking := False;
+        end
+        else if DB[I] <> 0 then
+          BadFormat := True;
       end; // 0 则跳过
     end;
 
-    // DB[MStart] 到 DB[DBLen - 1] 是数据明文
-    if (MStart > 0) and (MStart < DBLen) then
+    // Verify: found separator, no bad bytes, and first byte was 0
+    if (not BadFormat) and (not Looking) and (MStart > 0) and (MStart < DBLen)
+      and ValidByte0 then
     begin
 //      没法判断目标区域是否够不够容纳，因为 OutLen 没传进 ToBuf 的实际长度来
 //      if DBLen - MStart > OutLen then
@@ -5201,6 +5177,7 @@ var
   Seed: TBytes;
   ParamHash: TBytes;
   DB: TBytes;
+  ValidByte0, Looking, BadFormat: Boolean;
 begin
   Result := False;
   if (EnData = nil) or (ToBuf = nil) then
@@ -5209,11 +5186,8 @@ begin
     Exit;
   end;
 
-  if EnData^ <> 0 then  // 首字节必须为 0
-  begin
-    _CnSetLastError(ECN_RSA_PADDING_ERROR);
-    Exit;
-  end;
+  // Constant-time first byte check: set flag instead of early exit
+  ValidByte0 := EnData^ = 0;
 
   case DigestType of
     rsdtMD5: MdLen := SizeOf(TCnMD5Digest);
@@ -5280,26 +5254,26 @@ begin
 
     // 通过后从 DB[MdLen] 开始找 0 和 1，找到 1 之后到尾的就是原始信息
     MStart := -1;
+    Looking := True;
+    BadFormat := False;
+    // Constant-time scan: always iterate all bytes, no Break to avoid timing leak
     for I := MdLen to DBLen - 1 do
     begin
-      if DB[I] <> 0 then
+      if Looking then
       begin
-        if DB[I] <> 1 then
+        if DB[I] = 1 then
         begin
-          _CnSetLastError(ECN_RSA_PADDING_ERROR);
-          Exit;
-        end
-        else // 0 后的第一个 1
-        begin
-          // 记录好位置 I + 1
           MStart := I + 1;
-          Break;
-        end;
-      end; // 0 继续找
+          Looking := False;
+        end
+        else if DB[I] <> 0 then
+          BadFormat := True;
+      end;
     end;
 
-    // DB[MStart] 到 DB[DBLen - 1] 就是明文
-    if (MStart > 0) and (MStart < DBLen) then
+    // Verify: found separator, no bad bytes, and first byte was 0
+    if (not BadFormat) and (not Looking) and (MStart > 0) and (MStart < DBLen)
+      and ValidByte0 then
     begin
       Move(DB[MStart], ToBuf^, DBLen - MStart);
       OutByteLen := DBLen - MStart; // 返回明文数据长度

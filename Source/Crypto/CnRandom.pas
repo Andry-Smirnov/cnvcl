@@ -215,6 +215,8 @@ var
   FBCryptHandle: THandle = 0;
   FBCryptGenRandom: function(hAlgorithm: THandle; pbBuffer: Pointer; cbBuffer: ULONG; dwFlags: ULONG): LongInt; stdcall = nil;
   FBCryptInitAttempted: Boolean = False;
+  FBCryptCS: TRTLCriticalSection;
+  // Critical section to protect BCrypt initialization from race conditions
 
 {$ELSE}
 
@@ -252,10 +254,18 @@ begin
   // 使用 Windows API 实现区块随机填充
   if not FBCryptInitAttempted then
   begin
-    FBCryptHandle := LoadLibrary(bcryptdll);
-    if FBCryptHandle <> 0 then
-      @FBCryptGenRandom := GetProcAddress(FBCryptHandle, 'BCryptGenRandom');
-    FBCryptInitAttempted := True;
+    EnterCriticalSection(FBCryptCS);
+    try
+      if not FBCryptInitAttempted then
+      begin
+        FBCryptHandle := LoadLibrary(bcryptdll);
+        if FBCryptHandle <> 0 then
+          @FBCryptGenRandom := GetProcAddress(FBCryptHandle, 'BCryptGenRandom');
+        FBCryptInitAttempted := True;
+      end;
+    finally
+      LeaveCriticalSection(FBCryptCS);
+    end;
   end;
 
   if Assigned(FBCryptGenRandom) then
@@ -345,10 +355,18 @@ begin
 {$IFDEF MSWINDOWS}
   if not FBCryptInitAttempted then
   begin
-    FBCryptHandle := LoadLibrary(bcryptdll);
-    if FBCryptHandle <> 0 then
-      @FBCryptGenRandom := GetProcAddress(FBCryptHandle, 'BCryptGenRandom');
-    FBCryptInitAttempted := True;
+    EnterCriticalSection(FBCryptCS);
+    try
+      if not FBCryptInitAttempted then
+      begin
+        FBCryptHandle := LoadLibrary(bcryptdll);
+        if FBCryptHandle <> 0 then
+          @FBCryptGenRandom := GetProcAddress(FBCryptHandle, 'BCryptGenRandom');
+        FBCryptInitAttempted := True;
+      end;
+    finally
+      LeaveCriticalSection(FBCryptCS);
+    end;
   end;
 
   if Assigned(FBCryptGenRandom) then
@@ -358,7 +376,11 @@ begin
       Exit;
   end;
 
-  Result := CryptGenRandom(FHProv, BufByteLen, Buf);
+  // 检查 FHProv 是否有效初始化，避免在句柄为 0 时调用 CryptGenRandom
+  if FHProv <> 0 then
+    Result := CryptGenRandom(FHProv, BufByteLen, Buf)
+  else
+    Result := False;
 {$ELSE}
 {$IFDEF MACOS}
   Result := CCRandomGenerateBytes(Buf, BufByteLen) = 0;
@@ -554,6 +576,7 @@ var
   Res: DWORD;
   B: Boolean;
 begin
+  InitializeCriticalSection(FBCryptCS);
   FHProv := 0;
   B := CryptAcquireContext(@FHProv, nil, nil, PROV_RSA_FULL, 0);
   if not B then
@@ -574,6 +597,7 @@ end;
 
 procedure StopRandom;
 begin
+  DeleteCriticalSection(FBCryptCS);
   if FHProv <> 0 then
   begin
     CryptReleaseContext(FHProv, 0);

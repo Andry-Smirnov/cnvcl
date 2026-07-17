@@ -225,12 +225,14 @@
 			<DCCReference Include="..\..\Source\Graphic\CnEdit.pas"/>
 			<DCCReference Include="..\..\Source\Graphic\CnErrorProvider.pas"/>
 			<DCCReference Include="..\..\Source\Graphic\CnGauge.pas"/>
+			<DCCReference Include="..\..\Source\Graphic\CnGIF.pas"/>
 			<DCCReference Include="..\..\Source\Graphic\CnGraphConsts.pas"/>
 			<DCCReference Include="..\..\Source\Graphic\CnGraphics.pas"/>
 			<DCCReference Include="..\..\Source\Graphic\CnHexEditor.pas"/>
 			<DCCReference Include="..\..\Source\Graphic\CnHint.pas"/>
 			<DCCReference Include="..\..\Source\Graphic\CnIconUtils.pas"/>
 			<DCCReference Include="..\..\Source\Graphic\CnImage.pas"/>
+			<DCCReference Include="..\..\Source\Graphic\CnJPEG.pas"/>
 			<DCCReference Include="..\..\Source\Graphic\CnLED.pas"/>
 			<DCCReference Include="..\..\Source\Graphic\CnListBox.pas"/>
 			<DCCReference Include="..\..\Source\Graphic\CnMemo.pas"/>

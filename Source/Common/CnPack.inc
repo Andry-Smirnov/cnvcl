@@ -59,7 +59,7 @@
     {$DEFINE CPUX86}
     {$asmMode intel}
   {$ENDIF}
-  {$IFDEF CPUi386}
+  {$IFDEF CPUI386}
     {$DEFINE CPU32BITS}
     {$DEFINE CPUX86}
     {$asmMode intel}
@@ -91,6 +91,14 @@
     {$DEFINE CPU64BITS}
     {$DEFINE CPUARM}
     {$DEFINE CPUARM64}
+  {$ENDIF}
+
+  {$IFDEF CPUX64}
+    {$IFNDEF MSWINDOWS}
+      {$DEFINE CALL_SYSV_AMD64}
+      // FPC 在 64 位 Intel、非 Windows 下的调用约定是 AMD 的 SYSV（RDI、RSI、RDX、RCX、R8、R9）
+      // 而不是 Microsoft x64 ABI（RCX、RDX、R8、R9 ）
+    {$ENDIF}
   {$ENDIF}
 
   {$mode Delphi}       // Delphi Compatibility, not DelphiUnicode。注意源码中勿重复声明
@@ -3873,4 +3881,18 @@
 {$ENDIF}
 
 {$ENDIF FPC}
+
+// 以下是编译器无关的封装定义
+
+{$IFDEF CPU386}
+  {$DEFINE CPUX86ORX64}  // 定义一个 CPUX86ORX64 以方便 Intel 32 位 与 64 位使用
+{$ENDIF}
+
+{$IFDEF CPUX86}
+  {$DEFINE CPUX86ORX64}
+{$ENDIF}
+
+{$IFDEF CPUX64}
+  {$DEFINE CPUX86ORX64}
+{$ENDIF}
 

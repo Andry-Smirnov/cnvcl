@@ -5601,6 +5601,13 @@ resourcestring
   SCnErrorPolynomialGCDMustOne = 'Modular Inverse Need GCD = 1';
   SCnErrorPolynomialGaloisInvalidDegree = 'Galois Division Polynomial Invalid Degree';
 
+const
+  CN_POLYMUL_KARATSUBA_THRESHOLD = 16;
+  {* 有限域上多项式乘法的 Karatsuba 阈值。
+     当两个操作数的次数都大于或等于该值时，将使用 Karatsuba 算法
+     而不是传统的教科书乘法。该阈值在乘法计算量的节省
+     与拆分、加法以及递归调用的额外开销之间应该能取得平衡。}
+
 var
   FLocalInt64PolynomialPool: TCnInt64PolynomialPool = nil;
   FLocalInt64RationalPolynomialPool: TCnInt64RationalPolynomialPool = nil;
@@ -9844,13 +9851,153 @@ begin
   end;
 end;
 
+// Raw polynomial multiplication using Karatsuba algorithm (no modular reduction).
+// Res must not alias P1 or P2. Coefficients are accumulated without mod;
+// the caller is responsible for reducing mod Prime afterwards.
+procedure BigNumberPolynomialMulKaratsuba(Res: TCnBigNumberPolynomial;
+  P1, P2: TCnBigNumberPolynomial);
+var
+  N1, N2, H, I, J: Integer;
+  P1Low, P1High, P2Low, P2High: TCnBigNumberPolynomial;
+  Z0, Z1, Z2, Sum1, Sum2: TCnBigNumberPolynomial;
+  T: TCnBigNumber;
+begin
+  N1 := P1.MaxDegree;
+  N2 := P2.MaxDegree;
+
+  // 小次数恢复到传统乘法
+  if (N1 < CN_POLYMUL_KARATSUBA_THRESHOLD) or (N2 < CN_POLYMUL_KARATSUBA_THRESHOLD) then
+  begin
+    T := FLocalBigNumberPool.Obtain;
+    try
+      Res.Clear;
+      Res.MaxDegree := N1 + N2;
+      for I := 0 to N1 do
+      begin
+        if P1[I].IsZero then
+          Continue;
+
+        for J := 0 to N2 do
+        begin
+          if P2[J].IsZero then
+            Continue;
+          BigNumberMul(T, P1[I], P2[J]);
+          BigNumberAdd(Res[I + J], Res[I + J], T);
+        end;
+      end;
+      Res.CorrectTop;
+    finally
+      FLocalBigNumberPool.Recycle(T);
+    end;
+    Exit;
+  end;
+
+  // Recursive Karatsuba: split at H based on the SMALLER polynomial to avoid
+  // creating a zero high-part when degrees differ significantly (common in CRT)
+  H := (Min(N1, N2) + 1) div 2;
+
+  P1Low := FLocalBigNumberPolynomialPool.Obtain;
+  P1High := FLocalBigNumberPolynomialPool.Obtain;
+  P2Low := FLocalBigNumberPolynomialPool.Obtain;
+  P2High := FLocalBigNumberPolynomialPool.Obtain;
+  Z0 := FLocalBigNumberPolynomialPool.Obtain;
+  Z1 := FLocalBigNumberPolynomialPool.Obtain;
+  Z2 := FLocalBigNumberPolynomialPool.Obtain;
+  Sum1 := FLocalBigNumberPolynomialPool.Obtain;
+  Sum2 := FLocalBigNumberPolynomialPool.Obtain;
+
+  try
+    // Split P1 into P1Low (coeffs 0..H-1) and P1High (coeffs H..N1)
+    if N1 < H then
+    begin
+      BigNumberPolynomialCopy(P1Low, P1);
+      P1High.SetZero;
+    end
+    else
+    begin
+      P1Low.MaxDegree := H - 1;
+      for I := 0 to H - 1 do
+        BigNumberCopy(P1Low[I], P1[I]);
+      P1Low.CorrectTop;
+      P1High.MaxDegree := N1 - H;
+      for I := 0 to N1 - H do
+        BigNumberCopy(P1High[I], P1[I + H]);
+      P1High.CorrectTop;
+    end;
+
+    // Split P2 into P2Low (coeffs 0..H-1) and P2High (coeffs H..N2)
+    if N2 < H then
+    begin
+      BigNumberPolynomialCopy(P2Low, P2);
+      P2High.SetZero;
+    end
+    else
+    begin
+      P2Low.MaxDegree := H - 1;
+      for I := 0 to H - 1 do
+        BigNumberCopy(P2Low[I], P2[I]);
+      P2Low.CorrectTop;
+      P2High.MaxDegree := N2 - H;
+      for I := 0 to N2 - H do
+        BigNumberCopy(P2High[I], P2[I + H]);
+      P2High.CorrectTop;
+    end;
+
+    // Z0 = P1Low * P2Low
+    BigNumberPolynomialMulKaratsuba(Z0, P1Low, P2Low);
+
+    // Z2 = P1High * P2High
+    if P1High.IsZero or P2High.IsZero then
+      Z2.SetZero
+    else
+      BigNumberPolynomialMulKaratsuba(Z2, P1High, P2High);
+
+    // Sum1 = P1Low + P1High,  Sum2 = P2Low + P2High
+    BigNumberPolynomialAdd(Sum1, P1Low, P1High);
+    BigNumberPolynomialAdd(Sum2, P2Low, P2High);
+
+    // Z1 = Sum1 * Sum2 - Z0 - Z2
+    BigNumberPolynomialMulKaratsuba(Z1, Sum1, Sum2);
+    BigNumberPolynomialSub(Z1, Z1, Z0);
+    BigNumberPolynomialSub(Z1, Z1, Z2);
+
+    // Res = Z0 + x^H * Z1 + x^(2H) * Z2
+    Res.Clear;
+    Res.MaxDegree := N1 + N2;
+
+    // Copy Z0 to low part
+    for I := 0 to Z0.MaxDegree do
+      BigNumberCopy(Res[I], Z0[I]);
+
+    // Add Z1 shifted by H
+    for I := 0 to Z1.MaxDegree do
+      BigNumberAdd(Res[I + H], Res[I + H], Z1[I]);
+
+    // Add Z2 shifted by 2*H
+    for I := 0 to Z2.MaxDegree do
+      BigNumberAdd(Res[I + 2 * H], Res[I + 2 * H], Z2[I]);
+
+    Res.CorrectTop;
+  finally
+    FLocalBigNumberPolynomialPool.Recycle(Sum2);
+    FLocalBigNumberPolynomialPool.Recycle(Sum1);
+    FLocalBigNumberPolynomialPool.Recycle(Z2);
+    FLocalBigNumberPolynomialPool.Recycle(Z1);
+    FLocalBigNumberPolynomialPool.Recycle(Z0);
+    FLocalBigNumberPolynomialPool.Recycle(P2High);
+    FLocalBigNumberPolynomialPool.Recycle(P2Low);
+    FLocalBigNumberPolynomialPool.Recycle(P1High);
+    FLocalBigNumberPolynomialPool.Recycle(P1Low);
+  end;
+end;
+
 function BigNumberPolynomialGaloisMul(Res: TCnBigNumberPolynomial;
   P1: TCnBigNumberPolynomial; P2: TCnBigNumberPolynomial;
   Prime: TCnBigNumber; Primitive: TCnBigNumberPolynomial = nil): Boolean;
 var
   R: TCnBigNumberPolynomial;
   T: TCnBigNumber;
-  I, J: Integer;
+  I, J, K: Integer;
 begin
   if BigNumberPolynomialIsZero(P1) or BigNumberPolynomialIsZero(P2) then
   begin
@@ -9859,25 +10006,42 @@ begin
     Exit;
   end;
 
-  T := FLocalBigNumberPool.Obtain;
   if (Res = P1) or (Res = P2) then
     R := FLocalBigNumberPolynomialPool.Obtain
   else
     R := Res;
 
-  R.Clear;
-  R.MaxDegree := P1.MaxDegree + P2.MaxDegree;
-
-  for I := 0 to P1.MaxDegree do
+  // 判断，大的才使用 Karatsuba 算法，小的用教科书上的传统乘法
+  if (P1.MaxDegree >= CN_POLYMUL_KARATSUBA_THRESHOLD) and
+     (P2.MaxDegree >= CN_POLYMUL_KARATSUBA_THRESHOLD) then
   begin
-    // 把第 I 次方的数字乘以 P2 的每一个数字，加到结果的 I 开头的部分
-    for J := 0 to P2.MaxDegree do
-    begin
-      BigNumberMul(T, P1[I], P2[J]);
-      BigNumberAdd(R[I + J], R[I + J], T);
-      BigNumberNonNegativeMod(R[I + J], R[I + J], Prime);
+    // Karatsuba 乘法，内部不带求余
+    BigNumberPolynomialMulKaratsuba(R, P1, P2);
+  end
+  else
+  begin
+    // 传统乘法，内部不带求余
+    T := FLocalBigNumberPool.Obtain;
+    try
+      R.Clear;
+      R.MaxDegree := P1.MaxDegree + P2.MaxDegree;
+      for I := 0 to P1.MaxDegree do
+      begin
+        for J := 0 to P2.MaxDegree do
+        begin
+          BigNumberMul(T, P1[I], P2[J]);
+          BigNumberAdd(R[I + J], R[I + J], T);
+        end;
+      end;
+      R.CorrectTop;
+    finally
+      FLocalBigNumberPool.Recycle(T);
     end;
   end;
+
+  // Reduce all coefficients mod Prime in one pass (delayed mod optimization)
+  for K := 0 to R.MaxDegree do
+    BigNumberNonNegativeMod(R[K], R[K], Prime);
 
   R.CorrectTop;
 
@@ -9890,7 +10054,6 @@ begin
     BigNumberPolynomialCopy(Res, R);
     FLocalBigNumberPolynomialPool.Recycle(R);
   end;
-  FLocalBigNumberPool.Recycle(T);
   Result := True;
 end;
 
@@ -12747,11 +12910,13 @@ begin
   if P.FXs.Count <= 0 then
     P.FXs.Add(TCnInt64List.Create)
   else
+  begin
     for I := P.FXs.Count - 1 downto 1 do
     begin
       P.FXs[I].Free;
       P.FXs.Delete(I);
     end;
+  end;
 
   if P.YFactorsList[0].Count <= 0 then
     P.YFactorsList[0].Add(0)
@@ -12771,11 +12936,13 @@ begin
   if P.FXs.Count <= 0 then
     P.FXs.Add(TCnInt64List.Create)
   else
+  begin
     for I := P.FXs.Count - 1 downto 1 do
     begin
       P.FXs[I].Free;
       P.FXs.Delete(I);
     end;
+  end;
 
   if P.YFactorsList[0].Count <= 0 then
     P.YFactorsList[0].Add(1)
@@ -13749,11 +13916,13 @@ begin
   if FXs.Count <= 0 then
     FXs.Add(TCnInt64List.Create)
   else
+  begin
     for I := FXs.Count - 1 downto 1 do
     begin
       FXs[I].Free;
       FXs.Delete(I);
     end;
+  end;
 
   YFactorsList[0].Clear;
 end;
@@ -14000,7 +14169,14 @@ begin
 end;
 
 procedure BigNumberBiPolynomialSetZero(P: TCnBigNumberBiPolynomial);
+var
+  I: Integer;
 begin
+  // Must free each TCnSparseBigNumberList before clearing references.
+  // TCnRefObjectList.Clear only removes pointers without freeing objects,
+  // so failing to free here causes memory leaks when a polynomial is reused.
+  for I := P.FXs.Count - 1 downto 0 do
+    P.FXs[I].Free;
   P.FXs.Clear;
 end;
 
@@ -14011,11 +14187,13 @@ begin
   if P.FXs.Count <= 0 then
     P.FXs.Add(TCnSparseBigNumberList.Create)
   else
+  begin
     for I := P.FXs.Count - 1 downto 1 do
     begin
       P.FXs[I].Free;
       P.FXs.Delete(I);
     end;
+  end;
 
   if P.YFactorsList[0].Count <= 0 then
     P.YFactorsList[0].Add(TCnExponentBigNumberPair.Create)
@@ -15341,9 +15519,8 @@ begin
   if (XDegree >= 0) and (XDegree < FXs.Count) then
   begin
     YL := TCnSparseBigNumberList(FXs[XDegree]);
-    if YL <> nil then
-      if (YDegree >= 0) and (YDegree < YL.Count) then
-        Result := YL.ReadonlyValue[YDegree];
+    if (YL <> nil) and (YDegree >= 0) then
+      Result := YL.ReadonlyValue[YDegree];
   end;
 end;
 
@@ -16376,8 +16553,7 @@ function BigNumberPolynomialGaloisEqualDegreeFactor(Factors: TCnBigNumberPolynom
 
   procedure SplitEqualDegree(Factor: TCnBigNumberPolynomial);
   var
-    Q, H, Temp1, Temp2: TCnBigNumberPolynomial;
-    XPoly: TCnBigNumberPolynomial;
+    Q, H, Temp1, Temp2, BasePoly: TCnBigNumberPolynomial;
     PExp: TCnBigNumber;
     TryVal: Integer;
     CopyFactor: TCnBigNumberPolynomial;
@@ -16395,32 +16571,36 @@ function BigNumberPolynomialGaloisEqualDegreeFactor(Factors: TCnBigNumberPolynom
     H := FLocalBigNumberPolynomialPool.Obtain;
     Temp1 := FLocalBigNumberPolynomialPool.Obtain;
     Temp2 := FLocalBigNumberPolynomialPool.Obtain;
-    XPoly := FLocalBigNumberPolynomialPool.Obtain;
+    BasePoly := FLocalBigNumberPolynomialPool.Obtain;
     PExp := FLocalBigNumberPool.Obtain;
     try
-      // Create X polynomial
-      XPoly.SetZero;
-      XPoly.MaxDegree := 1;
-      XPoly[1].SetWord(1);
 
       // Compute p^d
       BigNumberPower(PExp, Prime, Cardinal(D));
       BigNumberSubWord(PExp, 1);
       BigNumberShiftRightOne(PExp, PExp);
 
-      // Try deterministic splits: GCD(X^{(p^d-1)/2} - a, F) for a = 0, 1, 2...
-      for TryVal := 0 to 10 do
+      // Constant polynomial "1" for Q - 1
+      Temp1.SetZero;
+      Temp1.MaxDegree := 0;
+      Temp1[0].SetWord(1);
+
+      // Try different base polynomials: (x + c) for c = 0, 1, 2, ...
+      // Using varying base avoids the issue where x^{(p^d-1)/2} mod Factor
+      // is a constant, making gcd(Q - a, Factor) always trivial.
+      for TryVal := 0 to 50 do
       begin
-        // Q = X^{(p^d-1)/2} mod Factor
-        if not BigNumberPolynomialGaloisPower(Q, XPoly, BigNumberGetWord(PExp), Prime, Factor) then
+        // BasePoly = x + TryVal
+        BasePoly.SetZero;
+        BasePoly.MaxDegree := 1;
+        BasePoly[0].SetWord(TryVal);
+        BasePoly[1].SetWord(1);
+
+        // Q = (x + TryVal)^{(p^d-1)/2} mod Factor
+        if not BigNumberPolynomialGaloisPower(Q, BasePoly, PExp, Prime, Factor) then
           Continue;
 
-        // Build constant polynomial "TryVal" in Temp1
-        Temp1.SetZero;
-        Temp1.MaxDegree := 0;
-        Temp1[0].SetWord(TryVal);
-
-        // Compute Q - TryVal into Q (reuse Q as result is safe)
+        // H = gcd(Q - 1, Factor)
         BigNumberPolynomialGaloisSub(Q, Q, Temp1, Prime);
         if not BigNumberPolynomialGaloisGreatestCommonDivisor(H, Q, Factor, Prime) then
           Continue;
@@ -16434,12 +16614,43 @@ function BigNumberPolynomialGaloisEqualDegreeFactor(Factors: TCnBigNumberPolynom
           Exit;
         end;
       end;
+
+      // Fallback: try higher-degree base polynomials x^2 + c
+      for TryVal := 0 to 20 do
+      begin
+        BasePoly.SetZero;
+        BasePoly.MaxDegree := 2;
+        BasePoly[0].SetWord(TryVal);
+        BasePoly[2].SetWord(1);
+
+        if not BigNumberPolynomialGaloisPower(Q, BasePoly, PExp, Prime, Factor) then
+          Continue;
+
+        BigNumberPolynomialGaloisSub(Q, Q, Temp1, Prime);
+        if not BigNumberPolynomialGaloisGreatestCommonDivisor(H, Q, Factor, Prime) then
+          Continue;
+
+        if (H.MaxDegree > 0) and (H.MaxDegree < Factor.MaxDegree) then
+        begin
+          SplitEqualDegree(H);
+          BigNumberPolynomialGaloisDiv(Temp2, nil, Factor, H, Prime);
+          SplitEqualDegree(Temp2);
+          Exit;
+        end;
+      end;
+
+      // All attempts failed — add the factor as-is rather than dropping it.
+      // This ensures the caller can detect incomplete factorization
+      // (factors with degree > D indicate EDF could not split them).
+      CopyFactor := TCnBigNumberPolynomial.Create;
+      BigNumberPolynomialCopy(CopyFactor, Factor);
+      Factors.Add(CopyFactor);
     finally
       FLocalBigNumberPolynomialPool.Recycle(Q);
       FLocalBigNumberPolynomialPool.Recycle(H);
       FLocalBigNumberPolynomialPool.Recycle(Temp1);
       FLocalBigNumberPolynomialPool.Recycle(Temp2);
-      FLocalBigNumberPolynomialPool.Recycle(XPoly);
+      FLocalBigNumberPolynomialPool.Recycle(BasePoly);
       FLocalBigNumberPool.Recycle(PExp);
     end;
   end;
@@ -16462,6 +16673,7 @@ var
   N, D, DegFound: Integer;
   I: Integer;
   SF, P: TCnBigNumberPolynomial;
+  H, G, XPoly, TempPoly: TCnBigNumberPolynomial;
 begin
   Result := False;
   if F.IsZero then Exit;
@@ -16484,32 +16696,68 @@ begin
         Continue;
       end;
 
-      // Try d = 1, 2, ..., N/2
-      DegFound := 0;
-      D := 1;
-      while (D <= N div 2) and (DegFound < N) do
-      begin
-        FactorsD := TCnBigNumberPolynomialList.Create;
-        try
-          if not BigNumberPolynomialGaloisEqualDegreeFactor(FactorsD, SF, D, Prime) then
-            Exit;
+      // DDF (Distinct-Degree Factorization) + EDF (Equal-Degree Factorization)
+      H := FLocalBigNumberPolynomialPool.Obtain;
+      G := FLocalBigNumberPolynomialPool.Obtain;
+      XPoly := FLocalBigNumberPolynomialPool.Obtain;
+      TempPoly := FLocalBigNumberPolynomialPool.Obtain;
+      try
+        // XPoly = x
+        XPoly.SetZero;
+        XPoly.MaxDegree := 1;
+        XPoly[1].SetWord(1);
 
-          // Move factors from FactorsD to Factors
-          while FactorsD.Count > 0 do
+        // H = x (will be iterated as x^{p^d} mod SF)
+        BigNumberPolynomialCopy(H, XPoly);
+
+        DegFound := 0;
+        D := 1;
+        while (D <= N div 2) and (SF.MaxDegree > 0) do
+        begin
+          // H = H^p mod SF (one Frobenius step: x^{p^d} -> x^{p^{d+1}})
+          BigNumberPolynomialGaloisPower(H, H, Prime, Prime, SF);
+
+          // G = gcd(H - x, SF) = product of all degree-d irreducible factors
+          BigNumberPolynomialGaloisSub(TempPoly, H, XPoly, Prime);
+          BigNumberPolynomialGaloisGreatestCommonDivisor(G, TempPoly, SF, Prime);
+
+          if G.MaxDegree > 0 then
           begin
-            P := TCnBigNumberPolynomial(FactorsD.Extract(FactorsD[0]));
-            Factors.Add(P);
-            DegFound := DegFound + P.MaxDegree;
-          end;
-        finally
-          FactorsD.Free;
-        end;
-        Inc(D);
-      end;
+            // EDF: split G into individual degree-d factors
+            FactorsD := TCnBigNumberPolynomialList.Create;
+            try
+              if not BigNumberPolynomialGaloisEqualDegreeFactor(FactorsD, G, D, Prime) then
+                Exit;
+              while FactorsD.Count > 0 do
+              begin
+                P := TCnBigNumberPolynomial(FactorsD.Extract(FactorsD[0]));
+                Factors.Add(P);
+                DegFound := DegFound + P.MaxDegree;
+              end;
+            finally
+              FactorsD.Free;
+            end;
 
-      // If some part remains unfactored, add a copy as irreducible
-      if DegFound < N then
-        Factors.Add(BigNumberPolynomialDuplicate(SF));
+            // SF = SF / G (remove found factors)
+            BigNumberPolynomialGaloisDiv(TempPoly, nil, SF, G, Prime);
+            BigNumberPolynomialCopy(SF, TempPoly);
+          end;
+
+          Inc(D);
+        end;
+
+        // Remaining SF (if any) is irreducible
+        if SF.MaxDegree > 0 then
+        begin
+          Factors.Add(BigNumberPolynomialDuplicate(SF));
+          DegFound := DegFound + SF.MaxDegree;
+        end;
+      finally
+        FLocalBigNumberPolynomialPool.Recycle(TempPoly);
+        FLocalBigNumberPolynomialPool.Recycle(XPoly);
+        FLocalBigNumberPolynomialPool.Recycle(G);
+        FLocalBigNumberPolynomialPool.Recycle(H);
+      end;
     end;
 
     // Free remaining square-free factors that WERE transferred to Factors

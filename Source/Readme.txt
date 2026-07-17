@@ -461,6 +461,9 @@ cnpack\Source 目录内容说明：
   CnGauge.pas
     CnGauge 支持渐变色与图像的进度条实现单元
 
+  CnGIF.pas
+    GIF 格式图像支持单元
+
   CnGraphConsts.pas
     图像界面库的资源字符串定义单元
 
@@ -485,8 +488,11 @@ cnpack\Source 目录内容说明：
   CnImage.pas
     调试用界面控件 TCnImage、TCnPaintBox 单元
 
+  CnJPEG.pas
+    JPEG 格式图像的编解码单元
+
   CnLED.pas
-    LED 效果的显示组件实现单元，支持汉字。
+    LED 效果的显示组件实现单元，支持汉字
 
   CnListBox.pas
     支持自画效果的 CnListBox 控件实现单元
@@ -542,7 +548,7 @@ cnpack\Source 目录内容说明：
   CnWizardImage.pas
     向导界面图像控件
 
-               40 文件
+               42 文件
 
 \Lang\2052
 \Lang\1028

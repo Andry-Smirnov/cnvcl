@@ -154,12 +154,14 @@
       ..\..\Source\Graphic\CnEdit.obj 
       ..\..\Source\Graphic\CnErrorProvider.obj 
       ..\..\Source\Graphic\CnGauge.obj 
+      ..\..\Source\Graphic\CnGIF.obj 
       ..\..\Source\Graphic\CnGraphConsts.obj 
       ..\..\Source\Graphic\CnGraphics.obj 
       ..\..\Source\Graphic\CnHexEditor.obj 
       ..\..\Source\Graphic\CnHint.obj 
       ..\..\Source\Graphic\CnIconUtils.obj 
       ..\..\Source\Graphic\CnImage.obj 
+      ..\..\Source\Graphic\CnJPEG.obj 
       ..\..\Source\Graphic\CnLED.obj 
       ..\..\Source\Graphic\CnListBox.obj 
       ..\..\Source\Graphic\CnMemo.obj 
@@ -462,12 +464,14 @@
       <FILE FILENAME="..\..\Source\Graphic\CnEdit.pas" FORMNAME="" UNITNAME="CnEdit" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnErrorProvider.pas" FORMNAME="" UNITNAME="CnErrorProvider" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnGauge.pas" FORMNAME="" UNITNAME="CnGauge" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
+      <FILE FILENAME="..\..\Source\Graphic\CnGIF.pas" FORMNAME="" UNITNAME="CnGIF" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnGraphConsts.pas" FORMNAME="" UNITNAME="CnGraphConsts" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnGraphics.pas" FORMNAME="" UNITNAME="CnGraphics" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnHexEditor.pas" FORMNAME="" UNITNAME="CnHexEditor" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnHint.pas" FORMNAME="" UNITNAME="CnHint" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnIconUtils.pas" FORMNAME="" UNITNAME="CnIconUtils" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnImage.pas" FORMNAME="" UNITNAME="CnImage" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
+      <FILE FILENAME="..\..\Source\Graphic\CnJPEG.pas" FORMNAME="" UNITNAME="CnJPEG" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnLED.pas" FORMNAME="" UNITNAME="CnLED" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnListBox.pas" FORMNAME="" UNITNAME="CnListBox" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="..\..\Source\Graphic\CnMemo.pas" FORMNAME="" UNITNAME="CnMemo" CONTAINERID="PascalCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>

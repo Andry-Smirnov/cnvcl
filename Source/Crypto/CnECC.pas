@@ -4529,7 +4529,7 @@ begin
       Rnd := FEccBigNumberPool.Obtain;
       Tmp := FEccBigNumberPool.Obtain;
 
-      // 盲化，乘数增加 64 位随机的价的倍数，最终值会抵消，但运算随机化了能更抗攻击，尤其是 NAF 部分
+      // 盲化，乘数增加 64 位随机的阶的倍数，最终值会抵消，但运算随机化了能更抗攻击，尤其是 NAF 部分
       if BigNumberRandBits(Rnd, 64) then
       begin
         BigNumberMul(Tmp, Rnd, FOrder);
@@ -6174,13 +6174,9 @@ begin
     end;
     Result := True;
   finally
-    P.Clear;
     P.Free;
-    KInv.Clear;
     KInv.Free;
-    X.Clear;
     X.Free;
-    K.Clear;
     K.Free;
   end;
 end;
@@ -6321,6 +6317,15 @@ begin
   if not CheckEccPublicKey(Ecc, PublicKey) then
     Exit;
 
+  // Verify 1 <= R <= N-1 and 1 <= S <= N-1
+  if InSignature.R.IsZero or InSignature.R.IsNegative or
+     (BigNumberCompare(InSignature.R, Ecc.Order) >= 0) then
+    Exit;
+
+  if InSignature.S.IsZero or InSignature.S.IsNegative or
+     (BigNumberCompare(InSignature.S, Ecc.Order) >= 0) then
+    Exit;
+
   BuildShortXValue(InE, Ecc.Order); // InE is z
 
   U1 := nil;
@@ -6341,7 +6346,7 @@ begin
     U2 := TCnBigNumber.Create;
     if not BigNumberMul(U2, InSignature.R, SInv) then
       Exit;
-    if not BigNumberNonNegativeMod(U1, U1, Ecc.Order) then // u2 = (r * s^-1) mod N
+    if not BigNumberNonNegativeMod(U2, U2, Ecc.Order) then // u2 = (r * s^-1) mod N
       Exit;
 
     P1 := TCnEccPoint.Create;

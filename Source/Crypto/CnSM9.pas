@@ -4760,14 +4760,10 @@ begin
     Result := True;
     _CnSetLastError(ECN_SM9_OK);
   finally
-    L.Clear;
     L.Free;
     Stream.Free;
-    R.Clear;
     R.Free;
-    AP.Clear;
     AP.Free;
-    G.Clear;
     G.Free;
     if C then
       SM9.Free;
@@ -4945,9 +4941,7 @@ begin
     _CnSetLastError(ECN_SM9_OK);
   finally
     AP.Free;
-    T2.Clear;
     T2.Free;
-    T1.Clear;
     T1.Free;
     if C then
       SM9.Free;
@@ -5215,15 +5209,10 @@ begin
     SetLength(P2, 0);
     SetLength(C2, 0);
     Stream.Free;
-    G.Clear;
     G.Free;
-    AP.Clear;
     AP.Free;
-    R.Clear;
     R.Free;
-    Q.Clear;
     Q.Free;
-    H.Clear;
     H.Free;
     if C then
       SM9.Free;
@@ -5323,7 +5312,7 @@ begin
       KDFKey := CnSM9KDF(Stream.Memory, Stream.Size, KLen);
       Mac := SM9Mac(@(KDFKey[KLen - K2ByteLength + 1]), K2ByteLength, @P[0], MLen); // 用 K2 和 C2 算出 C3
 
-      // KDFKey 的前面部分的长度与与密文相等，XOR 出结果即为明文
+      // KDFKey 的前面部分的长度与密文相等，XOR 出结果即为明文
       for I := 0 to Length(C2) - 1 do
         C2[I] := Byte(KDFKey[I + 1]) xor P^[I];
     end;
@@ -5434,9 +5423,7 @@ begin
     _CnSetLastError(ECN_SM9_OK);
   finally
     AP.Free;
-    T2.Clear;
     T2.Free;
-    T1.Clear;
     T1.Free;
     if C then
       SM9.Free;
@@ -5606,11 +5593,8 @@ begin
     _CnSetLastError(ECN_SM9_OK);
   finally
     Stream.Free;
-    AP.Clear;
     AP.Free;
-    R.Clear;
     R.Free;
-    T.Clear;
     T.Free;
     if C then
       SM9.Free;

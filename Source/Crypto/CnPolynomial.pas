@@ -519,6 +519,28 @@ type
        返回值：string                     - 返回字符串
     }
 
+    function LoadFromMem(Mem: Pointer; Size: Integer = 0): Integer;
+    {* 从指定内存地址中读取整个列表的自身状态，返回读取的字节长度。
+       Size > 0 时内部检测是否超过 Size，超过则抛异常。
+       如 Size 为 0 则按对象内部规则往前读取，不检查是否超界。
+
+       参数：
+         Mem: Pointer                     - 待加载的内存地址
+         Size: Integer                    - 提供的内存地址字节长度
+
+       返回值：Integer                    - 返回读取的字节长度
+    }
+
+    function SaveToMem(Mem: Pointer): Integer;
+    {* 将自身列表的状态全部存储于指定内存中，返回占用的字节长度。
+       如 Mem 为 nil 则直接返回所需占用字节长度。
+
+       参数：
+         Mem: Pointer                     - 待存储的内存地址
+
+       返回值：Integer                    - 返回存储的字节长度
+    }
+
     property Items[Index: Integer]: TCnBigNumberPolynomial read GetItem write SetItem; default;
     {* 一元大整系数多项式列表项}
   end;
@@ -618,6 +640,28 @@ type
          const Rational: string           - 待转换的字符串
 
        返回值：（无）
+    }
+
+    function SaveToMem(Mem: Pointer): Integer;
+    {* 将自身状态全部存储于指定内存中，返回占用的字节长度。
+       如 Mem 为 nil 则直接返回所需占用字节长度。
+       格式为：4 字节总字节长度 + 分子多项式块 + 分母多项式块
+
+       参数：
+         Mem: Pointer                     - 待存储的内存地址
+
+       返回值：Integer                    - 存储的字节长度
+    }
+    function LoadFromMem(Mem: Pointer; Size: Integer = 0): Integer;
+    {* 从指定内存地址中读取自身状态，返回读取的字节长度。
+       Size > 0 时内部检测是否超过 Size，超过则抛异常。
+       如 Size 为 0 则按对象内部规则往前读取，不检查是否超界。
+
+       参数：
+         Mem: Pointer                     - 待加载的内存地址
+         Size: Integer                    - 可限制读取的内存最大长度
+
+       返回值：Integer                    - 读取的字节长度
     }
 
     property Numerator: TCnBigNumberPolynomial read FNumerator;
@@ -3172,6 +3216,24 @@ function BigNumberPolynomialGaloisPower(Res: TCnBigNumberPolynomial;
    返回值：Boolean                        - 返回是否计算成功
 }
 
+function BigNumberPolynomialGaloisPowerBarrett(Res: TCnBigNumberPolynomial;
+  P: TCnBigNumberPolynomial; Exponent: TCnBigNumber; Prime: TCnBigNumber;
+  Modulus: TCnBigNumberPolynomial): Boolean;
+{* 使用 Barrett 约简实现快速多项式幂运算。预先计算 mu = x^(2n) div Modulus，
+   然后在每次平方步骤中，用 Karatsuba 乘法来代替传统的长除法。
+   要求 Modulus 模多项式必须是首一的（monic）。Res 可以是 P。
+   该算法专为“模数固定且指数极高”的场景优化（例如在 SEA 算法中计算 x^p mod Psi_L）。
+
+   参数：
+     Res: TCnBigNumberPolynomial          - 用来容纳结果的一元大整系数多项式
+     P: TCnBigNumberPolynomial            - 底数
+     Exponent: Cardinal                   - 指数
+     Prime: TCnBigNumber                  - 有限域上界
+     Modulus: TCnBigNumberPolynomial      - 模多项式
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
 function BigNumberPolynomialGaloisAddWord(P: TCnBigNumberPolynomial;
   N: Cardinal; Prime: TCnBigNumber): Boolean;
 {* 将 Prime 次方阶有限域上的一元大整系数多项式的常系数加上 N 再 mod Prime。
@@ -4501,6 +4563,32 @@ function Int64BiPolynomialEvaluateByX(Res: TCnInt64Polynomial;
    返回值：Boolean                        - 返回是否计算成功
 }
 
+function Int64BiPolynomialDerivativeX(Res: TCnInt64BiPolynomial;
+  P: TCnInt64BiPolynomial): Boolean;
+{* 计算二元整系数多项式对 X 的偏导数 dP/dX。
+   若 P = sum(c[i,j] * X^i * Y^j)，则 dP/dX = sum(i*c[i,j] * X^(i-1) * Y^j)。
+   X 最高次为 0（即不含 X）时偏导为零多项式。Res 可以是 P（原地计算）。
+
+   参数：
+     Res: TCnInt64BiPolynomial            - 用来容纳结果的二元整系数多项式
+     P: TCnInt64BiPolynomial              - 待求偏导的二元整系数多项式
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
+function Int64BiPolynomialDerivativeY(Res: TCnInt64BiPolynomial;
+  P: TCnInt64BiPolynomial): Boolean;
+{* 计算二元整系数多项式对 Y 的偏导数 dP/dY。
+   若 P = sum(c[i,j] * X^i * Y^j)，则 dP/dY = sum(j*c[i,j] * X^i * Y^(j-1))。
+   Y 最高次为 0（即不含 Y）时偏导为零多项式。Res 可以是 P（原地计算）。
+
+   参数：
+     Res: TCnInt64BiPolynomial            - 用来容纳结果的二元整系数多项式
+     P: TCnInt64BiPolynomial              - 待求偏导的二元整系数多项式
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
 procedure Int64BiPolynomialTranspose(Dest: TCnInt64BiPolynomial; Source: TCnInt64BiPolynomial);
 {* 将二元整系数多项式的 X Y 元互换至另一个二元整系数多项式对象中，Src 和 Dest 可以相同。
 
@@ -4712,6 +4800,32 @@ function Int64BiPolynomialGaloisEvaluateByX(Res: TCnInt64Polynomial;
      Res: TCnInt64Polynomial              - 用来容纳结果的一元整系数多项式
      P: TCnInt64BiPolynomial              - 待代入的二元整系数多项式
      XValue: Int64                        - 未知数 X 的值
+     Prime: Int64                         - 有限域上界
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
+function Int64BiPolynomialGaloisDerivativeX(Res: TCnInt64BiPolynomial;
+  P: TCnInt64BiPolynomial; Prime: Int64): Boolean;
+{* 计算二元整系数多项式在 Prime 次方阶有限域上对 X 的偏导数 dP/dX，系数针对 Prime 取模。
+   X 最高次为 0（即不含 X）时偏导为零多项式。Res 可以是 P（原地计算）。
+
+   参数：
+     Res: TCnInt64BiPolynomial            - 用来容纳结果的二元整系数多项式
+     P: TCnInt64BiPolynomial              - 待求偏导的二元整系数多项式
+     Prime: Int64                         - 有限域上界
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
+function Int64BiPolynomialGaloisDerivativeY(Res: TCnInt64BiPolynomial;
+  P: TCnInt64BiPolynomial; Prime: Int64): Boolean;
+{* 计算二元整系数多项式在 Prime 次方阶有限域上对 Y 的偏导数 dP/dY，系数针对 Prime 取模。
+   Y 最高次为 0（即不含 Y）时偏导为零多项式。Res 可以是 P（原地计算）。
+
+   参数：
+     Res: TCnInt64BiPolynomial            - 用来容纳结果的二元整系数多项式
+     P: TCnInt64BiPolynomial              - 待求偏导的二元整系数多项式
      Prime: Int64                         - 有限域上界
 
    返回值：Boolean                        - 返回是否计算成功
@@ -5327,6 +5441,32 @@ function BigNumberBiPolynomialEvaluateByX(Res: TCnBigNumberPolynomial;
    返回值：Boolean                        - 返回是否计算成功
 }
 
+function BigNumberBiPolynomialDerivativeX(Res: TCnBigNumberBiPolynomial;
+  P: TCnBigNumberBiPolynomial): Boolean;
+{* 计算二元大整系数多项式对 X 的偏导数 dP/dX。
+   若 P = sum(c[i,j] * X^i * Y^j)，则 dP/dX = sum(i*c[i,j] * X^(i-1) * Y^j)。
+   X 最高次为 0（即不含 X）时偏导为零多项式。Res 可以是 P（原地计算）。
+
+   参数：
+     Res: TCnBigNumberBiPolynomial        - 用来容纳结果的二元大整系数多项式
+     P: TCnBigNumberBiPolynomial          - 待求偏导的二元大整系数多项式
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
+function BigNumberBiPolynomialDerivativeY(Res: TCnBigNumberBiPolynomial;
+  P: TCnBigNumberBiPolynomial): Boolean;
+{* 计算二元大整系数多项式对 Y 的偏导数 dP/dY。
+   若 P = sum(c[i,j] * X^i * Y^j)，则 dP/dY = sum(j*c[i,j] * X^i * Y^(j-1))。
+   Y 最高次为 0（即不含 Y）时偏导为零多项式。Res 可以是 P（原地计算）。
+
+   参数：
+     Res: TCnBigNumberBiPolynomial        - 用来容纳结果的二元大整系数多项式
+     P: TCnBigNumberBiPolynomial          - 待求偏导的二元大整系数多项式
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
 procedure BigNumberBiPolynomialTranspose(Dest: TCnBigNumberBiPolynomial;
   Source: TCnBigNumberBiPolynomial);
 {* 将二元大整系数多项式的 X Y 元互换至另一个二元大整系数多项式对象中，Src 和 Dest 可以相同。
@@ -5543,6 +5683,32 @@ function BigNumberBiPolynomialGaloisEvaluateByX(Res: TCnBigNumberPolynomial;
    返回值：Boolean                        - 返回是否计算成功
 }
 
+function BigNumberBiPolynomialGaloisDerivativeX(Res: TCnBigNumberBiPolynomial;
+  P: TCnBigNumberBiPolynomial; Prime: TCnBigNumber): Boolean;
+{* 计算二元大整系数多项式在 Prime 次方阶有限域上对 X 的偏导数 dP/dX，系数针对 Prime 取模。
+   X 最高次为 0（即不含 X）时偏导为零多项式。Res 可以是 P（原地计算）。
+
+   参数：
+     Res: TCnBigNumberBiPolynomial        - 用来容纳结果的二元大整系数多项式
+     P: TCnBigNumberBiPolynomial          - 待求偏导的二元大整系数多项式
+     Prime: TCnBigNumber                  - 有限域上界
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
+function BigNumberBiPolynomialGaloisDerivativeY(Res: TCnBigNumberBiPolynomial;
+  P: TCnBigNumberBiPolynomial; Prime: TCnBigNumber): Boolean;
+{* 计算二元大整系数多项式在 Prime 次方阶有限域上对 Y 的偏导数 dP/dY，系数针对 Prime 取模。
+   Y 最高次为 0（即不含 Y）时偏导为零多项式。Res 可以是 P（原地计算）。
+
+   参数：
+     Res: TCnBigNumberBiPolynomial        - 用来容纳结果的二元大整系数多项式
+     P: TCnBigNumberBiPolynomial          - 待求偏导的二元大整系数多项式
+     Prime: TCnBigNumber                  - 有限域上界
+
+   返回值：Boolean                        - 返回是否计算成功
+}
+
 // procedure BigNumberBiPolynomialGaloisAddWord(P: TCnBigNumberBiPolynomial; N: Int64; Prime: TCnBigNumber);
 {* 将 Prime 次方阶有限域上的二元大整系数多项式的各项系数加上 N 再 mod Prime，注意不是常系数，但对于稀疏列表来说没啥意义，不实现}
 
@@ -5595,6 +5761,7 @@ var
 implementation
 
 resourcestring
+  SCnErrorPolynomialMemSize = 'Memory Size Error';
   SCnErrorPolynomialInvalidDegree = 'Invalid Degree %d';
   SCnErrorPolynomialInvalidExponent = 'Invalid Exponent %d';
   SCnErrorPolynomialDegreeTooLarge = 'Degree Too Large';
@@ -8724,6 +8891,61 @@ begin
     Result := FNumerator.ToString + ' / ' + FDenominator.ToString;
 end;
 
+function TCnBigNumberRationalPolynomial.SaveToMem(Mem: Pointer): Integer;
+var
+  Ln, Ld: Integer;
+  P1: PByte;
+  P4: PInteger;
+begin
+  if Mem = nil then
+  begin
+    Result := SizeOf(Integer) + FNumerator.SaveToMem(nil) + FDenominator.SaveToMem(nil);
+    Exit;
+  end;
+
+  Ln := FNumerator.SaveToMem(nil);
+  Ld := FDenominator.SaveToMem(nil);
+  Result := SizeOf(Integer) + Ln + Ld;
+
+  P4 := PInteger(Mem);
+  P4^ := Result;             // 4 字节总字节长度
+
+  Inc(P4);
+  P1 := PByte(P4);
+  FNumerator.SaveToMem(P1);    // 分子多项式
+
+  Inc(P1, Ln);
+  FDenominator.SaveToMem(P1);  // 分母多项式
+end;
+
+function TCnBigNumberRationalPolynomial.LoadFromMem(Mem: Pointer; Size: Integer): Integer;
+var
+  Ln: Integer;
+  P1: PByte;
+  P4: PInteger;
+begin
+  Result := 0;
+  if Mem = nil then
+    Exit;
+
+  if (Size > 0) and (Size < SizeOf(Integer)) then
+    raise ECnPolynomialException.Create(SCnErrorPolynomialMemSize);
+
+  P4 := PInteger(Mem);
+  if (Size > 0) and (P4^ > Size) then
+    raise ECnPolynomialException.Create(SCnErrorPolynomialMemSize);
+  if P4^ < SizeOf(Integer) then
+    raise ECnPolynomialException.Create(SCnErrorPolynomialMemSize);
+
+  Result := P4^;             // 总字节长度
+  Inc(P4);
+  P1 := PByte(P4);
+
+  Ln := FNumerator.LoadFromMem(P1, Size - SizeOf(Integer));       // 分子多项式
+  Inc(P1, Ln);
+  FDenominator.LoadFromMem(P1, Size - SizeOf(Integer) - Ln);      // 分母多项式
+end;
+
 { TCnBigNumberPolynomialPool }
 
 function TCnBigNumberPolynomialPool.CreateObject: TObject;
@@ -10232,6 +10454,207 @@ begin
     Result := BigNumberPolynomialGaloisPower(Res, P, T, Prime, Primitive);
   finally
     FLocalBigNumberPool.Recycle(T);
+  end;
+end;
+
+// Barrett reduction for polynomials over F_p.
+// Given monic modulus f(x) of degree n, precompute mu = x^(2n) div f.
+// Then to reduce a(x) of degree <= 2n-2:
+//   q = trunc( (a div x^(n-1)) * mu div x^(n+1) )
+//   r = a - q*f
+//   if deg(r) >= n, r = r - f (at most once for polynomials)
+// This replaces O(n^2) schoolbook long division with two Karatsuba multiplications.
+
+// Internal: Barrett-reduce Prod mod Modulus into Reduced, using precomputed Mu.
+// N = Modulus.MaxDegree. Temp polynomials Q1,Q2,TempMul,TempSub are reused.
+procedure PolyBarrettReduce(Reduced: TCnBigNumberPolynomial;
+  Prod: TCnBigNumberPolynomial; Modulus: TCnBigNumberPolynomial;
+  Mu: TCnBigNumberPolynomial; Prime: TCnBigNumber;
+  Q1, Q2, TempMul, TempSub: TCnBigNumberPolynomial);
+var
+  N, J: Integer;
+begin
+  N := Modulus.MaxDegree;
+
+  if Prod.MaxDegree < N then
+  begin
+    BigNumberPolynomialCopy(Reduced, Prod);
+    Exit;
+  end;
+
+  if Prod.MaxDegree < N - 1 then
+  begin
+    BigNumberPolynomialCopy(Reduced, Prod);
+    Exit;
+  end;
+
+  // Q1 = Prod div x^(N-1)  (keep coefficients from degree N-1 upward)
+  Q1.MaxDegree := Prod.MaxDegree - (N - 1);
+  for J := 0 to Q1.MaxDegree do
+    BigNumberCopy(Q1[J], Prod[J + N - 1]);
+  Q1.CorrectTop;
+
+  // TempMul = Q1 * Mu (Karatsuba)
+  BigNumberPolynomialMulKaratsuba(TempMul, Q1, Mu);
+  for J := 0 to TempMul.MaxDegree do
+    BigNumberNonNegativeMod(TempMul[J], TempMul[J], Prime);
+  TempMul.CorrectTop;
+
+  // Q2 = TempMul div x^(N+1)  (keep coefficients from degree N+1 upward)
+  if TempMul.MaxDegree >= N + 1 then
+  begin
+    Q2.MaxDegree := TempMul.MaxDegree - (N + 1);
+    for J := 0 to Q2.MaxDegree do
+      BigNumberCopy(Q2[J], TempMul[J + N + 1]);
+    Q2.CorrectTop;
+  end
+  else
+    BigNumberPolynomialSetZero(Q2);
+
+  // TempSub = Q2 * Modulus (Karatsuba)
+  BigNumberPolynomialMulKaratsuba(TempSub, Q2, Modulus);
+  for J := 0 to TempSub.MaxDegree do
+    BigNumberNonNegativeMod(TempSub[J], TempSub[J], Prime);
+  TempSub.CorrectTop;
+
+  // Reduced = Prod - TempSub
+  BigNumberPolynomialSub(Reduced, Prod, TempSub);
+  for J := 0 to Reduced.MaxDegree do
+    BigNumberNonNegativeMod(Reduced[J], Reduced[J], Prime);
+  Reduced.CorrectTop;
+
+  // Final correction: at most one subtraction needed for polynomial Barrett
+  if Reduced.MaxDegree >= N then
+  begin
+    BigNumberPolynomialSub(Reduced, Reduced, Modulus);
+    for J := 0 to Reduced.MaxDegree do
+      BigNumberNonNegativeMod(Reduced[J], Reduced[J], Prime);
+    Reduced.CorrectTop;
+    if Reduced.MaxDegree >= N then
+      BigNumberPolynomialGaloisMod(Reduced, Reduced, Modulus, Prime);
+  end;
+end;
+
+function BigNumberPolynomialGaloisPowerBarrett(Res: TCnBigNumberPolynomial;
+  P: TCnBigNumberPolynomial; Exponent: TCnBigNumber; Prime: TCnBigNumber;
+  Modulus: TCnBigNumberPolynomial): Boolean;
+var
+  N, I, J: Integer;
+  E: TCnBigNumber;
+  X2N, Mu, Q1, Q2, TempMul, TempSub: TCnBigNumberPolynomial;
+  Base, Acc, Prod, Reduced: TCnBigNumberPolynomial;
+  UseBarrett: Boolean;
+begin
+  Result := False;
+  if (Res = nil) or (P = nil) or (Exponent = nil) or (Prime = nil) or (Modulus = nil) then Exit;
+  if Modulus.MaxDegree < 1 then Exit;
+
+  N := Modulus.MaxDegree;
+  UseBarrett := (N >= CN_POLYMUL_KARATSUBA_THRESHOLD);
+
+  E := nil; Mu := nil; X2N := nil; Q1 := nil; Q2 := nil;
+  TempMul := nil; TempSub := nil;
+  Base := nil; Acc := nil; Prod := nil; Reduced := nil;
+
+  try
+    if Exponent.IsZero then
+    begin
+      Res.SetOne;
+      Result := True;
+      Exit;
+    end;
+
+    E := FLocalBigNumberPool.Obtain;
+    BigNumberCopy(E, Exponent);
+
+    if UseBarrett then
+    begin
+      // Precompute mu = x^(2n) div f(x)
+      X2N := FLocalBigNumberPolynomialPool.Obtain;
+      X2N.Clear;
+      X2N.MaxDegree := 2 * N;   // expands list, new coeffs default to 0
+      X2N[2 * N].SetOne;        // x^(2n)
+
+      Mu := FLocalBigNumberPolynomialPool.Obtain;
+      BigNumberPolynomialGaloisDiv(Mu, nil, X2N, Modulus, Prime);
+
+      Q1 := FLocalBigNumberPolynomialPool.Obtain;
+      Q2 := FLocalBigNumberPolynomialPool.Obtain;
+      TempMul := FLocalBigNumberPolynomialPool.Obtain;
+      TempSub := FLocalBigNumberPolynomialPool.Obtain;
+    end;
+
+    // Base = P mod Modulus
+    Base := FLocalBigNumberPolynomialPool.Obtain;
+    if P.MaxDegree >= N then
+      BigNumberPolynomialGaloisMod(Base, P, Modulus, Prime)
+    else
+      BigNumberPolynomialCopy(Base, P);
+    for I := 0 to Base.MaxDegree do
+      BigNumberNonNegativeMod(Base[I], Base[I], Prime);
+    Base.CorrectTop;
+
+    // Acc = 1
+    Acc := FLocalBigNumberPolynomialPool.Obtain;
+    Acc.SetOne;
+
+    Prod := FLocalBigNumberPolynomialPool.Obtain;
+    Reduced := FLocalBigNumberPolynomialPool.Obtain;
+
+    while not E.IsZero do
+    begin
+      if BigNumberIsBitSet(E, 0) then
+      begin
+        // Acc = Acc * Base mod Modulus
+        BigNumberPolynomialMulKaratsuba(Prod, Acc, Base);
+        for J := 0 to Prod.MaxDegree do
+          BigNumberNonNegativeMod(Prod[J], Prod[J], Prime);
+        Prod.CorrectTop;
+
+        if UseBarrett and (Prod.MaxDegree >= N) then
+          PolyBarrettReduce(Reduced, Prod, Modulus, Mu, Prime, Q1, Q2, TempMul, TempSub)
+        else if Prod.MaxDegree >= N then
+          BigNumberPolynomialGaloisMod(Reduced, Prod, Modulus, Prime)
+        else
+          BigNumberPolynomialCopy(Reduced, Prod);
+
+        BigNumberPolynomialCopy(Acc, Reduced);
+      end;
+
+      BigNumberShiftRightOne(E, E);
+      if not E.IsZero then
+      begin
+        // Base = Base * Base mod Modulus
+        BigNumberPolynomialMulKaratsuba(Prod, Base, Base);
+        for J := 0 to Prod.MaxDegree do
+          BigNumberNonNegativeMod(Prod[J], Prod[J], Prime);
+        Prod.CorrectTop;
+
+        if UseBarrett and (Prod.MaxDegree >= N) then
+          PolyBarrettReduce(Reduced, Prod, Modulus, Mu, Prime, Q1, Q2, TempMul, TempSub)
+        else if Prod.MaxDegree >= N then
+          BigNumberPolynomialGaloisMod(Reduced, Prod, Modulus, Prime)
+        else
+          BigNumberPolynomialCopy(Reduced, Prod);
+
+        BigNumberPolynomialCopy(Base, Reduced);
+      end;
+    end;
+
+    BigNumberPolynomialCopy(Res, Acc);
+    Result := True;
+  finally
+    FLocalBigNumberPolynomialPool.Recycle(Reduced);
+    FLocalBigNumberPolynomialPool.Recycle(Prod);
+    FLocalBigNumberPolynomialPool.Recycle(Acc);
+    FLocalBigNumberPolynomialPool.Recycle(Base);
+    FLocalBigNumberPolynomialPool.Recycle(TempSub);
+    FLocalBigNumberPolynomialPool.Recycle(TempMul);
+    FLocalBigNumberPolynomialPool.Recycle(Q2);
+    FLocalBigNumberPolynomialPool.Recycle(Q1);
+    FLocalBigNumberPolynomialPool.Recycle(Mu);
+    FLocalBigNumberPolynomialPool.Recycle(X2N);
+    FLocalBigNumberPool.Recycle(E);
   end;
 end;
 
@@ -13384,6 +13807,83 @@ begin
   Result := True;
 end;
 
+function Int64BiPolynomialDerivativeX(Res: TCnInt64BiPolynomial;
+  P: TCnInt64BiPolynomial): Boolean;
+var
+  I, J: Integer;
+  Tmp: TCnInt64BiPolynomial;
+begin
+  Result := False;
+  if (Res = nil) or (P = nil) then Exit;
+
+  // 不含 X（X 最高次为 0）时对 X 的偏导为 0
+  if P.MaxXDegree = 0 then
+  begin
+    Res.SetZero;
+    Result := True;
+    Exit;
+  end;
+
+  // Res 与 P 相同时借助临时对象避免覆盖
+  if Res = P then
+  begin
+    Tmp := FLocalInt64BiPolynomialPool.Obtain;
+    try
+      Int64BiPolynomialDerivativeX(Tmp, P);
+      Int64BiPolynomialCopy(Res, Tmp);
+    finally
+      FLocalInt64BiPolynomialPool.Recycle(Tmp);
+    end;
+    Result := True;
+    Exit;
+  end;
+
+  Res.SetZero;
+  for I := 1 to P.MaxXDegree do
+    for J := 0 to P.MaxYDegree do
+      Res.SafeValue[I - 1, J] := I * P.SafeValue[I, J];
+  Res.CorrectTop;
+  Result := True;
+end;
+
+function Int64BiPolynomialDerivativeY(Res: TCnInt64BiPolynomial;
+  P: TCnInt64BiPolynomial): Boolean;
+var
+  I, J: Integer;
+  Tmp: TCnInt64BiPolynomial;
+begin
+  Result := False;
+  if (Res = nil) or (P = nil) then Exit;
+
+  // 不含 Y（Y 最高次为 0）时对 Y 的偏导为 0
+  if P.MaxYDegree = 0 then
+  begin
+    Res.SetZero;
+    Result := True;
+    Exit;
+  end;
+
+  if Res = P then
+  begin
+    Tmp := FLocalInt64BiPolynomialPool.Obtain;
+    try
+      Int64BiPolynomialDerivativeY(Tmp, P);
+      Int64BiPolynomialCopy(Res, Tmp);
+    finally
+      FLocalInt64BiPolynomialPool.Recycle(Tmp);
+    end;
+    Result := True;
+    Exit;
+  end;
+
+  Res.SetZero;
+  for I := 0 to P.MaxXDegree do
+    for J := 1 to P.MaxYDegree do
+      Res.SafeValue[I, J - 1] := J * P.SafeValue[I, J];
+  Res.CorrectTop;
+  Result := True;
+end;
+
 procedure Int64BiPolynomialTranspose(Dest, Source: TCnInt64BiPolynomial);
 var
   I, J: Integer;
@@ -13756,6 +14256,84 @@ begin
     end;
     Res.Add(Sum);
   end;
+  Result := True;
+end;
+
+function Int64BiPolynomialGaloisDerivativeX(Res: TCnInt64BiPolynomial;
+  P: TCnInt64BiPolynomial; Prime: Int64): Boolean;
+var
+  I, J: Integer;
+  Tmp: TCnInt64BiPolynomial;
+begin
+  Result := False;
+  if (Res = nil) or (P = nil) then Exit;
+
+  if P.MaxXDegree = 0 then
+  begin
+    Res.SetZero;
+    Result := True;
+    Exit;
+  end;
+
+  if Res = P then
+  begin
+    Tmp := FLocalInt64BiPolynomialPool.Obtain;
+    try
+      Int64BiPolynomialGaloisDerivativeX(Tmp, P, Prime);
+      Int64BiPolynomialCopy(Res, Tmp);
+    finally
+      FLocalInt64BiPolynomialPool.Recycle(Tmp);
+    end;
+    Result := True;
+    Exit;
+  end;
+
+  Res.SetZero;
+  for I := 1 to P.MaxXDegree do
+    for J := 0 to P.MaxYDegree do
+      Res.SafeValue[I - 1, J] :=
+        Int64NonNegativeMulMod(Int64NonNegativeMod(P.SafeValue[I, J], Prime),
+          Int64NonNegativeMod(I, Prime), Prime);
+  Res.CorrectTop;
+  Result := True;
+end;
+
+function Int64BiPolynomialGaloisDerivativeY(Res: TCnInt64BiPolynomial;
+  P: TCnInt64BiPolynomial; Prime: Int64): Boolean;
+var
+  I, J: Integer;
+  Tmp: TCnInt64BiPolynomial;
+begin
+  Result := False;
+  if (Res = nil) or (P = nil) then Exit;
+
+  if P.MaxYDegree = 0 then
+  begin
+    Res.SetZero;
+    Result := True;
+    Exit;
+  end;
+
+  if Res = P then
+  begin
+    Tmp := FLocalInt64BiPolynomialPool.Obtain;
+    try
+      Int64BiPolynomialGaloisDerivativeY(Tmp, P, Prime);
+      Int64BiPolynomialCopy(Res, Tmp);
+    finally
+      FLocalInt64BiPolynomialPool.Recycle(Tmp);
+    end;
+    Result := True;
+    Exit;
+  end;
+
+  Res.SetZero;
+  for I := 0 to P.MaxXDegree do
+    for J := 1 to P.MaxYDegree do
+      Res.SafeValue[I, J - 1] :=
+        Int64NonNegativeMulMod(Int64NonNegativeMod(P.SafeValue[I, J], Prime),
+          Int64NonNegativeMod(J, Prime), Prime);
+  Res.CorrectTop;
   Result := True;
 end;
 
@@ -14788,6 +15366,110 @@ begin
   Result := True;
 end;
 
+function BigNumberBiPolynomialDerivativeX(Res: TCnBigNumberBiPolynomial;
+  P: TCnBigNumberBiPolynomial): Boolean;
+var
+  I, J: Integer;
+  T, V: TCnBigNumber;
+  Tmp: TCnBigNumberBiPolynomial;
+begin
+  Result := False;
+  if (Res = nil) or (P = nil) then Exit;
+
+  if P.MaxXDegree = 0 then
+  begin
+    Res.SetZero;
+    Result := True;
+    Exit;
+  end;
+
+  if Res = P then
+  begin
+    Tmp := FLocalBigNumberBiPolynomialPool.Obtain;
+    try
+      BigNumberBiPolynomialDerivativeX(Tmp, P);
+      BigNumberBiPolynomialCopy(Res, Tmp);
+    finally
+      FLocalBigNumberBiPolynomialPool.Recycle(Tmp);
+    end;
+    Result := True;
+    Exit;
+  end;
+
+  Res.SetZero;
+  T := FLocalBigNumberPool.Obtain;
+  V := FLocalBigNumberPool.Obtain;
+  try
+    for I := 1 to P.MaxXDegree do
+      for J := 0 to P.MaxYDegree do
+      begin
+        BigNumberCopy(V, P.ReadonlyValue[I, J]);
+        if V.IsZero then
+          Continue;
+        BigNumberSetWord(T, I);
+        BigNumberMul(V, V, T);
+        Res.SafeValue[I - 1, J] := V; // 内部复制
+      end;
+    Res.CorrectTop;
+  finally
+    FLocalBigNumberPool.Recycle(V);
+    FLocalBigNumberPool.Recycle(T);
+  end;
+  Result := True;
+end;
+
+function BigNumberBiPolynomialDerivativeY(Res: TCnBigNumberBiPolynomial;
+  P: TCnBigNumberBiPolynomial): Boolean;
+var
+  I, J: Integer;
+  T, V: TCnBigNumber;
+  Tmp: TCnBigNumberBiPolynomial;
+begin
+  Result := False;
+  if (Res = nil) or (P = nil) then Exit;
+
+  if P.MaxYDegree = 0 then
+  begin
+    Res.SetZero;
+    Result := True;
+    Exit;
+  end;
+
+  if Res = P then
+  begin
+    Tmp := FLocalBigNumberBiPolynomialPool.Obtain;
+    try
+      BigNumberBiPolynomialDerivativeY(Tmp, P);
+      BigNumberBiPolynomialCopy(Res, Tmp);
+    finally
+      FLocalBigNumberBiPolynomialPool.Recycle(Tmp);
+    end;
+    Result := True;
+    Exit;
+  end;
+
+  Res.SetZero;
+  T := FLocalBigNumberPool.Obtain;
+  V := FLocalBigNumberPool.Obtain;
+  try
+    for I := 0 to P.MaxXDegree do
+      for J := 1 to P.MaxYDegree do
+      begin
+        BigNumberCopy(V, P.ReadonlyValue[I, J]);
+        if V.IsZero then
+          Continue;
+        BigNumberSetWord(T, J);
+        BigNumberMul(V, V, T);
+        Res.SafeValue[I, J - 1] := V; // 内部复制
+      end;
+    Res.CorrectTop;
+  finally
+    FLocalBigNumberPool.Recycle(V);
+    FLocalBigNumberPool.Recycle(T);
+  end;
+  Result := True;
+end;
+
 procedure BigNumberBiPolynomialTranspose(Dest, Source: TCnBigNumberBiPolynomial);
 var
   I, J: Integer;
@@ -15312,6 +15994,112 @@ begin
     FLocalBigNumberPool.Recycle(T);
     FLocalBigNumberPool.Recycle(TX);
     FLocalBigNumberPool.Recycle(Sum);
+  end;
+  Result := True;
+end;
+
+function BigNumberBiPolynomialGaloisDerivativeX(Res: TCnBigNumberBiPolynomial;
+  P: TCnBigNumberBiPolynomial; Prime: TCnBigNumber): Boolean;
+var
+  I, J: Integer;
+  T, V: TCnBigNumber;
+  Tmp: TCnBigNumberBiPolynomial;
+begin
+  Result := False;
+  if (Res = nil) or (P = nil) then Exit;
+
+  if P.MaxXDegree = 0 then
+  begin
+    Res.SetZero;
+    Result := True;
+    Exit;
+  end;
+
+  if Res = P then
+  begin
+    Tmp := FLocalBigNumberBiPolynomialPool.Obtain;
+    try
+      BigNumberBiPolynomialGaloisDerivativeX(Tmp, P, Prime);
+      BigNumberBiPolynomialCopy(Res, Tmp);
+    finally
+      FLocalBigNumberBiPolynomialPool.Recycle(Tmp);
+    end;
+    Result := True;
+    Exit;
+  end;
+
+  Res.SetZero;
+  T := FLocalBigNumberPool.Obtain;
+  V := FLocalBigNumberPool.Obtain;
+  try
+    for I := 1 to P.MaxXDegree do
+      for J := 0 to P.MaxYDegree do
+      begin
+        BigNumberCopy(V, P.ReadonlyValue[I, J]);
+        if V.IsZero then
+          Continue;
+        BigNumberSetWord(T, I);
+        BigNumberMul(V, V, T);
+        BigNumberNonNegativeMod(V, V, Prime);
+        Res.SafeValue[I - 1, J] := V; // 内部复制
+      end;
+    Res.CorrectTop;
+  finally
+    FLocalBigNumberPool.Recycle(V);
+    FLocalBigNumberPool.Recycle(T);
+  end;
+  Result := True;
+end;
+
+function BigNumberBiPolynomialGaloisDerivativeY(Res: TCnBigNumberBiPolynomial;
+  P: TCnBigNumberBiPolynomial; Prime: TCnBigNumber): Boolean;
+var
+  I, J: Integer;
+  T, V: TCnBigNumber;
+  Tmp: TCnBigNumberBiPolynomial;
+begin
+  Result := False;
+  if (Res = nil) or (P = nil) then Exit;
+
+  if P.MaxYDegree = 0 then
+  begin
+    Res.SetZero;
+    Result := True;
+    Exit;
+  end;
+
+  if Res = P then
+  begin
+    Tmp := FLocalBigNumberBiPolynomialPool.Obtain;
+    try
+      BigNumberBiPolynomialGaloisDerivativeY(Tmp, P, Prime);
+      BigNumberBiPolynomialCopy(Res, Tmp);
+    finally
+      FLocalBigNumberBiPolynomialPool.Recycle(Tmp);
+    end;
+    Result := True;
+    Exit;
+  end;
+
+  Res.SetZero;
+  T := FLocalBigNumberPool.Obtain;
+  V := FLocalBigNumberPool.Obtain;
+  try
+    for I := 0 to P.MaxXDegree do
+      for J := 1 to P.MaxYDegree do
+      begin
+        BigNumberCopy(V, P.ReadonlyValue[I, J]);
+        if V.IsZero then
+          Continue;
+        BigNumberSetWord(T, J);
+        BigNumberMul(V, V, T);
+        BigNumberNonNegativeMod(V, V, Prime);
+        Res.SafeValue[I, J - 1] := V; // 内部复制
+      end;
+    Res.CorrectTop;
+  finally
+    FLocalBigNumberPool.Recycle(V);
+    FLocalBigNumberPool.Recycle(T);
   end;
   Result := True;
 end;
@@ -15852,6 +16640,90 @@ begin
       Result := Items[I].ToString
     else
       Result := Result + ',' + Items[I].ToString;
+  end;
+end;
+
+function TCnBigNumberPolynomialList.LoadFromMem(Mem: Pointer; Size: Integer): Integer;
+var
+  I, C, L: Integer;
+  P1: PByte;
+  P4: PInteger;
+  BN: TCnBigNumberPolynomial;
+begin
+  Result := 0;
+  if Mem = nil then
+    Exit;
+
+  // 至少得放得下表示 Count 的 4 字节头部
+  if (Size > 0) and (Size < SizeOf(Integer)) then
+    raise ECnPolynomialException.Create(SCnErrorPolynomialMemSize);
+
+  P4 := PInteger(Mem);
+  C := P4^;
+  if C < 0 then
+    raise ECnPolynomialException.Create(SCnErrorPolynomialMemSize);
+
+  // 整体重建：先清掉原有内容
+  Clear;
+
+  Result := SizeOf(Integer);  // 已经消耗了 Count 这 4 字节
+  if C > 0 then
+  begin
+    Inc(P4);
+    P1 := PByte(P4);
+    for I := 0 to C - 1 do
+    begin
+      BN := TCnBigNumberPolynomial.Create;
+      try
+        // 把剩余可用长度交给单项 LoadFromMem 做边界检查
+        if Size > 0 then
+          L := BN.LoadFromMem(P1, Size - Result)
+        else
+          L := BN.LoadFromMem(P1);
+
+        if L <= 0 then  // 单项要么抛异常要么返回正数，<=0 视为异常
+          raise ECnPolynomialException.Create(SCnErrorPolynomialMemSize);
+
+        Add(BN);
+      except
+        BN.Free;
+        raise;
+      end;
+
+      Inc(P1, L);
+      Inc(Result, L);
+    end;
+  end;
+end;
+
+function TCnBigNumberPolynomialList.SaveToMem(Mem: Pointer): Integer;
+var
+  I, L: Integer;
+  P1: PByte;
+  P4: PInteger;
+begin
+  Result := SizeOf(Integer);  // 写个 Count
+  if Mem = nil then
+  begin
+    if Count > 0 then
+      for I := 0 to Count - 1 do
+        Inc(Result, Items[I].SaveToMem(nil));
+    Exit;
+  end;
+
+  P4 := PInteger(Mem);
+  P4^ := Count;               // 写个 Count
+
+  if Count > 0 then           // 再挨个写
+  begin
+    Inc(P4);
+    P1 := PByte(P4);
+    for I := 0 to Count - 1 do
+    begin
+      L := Items[I].SaveToMem(P1);
+      Inc(P1, L);
+      Inc(Result, L);
+    end;
   end;
 end;
 
@@ -16670,7 +17542,7 @@ function BigNumberPolynomialGaloisFactorCantorZassenhaus(Factors: TCnBigNumberPo
   F: TCnBigNumberPolynomial; Prime: TCnBigNumber): Boolean;
 var
   SquareFreeFactors, FactorsD: TCnBigNumberPolynomialList;
-  N, D, DegFound: Integer;
+  N, D: Integer;
   I: Integer;
   SF, P: TCnBigNumberPolynomial;
   H, G, XPoly, TempPoly: TCnBigNumberPolynomial;
@@ -16710,7 +17582,6 @@ begin
         // H = x (will be iterated as x^{p^d} mod SF)
         BigNumberPolynomialCopy(H, XPoly);
 
-        DegFound := 0;
         D := 1;
         while (D <= N div 2) and (SF.MaxDegree > 0) do
         begin
@@ -16732,7 +17603,6 @@ begin
               begin
                 P := TCnBigNumberPolynomial(FactorsD.Extract(FactorsD[0]));
                 Factors.Add(P);
-                DegFound := DegFound + P.MaxDegree;
               end;
             finally
               FactorsD.Free;
@@ -16748,10 +17618,7 @@ begin
 
         // Remaining SF (if any) is irreducible
         if SF.MaxDegree > 0 then
-        begin
           Factors.Add(BigNumberPolynomialDuplicate(SF));
-          DegFound := DegFound + SF.MaxDegree;
-        end;
       finally
         FLocalBigNumberPolynomialPool.Recycle(TempPoly);
         FLocalBigNumberPolynomialPool.Recycle(XPoly);

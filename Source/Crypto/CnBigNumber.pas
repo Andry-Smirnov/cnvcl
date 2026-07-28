@@ -760,6 +760,28 @@ type
        返回值：TCnBigNumber               - 返回新建的大数对象
     }
 
+    function LoadFromMem(Mem: Pointer; Size: Integer = 0): Integer;
+    {* 从指定内存地址中读取自身状态，返回读取的字节长度。
+       Size > 0 时内部检测是否超过 Size，超过则抛异常。
+       如 Size 为 0 则按对象内部规则往前读取，不检查是否超界。
+
+       参数：
+         Mem: Pointer                     - 待加载的内存地址
+         Size: Integer                    - 提供的内存地址字节长度
+
+       返回值：Integer                    - 返回读取的字节长度
+    }
+
+    function SaveToMem(Mem: Pointer): Integer;
+    {* 将自身状态全部存储于指定内存中，返回占用的字节长度。
+       如 Mem 为 nil 则直接返回所需占用字节长度。
+
+       参数：
+         Mem: Pointer                     - 待存储的内存地址
+
+       返回值：Integer                    - 返回存储的字节长度
+    }
+
     function RawDump(Mem: Pointer = nil): Integer;
     {* Dump 出原始内存内容，返回 Dump 的字节长度。如 Mem 传 nil，只返回所需字节长度。
 
@@ -878,6 +900,28 @@ type
          （无）
 
        返回值：string                     - 返回字符串
+    }
+
+    function LoadFromMem(Mem: Pointer; Size: Integer = 0): Integer;
+    {* 从指定内存地址中读取整个列表的自身状态，返回读取的字节长度。
+       Size > 0 时内部检测是否超过 Size，超过则抛异常。
+       如 Size 为 0 则按对象内部规则往前读取，不检查是否超界。
+
+       参数：
+         Mem: Pointer                     - 待加载的内存地址
+         Size: Integer                    - 提供的内存地址字节长度
+
+       返回值：Integer                    - 返回读取的字节长度
+    }
+
+    function SaveToMem(Mem: Pointer): Integer;
+    {* 将自身列表的状态全部存储于指定内存中，返回占用的字节长度。
+       如 Mem 为 nil 则直接返回所需占用字节长度。
+
+       参数：
+         Mem: Pointer                     - 待存储的内存地址
+
+       返回值：Integer                    - 返回存储的字节长度
     }
 
     property Items[Index: Integer]: TCnBigNumber read GetItem write SetItem; default;
@@ -1561,7 +1605,7 @@ function BigNumberToBytes(Num: TCnBigNumber; FixedLen: Integer = 0): TBytes;
 }
 
 function BigNumberSetBinary(Buf: PAnsiChar; ByteLen: Integer; Res: TCnBigNumber): Boolean;
-{* 将一个二进制块赋值给指定大数对象，注意不处理正负号，内部采用复制。
+{* 将一个二进制块赋值给指定大数对象，注意不处理正负号，也就是都归正。内部采用复制。
    注意内部有个元素间倒序以及逐个字节由低到高拼成一个元素的过程，以符合网络或阅读习惯。
 
    参数：
@@ -2980,6 +3024,7 @@ resourcestring
 {$IFDEF BN_DATA_USE_64}
   SCnErrorBigNumberInvalid64ModRange = 'Mod Word only Supports Unsigned Int32';
 {$ENDIF}
+  SCnErrorBigNumberMemModeSize = 'Memory Mode or Size Error';
   SCnErrorBigNumberLogRange = 'Log Range Error';
   SCnErrorBigNumberLegendre = 'Legendre: A, P Must > 0';
   SCnErrorBigNumberJacobiSymbol = 'Jacobi Symbol: A, N Must > 0';
@@ -3794,6 +3839,7 @@ begin
   if N = 0 then
   begin
     Res.FTop := 0;
+    Res.FNeg := 0;
     Exit;
   end;
 
@@ -10816,6 +10862,82 @@ begin
   Result := BigNumberDebugDump(Self);
 end;
 
+function TCnBigNumber.LoadFromMem(Mem: Pointer; Size: Integer): Integer;
+var
+  P1: PByte;
+  P4: PInteger;
+  L: Integer;
+  N: Boolean;
+begin
+  Result := 0;
+  if Mem = nil then
+    Exit;
+
+  P4 := PInteger(Mem);
+  if (Size > 0) and (P4^ > Size) then
+    raise ECnBigNumberException.Create(SCnErrorBigNumberMemModeSize);
+
+  if P4^ < SizeOf(Byte) + SizeOf(Byte) + SizeOf(Integer) + SizeOf(Integer) then
+    raise ECnBigNumberException.Create(SCnErrorBigNumberMemModeSize);
+
+  Result := P4^;
+  Inc(P4);
+  P1 := PByte(P4);
+
+  if FCnBigNumberIs64 <> (P1^ <> 0) then
+    raise ECnBigNumberException.Create(SCnErrorBigNumberMemModeSize);
+
+  Inc(P1);
+  N := P1^ <> 0;
+
+  Inc(P1);
+  P4 := PInteger(P1);
+  L := P4^;
+
+  // 检查加上 L 后是否超过 Size，超过就抛异常
+  if SizeOf(Byte) + SizeOf(Byte) + SizeOf(Integer) + SizeOf(Integer) + L > Size then
+    raise ECnBigNumberException.Create(SCnErrorBigNumberMemModeSize);
+
+  Inc(P4);
+  BigNumberSetBinary(PAnsiChar(P4), L, Self); // 会归正
+  SetNegative(N);                  // 重新写符号
+end;
+
+function TCnBigNumber.SaveToMem(Mem: Pointer): Integer;
+var
+  P1: PByte;
+  P4: PInteger;
+begin
+  // 4 字节总字节长度，1 字节是否 64 位模式，1 字节符号，
+  // 4 字节大数内部字节长度，后面该长度的 ToBinary
+  Result := BigNumberGetBytesCount(Self) + SizeOf(Byte) + SizeOf(Byte) + SizeOf(Integer) + SizeOf(Integer);
+  if Mem = nil then
+    Exit;
+
+  P4 := PInteger(Mem);          // 写总长度
+  P4^ := Result;
+
+  Inc(P4);
+  P1 := PByte(P4);
+
+  if FCnBigNumberIs64 then      // 写是否 64 位
+    P1^ := 1
+  else
+    P1^ := 0;
+
+  Inc(P1);
+  if IsNegative then            // 写是否负
+    P1^ := 1
+  else
+    P1^ := 0;
+
+  Inc(P1);
+  P4 := PInteger(P1);           // 写 BytesCount
+  P4^ := BigNumberGetBytesCount(Self);
+  Inc(P4);
+  BigNumberToBinary(Self, PAnsiChar(P4));  // 写具体内容
+end;
+
 function TCnBigNumber.RawDump(Mem: Pointer): Integer;
 begin
   Result := BigNumberRawDump(Self, Mem);
@@ -11004,6 +11126,59 @@ begin
   inherited Insert(Index, ABigNumber);
 end;
 
+function TCnBigNumberList.LoadFromMem(Mem: Pointer; Size: Integer): Integer;
+var
+  I, C, L: Integer;
+  P1: PByte;
+  P4: PInteger;
+  BN: TCnBigNumber;
+begin
+  Result := 0;
+  if Mem = nil then
+    Exit;
+
+  // 至少得放得下表示 Count 的 4 字节头部
+  if (Size > 0) and (Size < SizeOf(Integer)) then
+    raise ECnBigNumberException.Create(SCnErrorBigNumberMemModeSize);
+
+  P4 := PInteger(Mem);
+  C := P4^;
+  if C < 0 then
+    raise ECnBigNumberException.Create(SCnErrorBigNumberMemModeSize);
+
+  // 整体重建：先清掉原有内容
+  Clear;
+
+  Result := SizeOf(Integer);  // 已经消耗了 Count 这 4 字节
+  if C > 0 then
+  begin
+    Inc(P4);
+    P1 := PByte(P4);
+    for I := 0 to C - 1 do
+    begin
+      BN := TCnBigNumber.Create;
+      try
+        // 把剩余可用长度交给单项 LoadFromMem 做边界检查
+        if Size > 0 then
+          L := BN.LoadFromMem(P1, Size - Result)
+        else
+          L := BN.LoadFromMem(P1);
+
+        if L <= 0 then  // 单项要么抛异常要么返回正数，<=0 视为异常
+          raise ECnBigNumberException.Create(SCnErrorBigNumberMemModeSize);
+
+        Add(BN);
+      except
+        BN.Free;
+        raise;
+      end;
+
+      Inc(P1, L);
+      Inc(Result, L);
+    end;
+  end;
+end;
+
 function TCnBigNumberList.Remove(ABigNumber: TCnBigNumber): Integer;
 begin
   Result := inherited Remove(ABigNumber);
@@ -11019,6 +11194,37 @@ begin
     Idx := IndexOfValue(Items[I]);
     if (Idx >= 0) and (Idx <> I) then
       Delete(I);
+  end;
+end;
+
+function TCnBigNumberList.SaveToMem(Mem: Pointer): Integer;
+var
+  I, L: Integer;
+  P1: PByte;
+  P4: PInteger;
+begin
+  Result := SizeOf(Integer);  // 写个 Count
+  if Mem = nil then
+  begin
+    if Count > 0 then
+      for I := 0 to Count - 1 do
+        Inc(Result, Items[I].SaveToMem(Mem));
+    Exit;
+  end;
+
+  P4 := PInteger(Mem);
+  P4^ := Count;               // 写个 Count
+
+  if Count > 0 then           // 再挨个写大数
+  begin
+    Inc(P4);
+    P1 := PByte(P4);
+    for I := 0 to Count - 1 do
+    begin
+      L := Items[I].SaveToMem(P1);
+      Inc(P1, L);
+      Inc(Result, L);
+    end;
   end;
 end;
 

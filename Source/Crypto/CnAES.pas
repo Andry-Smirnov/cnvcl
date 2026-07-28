@@ -52,6 +52,8 @@ unit CnAES;
 *           初始化向量，4 字节网络字节序的计数器，拼成 16 字节的真正的初始化向量
 *           参与 AES 块加密运算，加解密均为块加密再异或的动作。
 *
+*           注意：ECB 块处理模式因不安全，除必要的外部要求场合外，不推荐使用。
+*
 * 开发平台：Delphi5 + Win 7
 * 修改记录：2024.07.25 V1.3
 *               加入 CTR 模式的支持，遵循 RFC 3686 规范
@@ -252,6 +254,7 @@ procedure EncryptAES256(const InBuf: TCnAESBuffer; const Key: TCnAESExpandedKey2
 // 因 C++Builder 的 overload 混乱问题，以下六函数仅 Delphi 下可用
 procedure EncryptAESStreamECB(Source: TStream; Count: Cardinal;
   const Key: TCnAESKey128; Dest: TStream); overload;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES128 ECB 模式加密流。仅在 Delphi 下可用。
 
    参数：
@@ -265,6 +268,7 @@ procedure EncryptAESStreamECB(Source: TStream; Count: Cardinal;
 
 procedure EncryptAESStreamECB(Source: TStream; Count: Cardinal;
   const ExpandedKey: TCnAESExpandedKey128; Dest: TStream); overload;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES128 ECB 模式加密流，使用扩展密钥。仅在 Delphi 下可用。
 
    参数：
@@ -278,6 +282,7 @@ procedure EncryptAESStreamECB(Source: TStream; Count: Cardinal;
 
 procedure EncryptAESStreamECB(Source: TStream; Count: Cardinal;
   const Key: TCnAESKey192; Dest: TStream); overload;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES256 ECB 模式加密流。仅在 Delphi 下可用。
 
    参数：
@@ -291,6 +296,7 @@ procedure EncryptAESStreamECB(Source: TStream; Count: Cardinal;
 
 procedure EncryptAESStreamECB(Source: TStream; Count: Cardinal;
   const ExpandedKey: TCnAESExpandedKey192; Dest: TStream); overload;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES192 ECB 模式加密流，使用扩展密钥。仅在 Delphi 下可用。
 
    参数：
@@ -304,6 +310,7 @@ procedure EncryptAESStreamECB(Source: TStream; Count: Cardinal;
 
 procedure EncryptAESStreamECB(Source: TStream; Count: Cardinal;
   const Key: TCnAESKey256; Dest: TStream); overload;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES256 ECB 模式加密流。仅在 Delphi 下可用。
 
    参数：
@@ -317,6 +324,7 @@ procedure EncryptAESStreamECB(Source: TStream; Count: Cardinal;
 
 procedure EncryptAESStreamECB(Source: TStream; Count: Cardinal;
   const ExpandedKey: TCnAESExpandedKey256; Dest: TStream); overload;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES256 ECB 模式加密流，使用扩展密钥。仅在 Delphi 下可用。
 
    参数：
@@ -333,6 +341,7 @@ procedure EncryptAESStreamECB(Source: TStream; Count: Cardinal;
 // 新增的六函数，Delphi 和 C++Builder 下均可用
 procedure EncryptAES128StreamECB(Source: TStream; Count: Cardinal;
   const Key: TCnAESKey128; Dest: TStream);
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES128 ECB 模式加密流。
 
    参数：
@@ -345,6 +354,7 @@ procedure EncryptAES128StreamECB(Source: TStream; Count: Cardinal;
 }
 procedure EncryptAES128StreamECBExpanded(Source: TStream; Count: Cardinal;
   const ExpandedKey: TCnAESExpandedKey128; Dest: TStream);
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES128 ECB 模式加密流，使用扩展密钥。
 
    参数：
@@ -358,6 +368,7 @@ procedure EncryptAES128StreamECBExpanded(Source: TStream; Count: Cardinal;
 
 procedure EncryptAES192StreamECB(Source: TStream; Count: Cardinal;
   const Key: TCnAESKey192; Dest: TStream);
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES192 ECB 模式加密流。
 
    参数：
@@ -370,6 +381,7 @@ procedure EncryptAES192StreamECB(Source: TStream; Count: Cardinal;
 }
 procedure EncryptAES192StreamECBExpanded(Source: TStream; Count: Cardinal;
   const ExpandedKey: TCnAESExpandedKey192; Dest: TStream);
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES192 ECB 模式加密流，使用扩展密钥。
 
    参数：
@@ -383,6 +395,7 @@ procedure EncryptAES192StreamECBExpanded(Source: TStream; Count: Cardinal;
 
 procedure EncryptAES256StreamECB(Source: TStream; Count: Cardinal;
   const Key: TCnAESKey256; Dest: TStream);
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES256 ECB 模式加密流。
 
    参数：
@@ -395,6 +408,7 @@ procedure EncryptAES256StreamECB(Source: TStream; Count: Cardinal;
 }
 procedure EncryptAES256StreamECBExpanded(Source: TStream; Count: Cardinal;
   const ExpandedKey: TCnAESExpandedKey256; Dest: TStream);
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES256 ECB 模式加密流，使用扩展密钥。
 
    参数：
@@ -1334,6 +1348,7 @@ procedure DecryptAES256(const InBuf: TCnAESBuffer; const Key: TCnAESExpandedKey2
 // 因 C++Builder 的 overload 混乱问题，以下六函数仅 Delphi 下可用
 procedure DecryptAESStreamECB(Source: TStream; Count: Cardinal;
   const Key: TCnAESKey128; Dest: TStream); overload;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES128 ECB 模式解密流。仅在 Delphi 下可用。
 
    参数：
@@ -1346,6 +1361,7 @@ procedure DecryptAESStreamECB(Source: TStream; Count: Cardinal;
 }
 procedure DecryptAESStreamECB(Source: TStream; Count: Cardinal;
   const ExpandedKey: TCnAESExpandedKey128; Dest: TStream); overload;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES128 ECB 模式解密流，使用扩展密钥。仅在 Delphi 下可用。
 
    参数：
@@ -1359,6 +1375,7 @@ procedure DecryptAESStreamECB(Source: TStream; Count: Cardinal;
 
 procedure DecryptAESStreamECB(Source: TStream; Count: Cardinal;
   const Key: TCnAESKey192; Dest: TStream); overload;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES192 ECB 模式解密流。仅在 Delphi 下可用。
 
    参数：
@@ -1371,6 +1388,7 @@ procedure DecryptAESStreamECB(Source: TStream; Count: Cardinal;
 }
 procedure DecryptAESStreamECB(Source: TStream; Count: Cardinal;
   const ExpandedKey: TCnAESExpandedKey192; Dest: TStream); overload;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES192 ECB 模式解密流，使用扩展密钥。仅在 Delphi 下可用。
 
    参数：
@@ -1384,6 +1402,7 @@ procedure DecryptAESStreamECB(Source: TStream; Count: Cardinal;
 
 procedure DecryptAESStreamECB(Source: TStream; Count: Cardinal;
   const Key: TCnAESKey256; Dest: TStream); overload;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES256 ECB 模式解密流。仅在 Delphi 下可用。
 
    参数：
@@ -1396,6 +1415,7 @@ procedure DecryptAESStreamECB(Source: TStream; Count: Cardinal;
 }
 procedure DecryptAESStreamECB(Source: TStream; Count: Cardinal;
   const ExpandedKey: TCnAESExpandedKey256; Dest: TStream); overload;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES256 ECB 模式解密流，使用扩展密钥。仅在 Delphi 下可用。
 
    参数：
@@ -1412,6 +1432,7 @@ procedure DecryptAESStreamECB(Source: TStream; Count: Cardinal;
 // 新增的六函数，Delphi 和 C++Builder 下均可用
 procedure DecryptAES128StreamECB(Source: TStream; Count: Cardinal;
   const Key: TCnAESKey128; Dest: TStream);
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES128 ECB 模式解密流。
 
    参数：
@@ -1424,6 +1445,7 @@ procedure DecryptAES128StreamECB(Source: TStream; Count: Cardinal;
 }
 procedure DecryptAES128StreamECBExpanded(Source: TStream; Count: Cardinal;
   const ExpandedKey: TCnAESExpandedKey128; Dest: TStream);
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES128 ECB 模式解密流，使用扩展密钥。
 
    参数：
@@ -1437,6 +1459,7 @@ procedure DecryptAES128StreamECBExpanded(Source: TStream; Count: Cardinal;
 
 procedure DecryptAES192StreamECB(Source: TStream; Count: Cardinal;
   const Key: TCnAESKey192; Dest: TStream);
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES192 ECB 模式解密流。
 
    参数：
@@ -1449,6 +1472,7 @@ procedure DecryptAES192StreamECB(Source: TStream; Count: Cardinal;
 }
 procedure DecryptAES192StreamECBExpanded(Source: TStream; Count: Cardinal;
   const ExpandedKey: TCnAESExpandedKey192; Dest: TStream);
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES192 ECB 模式解密流，使用扩展密钥。
 
    参数：
@@ -1462,6 +1486,7 @@ procedure DecryptAES192StreamECBExpanded(Source: TStream; Count: Cardinal;
 
 procedure DecryptAES256StreamECB(Source: TStream; Count: Cardinal;
   const Key: TCnAESKey256; Dest: TStream);
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES256 ECB 模式解密流。
 
    参数：
@@ -1474,6 +1499,7 @@ procedure DecryptAES256StreamECB(Source: TStream; Count: Cardinal;
 }
 procedure DecryptAES256StreamECBExpanded(Source: TStream; Count: Cardinal;
   const ExpandedKey: TCnAESExpandedKey256; Dest: TStream);
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES156 ECB 模式解密流，使用扩展密钥。
 
    参数：
@@ -2199,6 +2225,7 @@ procedure DecryptAES256StreamCTRExpanded(Source: TStream; Count: Cardinal;
 
 function AESEncryptEcbStrToHex(Value: AnsiString; Key: AnsiString;
   KeyBit: TCnKeyBitType = kbt128): AnsiString;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES ECB 模式加密字符串并将其转换成十六进制。
 
    参数：
@@ -2211,6 +2238,7 @@ function AESEncryptEcbStrToHex(Value: AnsiString; Key: AnsiString;
 
 function AESDecryptEcbStrFromHex(const HexStr: AnsiString; Key: AnsiString;
   KeyBit: TCnKeyBitType = kbt128): AnsiString;
+  {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES ECB 解密十六进制字符串。
 
    参数：
@@ -2330,7 +2358,7 @@ function AESDecryptCtrStrFromHex(const HexStr: AnsiString; Key: AnsiString;
 // ================= 明文字节数组与密文字节数组之间的加解密 ====================
 
 function AESEncryptEcbBytes(Value: TBytes; Key: TBytes;
-  KeyBit: TCnKeyBitType = kbt128): TBytes;
+  KeyBit: TCnKeyBitType = kbt128): TBytes; {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES ECB 模式加密字节数组。
 
    参数：
@@ -2342,7 +2370,7 @@ function AESEncryptEcbBytes(Value: TBytes; Key: TBytes;
 }
 
 function AESDecryptEcbBytes(Value: TBytes; Key: TBytes;
-  KeyBit: TCnKeyBitType = kbt128): TBytes;
+  KeyBit: TCnKeyBitType = kbt128): TBytes; {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES ECB 模式解密字节数组。
 
    参数：
@@ -2462,7 +2490,7 @@ function AESDecryptCtrBytes(Value: TBytes; Key: TBytes; Nonce: TBytes; Iv: TByte
 // ============== 明文字节数组与密文十六进制字符串之间的加解密 =================
 
 function AESEncryptEcbBytesToHex(Value: TBytes; Key: TBytes;
-  KeyBit: TCnKeyBitType = kbt128): AnsiString;
+  KeyBit: TCnKeyBitType = kbt128): AnsiString; {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES ECB 模式加密字节数组并将其转换成十六进制。
 
    参数：
@@ -2474,7 +2502,7 @@ function AESEncryptEcbBytesToHex(Value: TBytes; Key: TBytes;
 }
 
 function AESDecryptEcbBytesFromHex(const HexStr: AnsiString; Key: TBytes;
-  KeyBit: TCnKeyBitType = kbt128): TBytes;
+  KeyBit: TCnKeyBitType = kbt128): TBytes; {$IFDEF SUPPORT_DEPRECATED} deprecated; {$ENDIF}
 {* AES ECB 解密十六进制字符串并返回字节数组。
 
    参数：
@@ -4602,7 +4630,11 @@ var
   ExpandedKey: TCnAESExpandedKey128;
 begin
   ExpandAESKeyForEncryption128(Key, ExpandedKey);
-  EncryptAES128StreamECBExpanded(Source, Count, ExpandedKey, Dest);
+  try
+    EncryptAES128StreamECBExpanded(Source, Count, ExpandedKey, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES192StreamECB(Source: TStream; Count: Cardinal;
@@ -4611,7 +4643,11 @@ var
   ExpandedKey: TCnAESExpandedKey192;
 begin
   ExpandAESKeyForEncryption192(Key, ExpandedKey);
-  EncryptAES192StreamECBExpanded(Source, Count, ExpandedKey, Dest);
+  try
+    EncryptAES192StreamECBExpanded(Source, Count, ExpandedKey, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES256StreamECB(Source: TStream; Count: Cardinal;
@@ -4620,7 +4656,11 @@ var
   ExpandedKey: TCnAESExpandedKey256;
 begin
   ExpandAESKeyForEncryption256(Key, ExpandedKey);
-  EncryptAES256StreamECBExpanded(Source, Count, ExpandedKey, Dest);
+  try
+    EncryptAES256StreamECBExpanded(Source, Count, ExpandedKey, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES128StreamECBExpanded(Source: TStream; Count: Cardinal;
@@ -4810,7 +4850,11 @@ var
   ExpandedKey: TCnAESExpandedKey128;
 begin
   ExpandAESKeyForDecryption128Expanded(Key, ExpandedKey);
-  DecryptAES128StreamECBExpanded(Source, Count, ExpandedKey, Dest);
+  try
+    DecryptAES128StreamECBExpanded(Source, Count, ExpandedKey, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure DecryptAES128StreamECBExpanded(Source: TStream; Count: Cardinal;
@@ -4854,7 +4898,11 @@ var
   ExpandedKey: TCnAESExpandedKey192;
 begin
   ExpandAESKeyForDecryption192Expanded(Key, ExpandedKey);
-  DecryptAES192StreamECBExpanded(Source, Count, ExpandedKey, Dest);
+  try
+    DecryptAES192StreamECBExpanded(Source, Count, ExpandedKey, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure DecryptAES192StreamECBExpanded(Source: TStream; Count: Cardinal;
@@ -4898,7 +4946,11 @@ var
   ExpandedKey: TCnAESExpandedKey256;
 begin
   ExpandAESKeyForDecryption256Expanded(Key, ExpandedKey);
-  DecryptAES256StreamECBExpanded(Source, Count, ExpandedKey, Dest);
+  try
+    DecryptAES256StreamECBExpanded(Source, Count, ExpandedKey, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure DecryptAES256StreamECBExpanded(Source: TStream; Count: Cardinal;
@@ -4988,7 +5040,11 @@ var
   ExpandedKey: TCnAESExpandedKey128;
 begin
   ExpandAESKeyForEncryption128(Key, ExpandedKey);
-  EncryptAES128StreamCBCExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  try
+    EncryptAES128StreamCBCExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES128StreamCBCExpanded(Source: TStream; Count: Cardinal;
@@ -5054,7 +5110,11 @@ var
   ExpandedKey: TCnAESExpandedKey192;
 begin
   ExpandAESKeyForEncryption192(Key, ExpandedKey);
-  EncryptAES192StreamCBCExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  try
+    EncryptAES192StreamCBCExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES192StreamCBCExpanded(Source: TStream; Count: Cardinal;
@@ -5120,7 +5180,11 @@ var
   ExpandedKey: TCnAESExpandedKey256;
 begin
   ExpandAESKeyForEncryption256(Key, ExpandedKey);
-  EncryptAES256StreamCBCExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  try
+    EncryptAES256StreamCBCExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES256StreamCBCExpanded(Source: TStream; Count: Cardinal;
@@ -5232,7 +5296,11 @@ var
   ExpandedKey: TCnAESExpandedKey128;
 begin
   ExpandAESKeyForDecryption128Expanded(Key, ExpandedKey);
-  DecryptAES128StreamCBCExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  try
+    DecryptAES128StreamCBCExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure DecryptAES128StreamCBCExpanded(Source: TStream; Count: Cardinal;
@@ -5285,7 +5353,11 @@ var
   ExpandedKey: TCnAESExpandedKey192;
 begin
   ExpandAESKeyForDecryption192Expanded(Key, ExpandedKey);
-  DecryptAES192StreamCBCExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  try
+    DecryptAES192StreamCBCExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure DecryptAES192StreamCBCExpanded(Source: TStream; Count: Cardinal;
@@ -5338,7 +5410,11 @@ var
   ExpandedKey: TCnAESExpandedKey256;
 begin
   ExpandAESKeyForDecryption256Expanded(Key, ExpandedKey);
-  DecryptAES256StreamCBCExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  try
+    DecryptAES256StreamCBCExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure DecryptAES256StreamCBCExpanded(Source: TStream; Count: Cardinal;
@@ -5437,7 +5513,11 @@ var
   ExpandedKey: TCnAESExpandedKey128;
 begin
   ExpandAESKeyForEncryption128(Key, ExpandedKey);
-  EncryptAES128StreamCFBExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  try
+    EncryptAES128StreamCFBExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES128StreamCFBExpanded(Source: TStream; Count: Cardinal;
@@ -5501,7 +5581,11 @@ var
   ExpandedKey: TCnAESExpandedKey192;
 begin
   ExpandAESKeyForEncryption192(Key, ExpandedKey);
-  EncryptAES192StreamCFBExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  try
+    EncryptAES192StreamCFBExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES192StreamCFBExpanded(Source: TStream; Count: Cardinal;
@@ -5565,7 +5649,11 @@ var
   ExpandedKey: TCnAESExpandedKey256;
 begin
   ExpandAESKeyForEncryption256(Key, ExpandedKey);
-  EncryptAES256StreamCFBExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  try
+    EncryptAES256StreamCFBExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES256StreamCFBExpanded(Source: TStream; Count: Cardinal;
@@ -5918,7 +6006,11 @@ var
   ExpandedKey: TCnAESExpandedKey128;
 begin
   ExpandAESKeyForEncryption128(Key, ExpandedKey);
-  EncryptAES128StreamOFBExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  try
+    EncryptAES128StreamOFBExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES128StreamOFBExpanded(Source: TStream; Count: Cardinal;
@@ -5981,7 +6073,11 @@ var
   ExpandedKey: TCnAESExpandedKey192;
 begin
   ExpandAESKeyForEncryption192(Key, ExpandedKey);
-  EncryptAES192StreamOFBExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  try
+    EncryptAES192StreamOFBExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES192StreamOFBExpanded(Source: TStream; Count: Cardinal;
@@ -6045,7 +6141,11 @@ var
   ExpandedKey: TCnAESExpandedKey256;
 begin
   ExpandAESKeyForEncryption256(Key, ExpandedKey);
-  EncryptAES256StreamOFBExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  try
+    EncryptAES256StreamOFBExpanded(Source, Count, ExpandedKey, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES256StreamOFBExpanded(Source: TStream; Count: Cardinal;
@@ -6402,7 +6502,11 @@ var
   ExpandedKey: TCnAESExpandedKey128;
 begin
   ExpandAESKeyForEncryption128(Key, ExpandedKey);
-  EncryptAES128StreamCTRExpanded(Source, Count, ExpandedKey, Nonce, InitVector, Dest);
+  try
+    EncryptAES128StreamCTRExpanded(Source, Count, ExpandedKey, Nonce, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES128StreamCTRExpanded(Source: TStream; Count: Cardinal;
@@ -6478,7 +6582,11 @@ var
   ExpandedKey: TCnAESExpandedKey192;
 begin
   ExpandAESKeyForEncryption192(Key, ExpandedKey);
-  EncryptAES192StreamCTRExpanded(Source, Count, ExpandedKey, Nonce, InitVector, Dest);
+  try
+    EncryptAES192StreamCTRExpanded(Source, Count, ExpandedKey, Nonce, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES192StreamCTRExpanded(Source: TStream; Count: Cardinal;
@@ -6554,7 +6662,11 @@ var
   ExpandedKey: TCnAESExpandedKey256;
 begin
   ExpandAESKeyForEncryption256(Key, ExpandedKey);
-  EncryptAES256StreamCTRExpanded(Source, Count, ExpandedKey, Nonce, InitVector, Dest);
+  try
+    EncryptAES256StreamCTRExpanded(Source, Count, ExpandedKey, Nonce, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure EncryptAES256StreamCTRExpanded(Source: TStream; Count: Cardinal;
@@ -6677,7 +6789,11 @@ var
   ExpandedKey: TCnAESExpandedKey128;
 begin
   ExpandAESKeyForEncryption128(Key, ExpandedKey);
-  DecryptAES128StreamCTRExpanded(Source, Count, ExpandedKey, Nonce, InitVector, Dest);
+  try
+    DecryptAES128StreamCTRExpanded(Source, Count, ExpandedKey, Nonce, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure DecryptAES128StreamCTRExpanded(Source: TStream; Count: Cardinal;
@@ -6694,7 +6810,11 @@ var
   ExpandedKey: TCnAESExpandedKey192;
 begin
   ExpandAESKeyForEncryption192(Key, ExpandedKey);
-  DecryptAES192StreamCTRExpanded(Source, Count, ExpandedKey, Nonce, InitVector, Dest);
+  try
+    DecryptAES192StreamCTRExpanded(Source, Count, ExpandedKey, Nonce, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure DecryptAES192StreamCTRExpanded(Source: TStream; Count: Cardinal;
@@ -6711,7 +6831,11 @@ var
   ExpandedKey: TCnAESExpandedKey256;
 begin
   ExpandAESKeyForEncryption256(Key, ExpandedKey);
-  DecryptAES256StreamCTRExpanded(Source, Count, ExpandedKey, Nonce, InitVector, Dest);
+  try
+    DecryptAES256StreamCTRExpanded(Source, Count, ExpandedKey, Nonce, InitVector, Dest);
+  finally
+    MemorySafeZero(@ExpandedKey, SizeOf(ExpandedKey));
+  end;
 end;
 
 procedure DecryptAES256StreamCTRExpanded(Source: TStream; Count: Cardinal;
@@ -6763,6 +6887,9 @@ begin
 
     Result := AnsiString(DataToHex(DS.Memory, DS.Size));
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
     SS.Free;
     DS.Free;
   end;
@@ -6813,6 +6940,9 @@ begin
     SetLength(Result, DS.Size);
     Move(PAnsiChar(DS.Memory)^, Result[1], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
     SS.Free;
     DS.Free;
   end;
@@ -6860,6 +6990,9 @@ begin
 
     Result := AnsiString(DataToHex(DS.Memory, DS.Size));
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
     SS.Free;
     DS.Free;
   end;
@@ -6910,6 +7043,9 @@ begin
     SetLength(Result, DS.Size);
     Move(PAnsiChar(DS.Memory)^, Result[1], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
     SS.Free;
     DS.Free;
   end;
@@ -6957,6 +7093,9 @@ begin
 
     Result := AnsiString(DataToHex(DS.Memory, DS.Size));
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
     SS.Free;
     DS.Free;
   end;
@@ -7007,6 +7146,9 @@ begin
     SetLength(Result, DS.Size);
     Move(PAnsiChar(DS.Memory)^, Result[1], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
     SS.Free;
     DS.Free;
   end;
@@ -7054,6 +7196,9 @@ begin
 
     Result := AnsiString(DataToHex(DS.Memory, DS.Size));
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
     SS.Free;
     DS.Free;
   end;
@@ -7104,6 +7249,9 @@ begin
     SetLength(Result, DS.Size);
     Move(PAnsiChar(DS.Memory)^, Result[1], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
     SS.Free;
     DS.Free;
   end;
@@ -7151,6 +7299,9 @@ begin
 
     Result := AnsiString(DataToHex(DS.Memory, DS.Size));
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
     SS.Free;
     DS.Free;
   end;
@@ -7201,6 +7352,9 @@ begin
     SetLength(Result, DS.Size);
     Move(PAnsiChar(DS.Memory)^, Result[1], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
     SS.Free;
     DS.Free;
   end;
@@ -7254,6 +7408,9 @@ begin
     DS.Position := 0;
     DS.Read(Result[0], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
     SS.Free;
     DS.Free;
   end;
@@ -7307,6 +7464,9 @@ begin
     DS.Position := 0;
     DS.Read(Result[0], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
     SS.Free;
     DS.Free;
   end;
@@ -7364,6 +7524,10 @@ begin
     DS.Position := 0;
     DS.Read(Result[0], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
+    MemorySafeZero(@AESIv, SizeOf(AESIv));
     SS.Free;
     DS.Free;
   end;
@@ -7421,6 +7585,10 @@ begin
     DS.Position := 0;
     DS.Read(Result[0], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
+    MemorySafeZero(@AESIv, SizeOf(AESIv));
     SS.Free;
     DS.Free;
   end;
@@ -7535,6 +7703,10 @@ begin
     DS.Position := 0;
     DS.Read(Result[0], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
+    MemorySafeZero(@AESIv, SizeOf(AESIv));
     SS.Free;
     DS.Free;
   end;
@@ -7649,6 +7821,10 @@ begin
     DS.Position := 0;
     DS.Read(Result[0], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
+    MemorySafeZero(@AESIv, SizeOf(AESIv));
     SS.Free;
     DS.Free;
   end;
@@ -7710,6 +7886,11 @@ begin
     DS.Position := 0;
     DS.Read(Result[0], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
+    MemorySafeZero(@AESIv, SizeOf(AESIv));
+    MemorySafeZero(@AESNonce, SizeOf(AESNonce));
     SS.Free;
     DS.Free;
   end;
@@ -7771,6 +7952,11 @@ begin
     DS.Position := 0;
     DS.Read(Result[0], DS.Size);
   finally
+    MemorySafeZero(@AESKey128, SizeOf(AESKey128));
+    MemorySafeZero(@AESKey192, SizeOf(AESKey192));
+    MemorySafeZero(@AESKey256, SizeOf(AESKey256));
+    MemorySafeZero(@AESIv, SizeOf(AESIv));
+    MemorySafeZero(@AESNonce, SizeOf(AESNonce));
     SS.Free;
     DS.Free;
   end;

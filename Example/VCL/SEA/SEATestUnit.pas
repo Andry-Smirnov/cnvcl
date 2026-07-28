@@ -19,7 +19,7 @@ procedure TestPointCount(const AVal, BVal, PVal: Int64; const TestName: string);
 procedure TestPointCountHex(const AHex, BHex, PHex, ExpectedOrderHex: string;
   const TestName: string);
 
-// 48-bit CM curve test: y^2 = x^3 + x over p = 16777213^2 + 38^2
+// 48-bit CM curve test: y^2 = x^3 + x over p = 16777213^2 + 38^2 = 281474876048813
 // CM theory gives #E = p + 1 +/- 2a. Independent verification via [#E]P = O.
 procedure TestPointCount48BitCM;
 {* 该用例验证 48Bit 的素数域的上述椭圆曲线。
@@ -41,20 +41,28 @@ procedure TestPointCount48BitCM;
 // 64-bit CM curve test: y^2 = x^3 + x over p = 3037000503^2 + 88^2 = 9223372055222260753
 // CM theory gives #E = p + 1 +/- 2a. Independent verification via [#E]P = O.
 // Needs L up to 31 (Phi_29 and Phi_31).
-// 结果 9223372061296261760 SEA 耗时六十五秒也就是一分钟，MP 建议预存。
+// 结果 9223372061296261760 SEA 耗时四十三秒也就是一分钟，MP 建议预存。
 procedure TestPointCount64BitCM;
 
 // 72-bit CM curve test: y^2 = x^3 + x over p = 55000000000^2 + 21^2 = 3025000000000000000441
 // CM theory gives #E = p + 1 +/- 2a. Independent verification via [#E]P = O.
 // Needs L up to 37. 算出结果是 3025000000000000000400
-// SEA 耗时二百三十秒，四分钟不到，MP 要预存。
+// SEA 耗时四十四秒，MP 要预存。
 procedure TestPointCount72BitCM;
 
 // 96-bit CM curve test: y^2 = x^3 + x over p = 200000000000000^2 + 3^2 = 40000000000000000000000000009
 // CM theory gives #E = p + 1 +/- 2a. Independent verification via [#E]P = O.
 // Needs L up to 43. 算出结果是 40000000000000000000000000016
-// SEA 耗时五百一十多秒，八分多钟，MP 要预存。
+// SEA 耗时八十九秒，MP 要预存。
 procedure TestPointCount96BitCM;
+
+// 补充：===== Standard curve: secp112r1 (NIST/SECG, 112-bit) =====
+// Smallest standard ECC curve. h=1 so #E = n.
+// DB7C2ABF62E35E668076BEAD2088',  // a
+// 659EF8BA043916EEDE8911702B22',  // b
+// DB7C2ABF62E35E668076BEAD208B',  // p
+// 4451685225093714776491891542548933 = DB7C2ABF62E35E7628DFAC6561C5',  // expected #E = n (since h=1)
+// 耗时六百六十秒，十一分钟。MP 采取预存。
 
 // ============================================================
 // MIT Classical Modular Polynomial coefficients (embedded)

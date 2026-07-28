@@ -46,14 +46,15 @@ interface
 {$ENDIF}
 
 uses
-  SysUtils, Classes, {$IFDEF ANDROID} FMX.Types, {$ENDIF}
+  SysUtils, Classes, Contnrs, {$IFDEF ANDROID} FMX.Types, {$ENDIF}
   CnNative, CnBigNumber, CnSM4, CnDES, CnAES, CnAEAD, CnRSA, CnECC, CnSM2, CnSM3,
   CnSM9, CnFNV, CnKDF, CnBase64, CnCRC32, CnMD5, CnSHA1, CnSHA2, CnSHA3, CnChaCha20,
   CnPoly1305, CnTEA, CnZUC, CnFEC, CnPrime, Cn25519, CnPaillier, CnSecretSharing,
   CnPolynomial, CnBits, CnBerUtils, CnCertificateAuthority, CnLattice, CnOTS,
   CnPemUtils, CnInt128, CnRC4, CnPDFCrypt, CnDSA, CnBLAKE, CnBLAKE2, CnBLAKE3,
   CnXXH, CnWideStrings, CnContainers, CnMLKEM, CnMLDSA, CnSLHDSA, CnCalendar,
-  CnBigDecimal, CnComplex, CnDFT, CnMath, CnQRCode, CnRandom, CnOTP, CnStrings;
+  CnBigDecimal, CnBigRational, CnComplex, CnDFT, CnMath, CnQRCode, CnRandom,
+  CnOTP, CnStrings, CnSEA;
 
 type
   TCnCryptoTestProc = function: Boolean;
@@ -130,6 +131,9 @@ function TestBigComplexDecimalProperties: Boolean;
 function TestBigComplexDecimalRealMul: Boolean;
 function TestBigComplexDecimalPower: Boolean;
 function TestBigComplexDecimalString: Boolean;
+function TestBigComplexLoadSaveMem: Boolean;
+function TestBigComplexListLoadSaveMem: Boolean;
+function TestBigComplexDecimalLoadSaveMem: Boolean;
 
 // ============================== DFT ==========================================
 
@@ -176,6 +180,17 @@ function TestBigNumberBPSWIsPrime: Boolean;
 function TestBigNumberRandRangeDistribution: Boolean;
 function TestBigNumberKeepLowBits: Boolean;
 function TestBigNumberMontgomery: Boolean;
+function TestBigNumberLoadSaveMem: Boolean;
+
+// ============================== BigRational ==================================
+
+function TestBigRationalBasic: Boolean;
+function TestBigRationalArithmetic: Boolean;
+function TestBigRationalReduce: Boolean;
+function TestBigRationalNegReciprocal: Boolean;
+function TestBigRationalSetString: Boolean;
+function TestBigRationalLoadSaveMem: Boolean;
+function TestBigRationalListLoadSaveMem: Boolean;
 
 // ================================ Bits =======================================
 
@@ -244,6 +259,8 @@ function TestBigDecimalArcCos: Boolean;
 function TestBigDecimalArcTan: Boolean;
 function TestBigDecimalHyperbolicSin: Boolean;
 function TestBigDecimalHyperbolicCos: Boolean;
+function TestBigDecimalLoadSaveMem: Boolean;
+function TestBigDecimalListLoadSaveMem: Boolean;
 function TestBigComplexDecimalEulerExp: Boolean;
 function TestBigComplexDecimalLn: Boolean;
 function TestBigComplexDecimalSin: Boolean;
@@ -251,6 +268,11 @@ function TestBigComplexDecimalCos: Boolean;
 function TestFloatGaussLegendrePi: Boolean;
 function TestGaussLegendrePi: Boolean;
 function TestXavierGourdonEuler: Boolean;
+
+// ============================== BigBinary ====================================
+
+function TestBigBinaryLoadSaveMem: Boolean;
+function TestBigBinaryListLoadSaveMem: Boolean;
 
 // ================================ QRCode =====================================
 
@@ -275,6 +297,10 @@ function TestInt64RationalPolynomial: Boolean;
 function TestBigNumberRationalPolynomial: Boolean;
 function TestInt64BiPolynomial: Boolean;
 function TestBigNumberBiPolynomial: Boolean;
+function TestInt64BiPolynomialDerivative: Boolean;
+function TestInt64BiPolynomialGaloisDerivative: Boolean;
+function TestBigNumberBiPolynomialDerivative: Boolean;
+function TestBigNumberBiPolynomialGaloisDerivative: Boolean;
 function TestPolynomialInverseTrunc: Boolean;
 function TestPolynomialMulTrunc: Boolean;
 function TestPolynomialPowerTrunc: Boolean;
@@ -283,6 +309,11 @@ function TestBigNumberPolynomialGaloisDerivative: Boolean;
 function TestBigNumberPolynomialGaloisSquareFreeFactorization: Boolean;
 function TestBigNumberPolynomialGaloisFindLinearFactors: Boolean;
 function TestBigNumberPolynomialGaloisFactorCantorZassenhaus: Boolean;
+function TestBigNumberPolynomialGaloisPowerBarrett: Boolean;
+function TestBigNumberPolynomialLoadSaveMem: Boolean;
+function TestBigNumberRationalPolynomialLoadSaveMem: Boolean;
+function TestBigNumberPolynomialListLoadSaveMem: Boolean;
+function TestBigComplexDecimalPolynomialLoadSaveMem: Boolean;
 
 // ================================ NTRU =======================================
 
@@ -654,6 +685,11 @@ function TestMOTSSM3: Boolean;
 function TestMOTSSHA256: Boolean;
 function TestWOTSSM3: Boolean;
 function TestWOTSSHA256: Boolean;
+
+// ================================ SEA ========================================
+
+function TestModularPolynomial: Boolean;
+function TestSEAPointCount: Boolean;
 
 // ================================ ECC ========================================
 
@@ -1832,6 +1868,9 @@ begin
   MyAssert(TestBigComplexDecimalRealMul, 'TestBigComplexDecimalRealMul');
   MyAssert(TestBigComplexDecimalPower, 'TestBigComplexDecimalPower');
   MyAssert(TestBigComplexDecimalString, 'TestBigComplexDecimalString');
+  MyAssert(TestBigComplexLoadSaveMem, 'TestBigComplexLoadSaveMem');
+  MyAssert(TestBigComplexListLoadSaveMem, 'TestBigComplexListLoadSaveMem');
+  MyAssert(TestBigComplexDecimalLoadSaveMem, 'TestBigComplexDecimalLoadSaveMem');
 
 // ================================ DFT ========================================
 
@@ -1878,6 +1917,17 @@ begin
   MyAssert(TestBigNumberRandRangeDistribution, 'TestBigNumberRandRangeDistribution');
   MyAssert(TestBigNumberKeepLowBits, 'TestBigNumberKeepLowBits');
   MyAssert(TestBigNumberMontgomery, 'TestBigNumberMontgomery');
+  MyAssert(TestBigNumberLoadSaveMem, 'TestBigNumberLoadSaveMem');
+
+// ============================== BigRational ==================================
+
+  MyAssert(TestBigRationalBasic, 'TestBigRationalBasic');
+  MyAssert(TestBigRationalArithmetic, 'TestBigRationalArithmetic');
+  MyAssert(TestBigRationalReduce, 'TestBigRationalReduce');
+  MyAssert(TestBigRationalNegReciprocal, 'TestBigRationalNegReciprocal');
+  MyAssert(TestBigRationalSetString, 'TestBigRationalSetString');
+  MyAssert(TestBigRationalLoadSaveMem, 'TestBigRationalLoadSaveMem');
+  MyAssert(TestBigRationalListLoadSaveMem, 'TestBigRationalListLoadSaveMem');
 
 // ================================ Bits =======================================
 
@@ -1946,6 +1996,8 @@ begin
   MyAssert(TestBigDecimalArcTan, 'TestBigDecimalArcTan');
   MyAssert(TestBigDecimalHyperbolicSin, 'TestBigDecimalHyperbolicSin');
   MyAssert(TestBigDecimalHyperbolicCos, 'TestBigDecimalHyperbolicCos');
+  MyAssert(TestBigDecimalLoadSaveMem, 'TestBigDecimalLoadSaveMem');
+  MyAssert(TestBigDecimalListLoadSaveMem, 'TestBigDecimalListLoadSaveMem');
   MyAssert(TestBigComplexDecimalEulerExp, 'TestBigComplexDecimalEulerExp');
   MyAssert(TestBigComplexDecimalLn, 'TestBigComplexDecimalLn');
   MyAssert(TestBigComplexDecimalSin, 'TestBigComplexDecimalSin');
@@ -1953,6 +2005,11 @@ begin
   MyAssert(TestFloatGaussLegendrePi, 'TestFloatGaussLegendrePi');
   MyAssert(TestGaussLegendrePi, 'TestGaussLegendrePi');
   MyAssert(TestXavierGourdonEuler, 'TestXavierGourdonEuler');
+
+// ============================== BigBinary ====================================
+
+  MyAssert(TestBigBinaryLoadSaveMem, 'TestBigBinaryLoadSaveMem');
+  MyAssert(TestBigBinaryListLoadSaveMem, 'TestBigBinaryListLoadSaveMem');
 
 // ================================ QRCode =====================================
 
@@ -1977,6 +2034,10 @@ begin
   MyAssert(TestBigNumberRationalPolynomial, 'TestBigNumberRationalPolynomial');
   MyAssert(TestInt64BiPolynomial, 'TestInt64BiPolynomial');
   MyAssert(TestBigNumberBiPolynomial, 'TestBigNumberBiPolynomial');
+  MyAssert(TestInt64BiPolynomialDerivative, 'TestInt64BiPolynomialDerivative');
+  MyAssert(TestInt64BiPolynomialGaloisDerivative, 'TestInt64BiPolynomialGaloisDerivative');
+  MyAssert(TestBigNumberBiPolynomialDerivative, 'TestBigNumberBiPolynomialDerivative');
+  MyAssert(TestBigNumberBiPolynomialGaloisDerivative, 'TestBigNumberBiPolynomialGaloisDerivative');
   MyAssert(TestPolynomialInverseTrunc, 'TestPolynomialInverseTrunc');
   MyAssert(TestPolynomialMulTrunc, 'TestPolynomialMulTrunc');
   MyAssert(TestPolynomialPowerTrunc, 'TestPolynomialPowerTrunc');
@@ -1985,6 +2046,11 @@ begin
   MyAssert(TestBigNumberPolynomialGaloisSquareFreeFactorization, 'TestBigNumberPolynomialGaloisSquareFreeFactorization');
   MyAssert(TestBigNumberPolynomialGaloisFindLinearFactors, 'TestBigNumberPolynomialGaloisFindLinearFactors');
   MyAssert(TestBigNumberPolynomialGaloisFactorCantorZassenhaus, 'TestBigNumberPolynomialGaloisFactorCantorZassenhaus');
+  MyAssert(TestBigNumberPolynomialGaloisPowerBarrett, 'TestBigNumberPolynomialGaloisPowerBarrett');
+  MyAssert(TestBigNumberPolynomialLoadSaveMem, 'TestBigNumberPolynomialLoadSaveMem');
+  MyAssert(TestBigNumberRationalPolynomialLoadSaveMem, 'TestBigNumberRationalPolynomialLoadSaveMem');
+  MyAssert(TestBigNumberPolynomialListLoadSaveMem, 'TestBigNumberPolynomialListLoadSaveMem');
+  MyAssert(TestBigComplexDecimalPolynomialLoadSaveMem, 'TestBigComplexDecimalPolynomialLoadSaveMem');
 
 // ================================ NTRU =======================================
 
@@ -2357,6 +2423,11 @@ begin
   MyAssert(TestMOTSSHA256, 'TestMOTSSHA256');
   MyAssert(TestWOTSSM3, 'TestWOTSSM3');
   MyAssert(TestWOTSSHA256, 'TestWOTSSHA256');
+
+// ================================ SEA ========================================
+
+  MyAssert(TestModularPolynomial, 'TestModularPolynomial');
+  MyAssert(TestSEAPointCount, 'TestSEAPointCount');
 
 // ================================ ECC ========================================
 
@@ -3749,6 +3820,151 @@ begin
     Result := (C1.R.ToString = '5.8') and (C1.I.ToString = '-2.3');
   finally
     C1.Free;
+  end;
+end;
+
+function TestBigComplexLoadSaveMem: Boolean;
+var
+  C, Restored: TCnBigComplex;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  C := TCnBigComplex.Create;
+  Restored := TCnBigComplex.Create;
+  try
+    // ---- 含大数正实部与负虚部的复数 ----
+    C.R.SetDec('1234567890123456789012345678901234567890');
+    C.I.SetDec('-9876543210987654321098765432109876543210');
+
+    Sz := C.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      C.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then
+        Exit;
+      if Restored.ToString <> C.ToString then
+        Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // ---- 零虚部 ----
+    C.R.SetDec('42');
+    C.I.SetZero;
+    Sz := C.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      C.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then
+        Exit;
+      if Restored.ToString <> C.ToString then
+        Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    C.Free;
+  end;
+end;
+
+function TestBigComplexListLoadSaveMem: Boolean;
+var
+  L, Restored: TCnBigComplexList;
+  C: TCnBigComplex;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  L := TCnBigComplexList.Create;
+  Restored := TCnBigComplexList.Create;
+  try
+    // 空列表
+    Sz := L.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      L.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.Count <> 0 then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // 含 2 个元素
+    C := L.Add;
+    C.R.SetDec('123');
+    C.I.SetDec('-456');
+    C := L.Add;
+    C.R.SetDec('789');
+    C.I.SetDec('0');
+    Sz := L.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      L.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.Count <> 2 then Exit;
+      if Restored[0].ToString <> L[0].ToString then Exit;
+      if Restored[1].ToString <> L[1].ToString then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    L.Free;
+  end;
+end;
+
+function TestBigComplexDecimalLoadSaveMem: Boolean;
+var
+  C, Restored: TCnBigComplexDecimal;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  C := TCnBigComplexDecimal.Create;
+  Restored := TCnBigComplexDecimal.Create;
+  try
+    // 实部 42 + 虚部 -17
+    C.R.SetDec('42');
+    C.I.SetDec('-17');
+    Sz := C.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      C.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.ToString <> C.ToString then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // 零虚部
+    C.R.SetDec('123');
+    C.I.SetZero;
+    Sz := C.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      C.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.ToString <> C.ToString then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    C.Free;
   end;
 end;
 
@@ -5222,6 +5438,346 @@ begin
   end;
 end;
 
+function TestBigNumberLoadSaveMem: Boolean;
+var
+  Num, Restored: TCnBigNumber;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  Num := BigNumberNew;
+  Restored := BigNumberNew;
+  try
+    // ---- Test 0 value ----
+    Num.SetZero;
+    Sz := Num.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      Num.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if not Restored.IsZero then Exit;
+      if Restored.IsNegative then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // ---- Test positive small value ----
+    Num.SetHex('1234');
+    Sz := Num.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      Num.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.ToHex <> '1234' then Exit;
+      if Restored.IsNegative then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // ---- Test negative small value ----
+    Num.SetHex('ABCD');
+    Num.SetNegative(True);
+    Sz := Num.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      Num.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.ToHex <> '-ABCD' then Exit;
+      if not Restored.IsNegative then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // ---- Test positive large value ----
+    Num.SetHex('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF');
+    Sz := Num.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      Num.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.ToHex <> 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF' then Exit;
+      if Restored.IsNegative then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // ---- Test negative large value ----
+    Num.SetHex('DEADBEEFCAFEBABE123456789ABCDEF0');
+    Num.SetNegative(True);
+    Sz := Num.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      Num.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.ToHex <> '-DEADBEEFCAFEBABE123456789ABCDEF0' then Exit;
+      if not Restored.IsNegative then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    BigNumberFree(Restored);
+    BigNumberFree(Num);
+  end;
+end;
+
+// ============================== BigRational ==================================
+
+function TestBigRationalBasic: Boolean;
+var
+  R: TCnBigRational;
+begin
+  Result := False;
+  R := TCnBigRational.Create;
+  try
+    // 0
+    R.SetValue('0', '1');
+    if not R.IsZero then Exit;
+    if R.ToString <> '0' then Exit;
+
+    // 1
+    R.SetValue('1', '1');
+    if not R.IsOne then Exit;
+    if R.ToString <> '1' then Exit;
+
+    // -1 为负整数
+    R.SetValue('-1', '1');
+    if not R.IsInt then Exit;
+    if not R.IsNegative then Exit;
+    if R.ToString <> '-1' then Exit;
+
+    // 1/2 不是整数
+    R.SetValue('1', '2');
+    if R.IsInt then Exit;
+    if R.ToString <> '1 / 2' then Exit;
+
+    // -3 为负整数
+    R.SetValue('-3', '1');
+    if not R.IsInt then Exit;
+    if not R.IsNegative then Exit;
+    if R.ToString <> '-3' then Exit;
+
+    Result := True;
+  finally
+    R.Free;
+  end;
+end;
+
+function TestBigRationalArithmetic: Boolean;
+var
+  A, B, R: TCnBigRational;
+begin
+  Result := False;
+  A := TCnBigRational.Create;
+  B := TCnBigRational.Create;
+  R := TCnBigRational.Create;
+  try
+    A.SetValue('1', '2');                   // A = 1/2
+    B.SetValue('1', '3');                   // B = 1/3
+
+    R.Assign(A); R.Add(B);                  // R = 1/2 + 1/3 = 5/6
+    if R.ToString <> '5 / 6' then Exit;
+
+    R.Assign(A); R.Sub(B);                  // R = 1/2 - 1/3 = 1/6
+    if R.ToString <> '1 / 6' then Exit;
+
+    R.Assign(A); R.Mul(B);                  // R = 1/2 * 1/3 = 1/6
+    if R.ToString <> '1 / 6' then Exit;
+
+    R.Assign(A); R.Divide(B);               // R = (1/2) / (1/3) = 3/2
+    if R.ToString <> '3 / 2' then Exit;
+
+    // 含大数运算：1/2 + 1/2 = 1
+    R.Assign(A);
+    R.Add(A);                               // 1/2 + 1/2 = 1
+    if R.ToString <> '1' then Exit;
+
+    Result := True;
+  finally
+    R.Free;
+    B.Free;
+    A.Free;
+  end;
+end;
+
+function TestBigRationalReduce: Boolean;
+var
+  R: TCnBigRational;
+begin
+  Result := False;
+  R := TCnBigRational.Create;
+  try
+    R.SetValue('6', '9');                    // 6/9 -> 2/3
+    R.Reduce;
+    if R.ToString <> '2 / 3' then Exit;
+
+    R.SetValue('10', '5');                   // 10/5 -> 2
+    R.Reduce;
+    if R.ToString <> '2' then Exit;
+
+    // 已最简的分数 Reduce 后不变
+    R.SetValue('3', '7');
+    R.Reduce;
+    if R.ToString <> '3 / 7' then Exit;
+
+    Result := True;
+  finally
+    R.Free;
+  end;
+end;
+
+function TestBigRationalNegReciprocal: Boolean;
+var
+  R: TCnBigRational;
+begin
+  Result := False;
+  R := TCnBigRational.Create;
+  try
+    R.SetValue('3', '4');                   // 3/4
+    R.Neg;
+    if R.ToString <> '-3 / 4' then Exit;
+
+    R.SetValue('3', '4');
+    R.Reciprocal;
+    if R.ToString <> '4 / 3' then Exit;
+
+    // 整数的倒数：5 -> 1/5
+    R.SetValue('5', '1');
+    R.Reciprocal;
+    if R.ToString <> '1 / 5' then Exit;
+
+    Result := True;
+  finally
+    R.Free;
+  end;
+end;
+
+function TestBigRationalSetString: Boolean;
+var
+  R: TCnBigRational;
+begin
+  Result := False;
+  R := TCnBigRational.Create;
+  try
+    R.SetString('1/2');
+    if R.ToString <> '1 / 2' then Exit;
+
+    R.SetString('7');
+    if R.ToString <> '7' then Exit;
+
+    R.SetString('-3/4');
+    if R.ToString <> '-3 / 4' then Exit;
+
+    R.SetString('0.5');                      // 小数 0.5 -> 1/2
+    if R.ToString <> '1 / 2' then Exit;
+
+    Result := True;
+  finally
+    R.Free;
+  end;
+end;
+
+function TestBigRationalLoadSaveMem: Boolean;
+var
+  R, Restored: TCnBigRational;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  R := TCnBigRational.Create;
+  Restored := TCnBigRational.Create;
+  try
+    // ---- 含大数分子与负分母的有理数 ----
+    R.Numerator.SetDec('1234567890123456789012345678901234567890');
+    R.Denominator.SetDec('-9876543210987654321098765432109876543210');
+
+    Sz := R.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      R.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then
+        Exit;
+      if Restored.ToString <> R.ToString then
+        Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // ---- 分母为 1（ToString 仅输出分子） ----
+    R.Numerator.SetDec('12345');
+    R.Denominator.SetDec('1');
+    Sz := R.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      R.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then
+        Exit;
+      if Restored.ToString <> R.ToString then
+        Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    R.Free;
+  end;
+end;
+
+function TestBigRationalListLoadSaveMem: Boolean;
+var
+  L, Restored: TCnBigRationalList;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  L := TCnBigRationalList.Create;
+  Restored := TCnBigRationalList.Create;
+  try
+    // 空列表
+    Sz := L.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      L.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.Count <> 0 then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // 含 2 个元素
+    L.Add.SetValue('1', '2');
+    L.Add.SetValue('-3', '7');
+    Sz := L.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      L.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.Count <> 2 then Exit;
+      if Restored[0].ToString <> '1 / 2' then Exit;
+      if Restored[1].ToString <> '-3 / 7' then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    L.Free;
+  end;
+end;
+
 // ================================ Bits =======================================
 
 function TestBitsEmpty: Boolean;
@@ -6665,6 +7221,94 @@ begin
   end;
 end;
 
+function TestBigDecimalLoadSaveMem: Boolean;
+var
+  D, Restored: TCnBigDecimal;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  D := TCnBigDecimal.Create;
+  Restored := TCnBigDecimal.Create;
+  try
+    // 123
+    D.SetDec('123');
+    Sz := D.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      D.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.ToString <> D.ToString then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // -789
+    D.SetDec('-789');
+    Sz := D.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      D.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.ToString <> D.ToString then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    D.Free;
+  end;
+end;
+
+function TestBigDecimalListLoadSaveMem: Boolean;
+var
+  L, Restored: TCnBigDecimalList;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  L := TCnBigDecimalList.Create;
+  Restored := TCnBigDecimalList.Create;
+  try
+    // 空列表
+    Sz := L.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      L.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.Count <> 0 then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // 含 2 个元素
+    L.Add.SetDec('42');
+    L.Add.SetDec('-17');
+    Sz := L.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      L.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.Count <> 2 then Exit;
+      if Restored[0].ToString <> '42' then Exit;
+      if Restored[1].ToString <> '-17' then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    L.Free;
+  end;
+end;
+
 function TestBigComplexDecimalEulerExp: Boolean;
 var
   Res, Num: TCnBigComplexDecimal;
@@ -6964,6 +7608,96 @@ var
 begin
   S := XavierGourdonEuler(1000);
   Result := Pos(E_STR, S) = 1;
+end;
+
+// ============================== BigBinary ====================================
+
+function TestBigBinaryLoadSaveMem: Boolean;
+var
+  B, Restored: TCnBigBinary;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  B := TCnBigBinary.Create;
+  Restored := TCnBigBinary.Create;
+  try
+    // 123
+    B.SetDec('123');
+    Sz := B.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      B.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.ToString <> B.ToString then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // -789
+    B.SetDec('-789');
+    Sz := B.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      B.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.ToString <> B.ToString then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    B.Free;
+  end;
+end;
+
+function TestBigBinaryListLoadSaveMem: Boolean;
+var
+  L, Restored: TCnBigBinaryList;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  L := TCnBigBinaryList.Create;
+  Restored := TCnBigBinaryList.Create;
+  try
+    // 空列表
+    Sz := L.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      L.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.Count <> 0 then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // 含 2 个元素
+    L.Add.SetDec('42');
+    L.Add.SetDec('-17');
+    Sz := L.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      L.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.Count <> 2 then Exit;
+      if Restored[0].ToString <> '42' then Exit;
+      if Restored[1].ToString <> '-17' then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    L.Free;
+  end;
 end;
 
 // ================================ QRCode =====================================
@@ -7827,6 +8561,160 @@ begin
   end;
 end;
 
+function TestInt64BiPolynomialDerivative: Boolean;
+var
+  P, Res: TCnInt64BiPolynomial;
+begin
+  P := TCnInt64BiPolynomial.Create;
+  Res := TCnInt64BiPolynomial.Create;
+  try
+    // P = 5X^3 + 3X^2Y^3 + 2XY + 5
+    P.SetXYCoefficent(3, 0, 5);
+    P.SetXYCoefficent(2, 3, 3);
+    P.SetXYCoefficent(1, 1, 2);
+    P.SetXYCoefficent(0, 0, 5);
+
+    // dP/dX = 15X^2 + 6XY^3 + 2Y
+    Int64BiPolynomialDerivativeX(Res, P);
+    Result := Res.ToString = '15X^2+6XY^3+2Y';
+    if not Result then Exit;
+
+    // dP/dY = 9X^2Y^2 + 2X
+    Int64BiPolynomialDerivativeY(Res, P);
+    Result := Res.ToString = '9X^2Y^2+2X';
+    if not Result then Exit;
+
+    // 原地对 X 求偏导
+    Int64BiPolynomialDerivativeX(P, P);
+    Result := P.ToString = '15X^2+6XY^3+2Y';
+    if not Result then Exit;
+
+    // 常数对 X、Y 偏导均为 0
+    P.SetZero;
+    P.SetXYCoefficent(0, 0, 7);
+    Int64BiPolynomialDerivativeX(Res, P);
+    Result := Res.IsZero;
+    if not Result then Exit;
+
+    Int64BiPolynomialDerivativeY(Res, P);
+    Result := Res.IsZero;
+  finally
+    Res.Free;
+    P.Free;
+  end;
+end;
+
+function TestInt64BiPolynomialGaloisDerivative: Boolean;
+var
+  P, Res: TCnInt64BiPolynomial;
+begin
+  P := TCnInt64BiPolynomial.Create;
+  Res := TCnInt64BiPolynomial.Create;
+  try
+    // P = 5X^3 + 3X^2Y^3 + 2XY + 5, Prime = 7
+    P.SetXYCoefficent(3, 0, 5);
+    P.SetXYCoefficent(2, 3, 3);
+    P.SetXYCoefficent(1, 1, 2);
+    P.SetXYCoefficent(0, 0, 5);
+
+    // dP/dX = 15X^2 + 6XY^3 + 2Y, mod 7 => X^2 + 6XY^3 + 2Y
+    Int64BiPolynomialGaloisDerivativeX(Res, P, 7);
+    Result := Res.ToString = 'X^2+6XY^3+2Y';
+    if not Result then Exit;
+
+    // dP/dY = 9X^2Y^2 + 2X, mod 7 => 2X^2Y^2 + 2X
+    Int64BiPolynomialGaloisDerivativeY(Res, P, 7);
+    Result := Res.ToString = '2X^2Y^2+2X';
+    if not Result then Exit;
+
+    // 原地对 Y 求偏导
+    Int64BiPolynomialGaloisDerivativeY(P, P, 7);
+    Result := P.ToString = '2X^2Y^2+2X';
+  finally
+    Res.Free;
+    P.Free;
+  end;
+end;
+
+function TestBigNumberBiPolynomialDerivative: Boolean;
+var
+  P, Res: TCnBigNumberBiPolynomial;
+begin
+  P := TCnBigNumberBiPolynomial.Create;
+  Res := TCnBigNumberBiPolynomial.Create;
+  try
+    // P = 5X^3 + 3X^2Y^3 + 2XY + 5
+    P.SetXYCoefficent(3, 0, 5);
+    P.SetXYCoefficent(2, 3, 3);
+    P.SetXYCoefficent(1, 1, 2);
+    P.SetXYCoefficent(0, 0, 5);
+
+    // dP/dX = 15X^2 + 6XY^3 + 2Y
+    BigNumberBiPolynomialDerivativeX(Res, P);
+    Result := Res.ToString = '15X^2+6XY^3+2Y';
+    if not Result then Exit;
+
+    // dP/dY = 9X^2Y^2 + 2X
+    BigNumberBiPolynomialDerivativeY(Res, P);
+    Result := Res.ToString = '9X^2Y^2+2X';
+    if not Result then Exit;
+
+    // 原地对 Y 求偏导
+    BigNumberBiPolynomialDerivativeY(P, P);
+    Result := P.ToString = '9X^2Y^2+2X';
+    if not Result then Exit;
+
+    // 常数对 X、Y 偏导均为 0
+    P.SetZero;
+    P.SetXYCoefficent(0, 0, 7);
+    BigNumberBiPolynomialDerivativeX(Res, P);
+    Result := Res.IsZero;
+    if not Result then Exit;
+
+    BigNumberBiPolynomialDerivativeY(Res, P);
+    Result := Res.IsZero;
+  finally
+    Res.Free;
+    P.Free;
+  end;
+end;
+
+function TestBigNumberBiPolynomialGaloisDerivative: Boolean;
+var
+  P, Res: TCnBigNumberBiPolynomial;
+  Prime: TCnBigNumber;
+begin
+  P := TCnBigNumberBiPolynomial.Create;
+  Res := TCnBigNumberBiPolynomial.Create;
+  Prime := TCnBigNumber.Create;
+  try
+    // P = 5X^3 + 3X^2Y^3 + 2XY + 5, Prime = 7
+    P.SetXYCoefficent(3, 0, 5);
+    P.SetXYCoefficent(2, 3, 3);
+    P.SetXYCoefficent(1, 1, 2);
+    P.SetXYCoefficent(0, 0, 5);
+    Prime.SetWord(7);
+
+    // dP/dX = 15X^2 + 6XY^3 + 2Y, mod 7 => X^2 + 6XY^3 + 2Y
+    BigNumberBiPolynomialGaloisDerivativeX(Res, P, Prime);
+    Result := Res.ToString = 'X^2+6XY^3+2Y';
+    if not Result then Exit;
+
+    // dP/dY = 9X^2Y^2 + 2X, mod 7 => 2X^2Y^2 + 2X
+    BigNumberBiPolynomialGaloisDerivativeY(Res, P, Prime);
+    Result := Res.ToString = '2X^2Y^2+2X';
+    if not Result then Exit;
+
+    // 原地对 X 求偏导
+    BigNumberBiPolynomialGaloisDerivativeX(P, P, Prime);
+    Result := P.ToString = 'X^2+6XY^3+2Y';
+  finally
+    Prime.Free;
+    Res.Free;
+    P.Free;
+  end;
+end;
+
 function TestPolynomialInverseTrunc: Boolean;
 var
   P, Res: TCnBigNumberPolynomial;
@@ -8148,6 +9036,314 @@ begin
     F.Free;
     Prime.Free;
     Factors.Free;
+  end;
+end;
+
+function TestBigNumberPolynomialGaloisPowerBarrett: Boolean;
+var
+  Base, Modulus, Res1, Res2: TCnBigNumberPolynomial;
+  Prime, Exp: TCnBigNumber;
+  I: Integer;
+begin
+  Result := False;
+  Base := TCnBigNumberPolynomial.Create;
+  Modulus := TCnBigNumberPolynomial.Create;
+  Res1 := TCnBigNumberPolynomial.Create;
+  Res2 := TCnBigNumberPolynomial.Create;
+  Prime := TCnBigNumber.Create;
+  Exp := TCnBigNumber.Create;
+  try
+    // ---- Test 1: Small modulus (degree 2), small prime p=7 ----
+    // Modulus = x^2 + 1 (monic), Prime = 7, Base = x, Exp = 7
+    // x^7 mod (x^2+1) in F_7:  x^7 = x*(x^2)^3 = x*(-1)^3 = -x = 6x mod 7
+    Modulus.SetCoefficients([1, 0, 1]);   // x^2 + 1
+    Prime.SetWord(7);
+    Base.SetCoefficients([0, 1]);          // x
+    Exp.SetWord(7);
+
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerBarrett(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+    // Both should be 6X
+    if Res2.ToString <> '6X' then Exit;
+
+    // ---- Test 2: Small modulus (degree 3), p=11 ----
+    // Modulus = x^3 + x + 1 (monic), Prime = 11, Base = x, Exp = 11
+    Modulus.SetCoefficients([1, 1, 0, 1]); // x^3 + x + 1
+    Prime.SetWord(11);
+    Base.SetCoefficients([0, 1]);          // x
+    Exp.SetWord(11);
+
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerBarrett(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+
+    // ---- Test 3: Larger modulus (degree 20, triggers Karatsuba/Barrett path) ----
+    // Use a random-ish monic polynomial of degree 20 over F_p, p = 1000003 (prime)
+    // Compare Barrett result with standard power result
+    Prime.SetDec('1000003');
+    Modulus.Clear;
+    Modulus.MaxDegree := 20;
+    for I := 0 to 19 do
+      Modulus[I].SetWord((I * 37 + 13) mod 1000);  // pseudo-random coeffs
+    Modulus[20].SetOne;  // monic
+    Modulus.CorrectTop;
+
+    Base.SetCoefficients([0, 1]);  // x
+    Exp.SetDec('1000003');          // x^p
+
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerBarrett(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+
+    // ---- Test 4: Base is not just x, degree 30, p = 100003 ----
+    Prime.SetWord(100003);
+    Modulus.Clear;
+    Modulus.MaxDegree := 30;
+    for I := 0 to 29 do
+      Modulus[I].SetWord((I * 101 + 7) mod 500);
+    Modulus[30].SetOne;
+    Modulus.CorrectTop;
+
+    Base.Clear;
+    Base.MaxDegree := 5;
+    for I := 0 to 5 do
+      Base[I].SetWord((I * 31 + 3) mod 500);
+    Base.CorrectTop;
+
+    Exp.SetWord(100003);
+
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerBarrett(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+
+    // ---- Test 5: Exponent = 1 (edge case) ----
+    Exp.SetWord(1);
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerBarrett(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+
+    // ---- Test 6: Exponent = 0 (edge case, result = 1) ----
+    Exp.SetZero;
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerBarrett(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+    if Res2.ToString <> '1' then Exit;
+
+    // ---- Test 7: Large exponent with degree 50 modulus ----
+    // This really exercises the Barrett path with Karatsuba
+    Prime.SetDec('999999937');  // a 9-digit prime
+    Modulus.Clear;
+    Modulus.MaxDegree := 50;
+    for I := 0 to 49 do
+      Modulus[I].SetWord((I * 73 + 41) mod 10000);
+    Modulus[50].SetOne;
+    Modulus.CorrectTop;
+
+    Base.SetCoefficients([0, 1]);  // x
+    Exp.SetDec('999999937');
+
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerBarrett(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+
+    Result := True;
+  finally
+    Exp.Free;
+    Prime.Free;
+    Res2.Free;
+    Res1.Free;
+    Modulus.Free;
+    Base.Free;
+  end;
+end;
+
+function TestBigNumberPolynomialLoadSaveMem: Boolean;
+var
+  Poly, Restored: TCnBigNumberPolynomial;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  Poly := TCnBigNumberPolynomial.Create;
+  Restored := TCnBigNumberPolynomial.Create;
+  try
+    // ---- 用例 1：空多项式，验证写入长度与读回一致性 ----
+    Poly.Clear;
+    Sz := Poly.SaveToMem(nil);
+    if Sz <> SizeOf(Integer) then  // 空列表只存一个 Count（=0）的 4 字节头
+      Exit;
+    GetMem(Buf, Sz);
+    try
+      Poly.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then
+        Exit;
+      if Restored.Count <> 0 then
+        Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // ---- 用例 2：含正数、负数、零与大数的多项式，验证往返一致 ----
+    Poly.SetCoefficients([1, -2, 3, -4, 0, 123456789, -987654321]);
+    Sz := Poly.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      Poly.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then
+        Exit;
+      if Restored.ToString <> Poly.ToString then
+        Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // ---- 用例 3：再次保存到内存并与首次结果比较（幂等性） ----
+    Sz := Poly.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      Poly.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then
+        Exit;
+      if Restored.ToString <> Poly.ToString then
+        Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    Poly.Free;
+  end;
+end;
+
+function TestBigNumberRationalPolynomialLoadSaveMem: Boolean;
+var
+  R, Restored: TCnBigNumberRationalPolynomial;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  R := TCnBigNumberRationalPolynomial.Create;
+  Restored := TCnBigNumberRationalPolynomial.Create;
+  try
+    // 2X + 1 / 4X + 3 = (2X+1)/(4X+3)
+    R.Numerator.SetCoefficients([1, 2]);
+    R.Denominator.SetCoefficients([3, 4]);
+    Sz := R.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      R.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.ToString <> R.ToString then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    R.Free;
+  end;
+end;
+
+function TestBigNumberPolynomialListLoadSaveMem: Boolean;
+var
+  L, Restored: TCnBigNumberPolynomialList;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  L := TCnBigNumberPolynomialList.Create;
+  Restored := TCnBigNumberPolynomialList.Create;
+  try
+    // 空列表
+    Sz := L.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      L.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.Count <> 0 then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // 含 2 个多项式
+    L.Add.SetCoefficients([1, 2]);   // 2X + 1
+    L.Add.SetCoefficients([5, 6]);   // 6X + 5
+    Sz := L.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      L.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.Count <> 2 then Exit;
+      if Restored[0].ToString <> L[0].ToString then Exit;
+      if Restored[1].ToString <> L[1].ToString then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    L.Free;
+  end;
+end;
+
+function TestBigComplexDecimalPolynomialLoadSaveMem: Boolean;
+var
+  P, Restored: TCnBigComplexDecimalPolynomial;
+  C: TCnBigComplexDecimal;
+  Buf: Pointer;
+  Sz, Loaded: Integer;
+begin
+  Result := False;
+  P := TCnBigComplexDecimalPolynomial.Create;
+  Restored := TCnBigComplexDecimalPolynomial.Create;
+  try
+    // 空列表
+    Sz := P.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      P.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.Count <> 0 then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    // 含 2 个复数
+    C := P.Add;
+    C.R.SetDec('42');
+    C.I.SetDec('-17');
+    C := P.Add;
+    C.R.SetDec('0');
+    C.I.SetDec('1');
+    Sz := P.SaveToMem(nil);
+    GetMem(Buf, Sz);
+    try
+      P.SaveToMem(Buf);
+      Loaded := Restored.LoadFromMem(Buf, Sz);
+      if Loaded <> Sz then Exit;
+      if Restored.Count <> 2 then Exit;
+      if Restored[0].ToString <> P[0].ToString then Exit;
+      if Restored[1].ToString <> P[1].ToString then Exit;
+    finally
+      FreeMem(Buf);
+    end;
+
+    Result := True;
+  finally
+    Restored.Free;
+    P.Free;
   end;
 end;
 
@@ -13144,6 +14340,7 @@ const
 var
   G: TCnHOTPGenerator;
   Seed: AnsiString;
+  SeedB: TBytes;
   I: Integer;
 begin
   G := TCnHOTPGenerator.Create;
@@ -13162,6 +14359,52 @@ begin
         Exit;
       end;
     end;
+
+    // 类方法 Verify：验证不改变 FCounter
+    G.SetCounter(0);
+    if not G.Verify(HOTP_VEC[0], 0) then         // 精确匹配当前计数器
+    begin
+      Result := False;
+      Exit;
+    end;
+    if not G.Verify(HOTP_VEC[3], 3) then         // 计数器 0 起，窗口 3 内可命中 C+3
+    begin
+      Result := False;
+      Exit;
+    end;
+    if G.Verify(HOTP_VEC[4], 3) then             // C+4 超出窗口 3，应失败
+    begin
+      Result := False;
+      Exit;
+    end;
+    if G.Verify('000000', 3) then                // 错误口令应失败
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    // 独立函数 CnHOTPGenerate / CnHOTPVerify
+    SeedB := AnsiToBytes(Seed);
+    if CnHOTPGenerate(SeedB, 5, 6) <> HOTP_VEC[5] then
+    begin
+      Result := False;
+      Exit;
+    end;
+    if not CnHOTPVerify(SeedB, 0, 6, HOTP_VEC[0], 0) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    if not CnHOTPVerify(SeedB, 0, 6, HOTP_VEC[3], 3) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    if CnHOTPVerify(SeedB, 0, 6, '000000', 3) then
+    begin
+      Result := False;
+      Exit;
+    end;
   finally
     G.Free;
   end;
@@ -13171,6 +14414,7 @@ function TestTOTP: Boolean;
 var
   G: TCnTOTPGenerator;
   Seed: AnsiString;
+  SeedB: TBytes;
   S: string;
   I: Integer;
 begin
@@ -13194,6 +14438,18 @@ begin
       end;
     end;
 
+    // 类方法 Verify：刚生成的口令在窗口 1 内必然命中；错误口令应失败
+    if not G.Verify(S, 1) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    if G.Verify('00000000', 1) then
+    begin
+      Result := False;
+      Exit;
+    end;
+
     G.PasswordType := tptSHA256;
     S := G.OneTimePassword;
     Result := Length(S) = 8;
@@ -13205,6 +14461,11 @@ begin
         Result := False;
         Exit;
       end;
+    end;
+    if not G.Verify(S, 1) then
+    begin
+      Result := False;
+      Exit;
     end;
 
     G.PasswordType := tptSHA512;
@@ -13219,6 +14480,30 @@ begin
         Exit;
       end;
     end;
+    if not G.Verify(S, 1) then
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    // 独立函数 CnTOTPGenerate / CnTOTPVerify 往返验证
+    SeedB := AnsiToBytes(Seed);
+    S := CnTOTPGenerate(SeedB, tptSHA1, 30, 8);
+    if Length(S) <> 8 then
+    begin
+      Result := False;
+      Exit;
+    end;
+    if not CnTOTPVerify(SeedB, tptSHA1, 30, 8, S, 1) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    if CnTOTPVerify(SeedB, tptSHA1, 30, 8, '00000000', 1) then
+    begin
+      Result := False;
+      Exit;
+    end;
   finally
     G.Free;
   end;
@@ -13228,6 +14513,7 @@ function TestDynamicToken: Boolean;
 var
   T: TCnDynamicToken;
   Seed, Challenge: AnsiString;
+  SeedB, ChalB: TBytes;
   S: string;
   I: Integer;
 begin
@@ -13255,6 +14541,18 @@ begin
       end;
     end;
 
+    // 类方法 Verify：刚生成的口令在窗口 1 内必然命中；错误口令应失败
+    if not T.Verify(S, 1) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    if T.Verify('00000000', 1) then
+    begin
+      Result := False;
+      Exit;
+    end;
+
     T.PasswordType := copSM4;
     S := T.OneTimePassword;
     Result := Length(S) = 8;
@@ -13266,6 +14564,31 @@ begin
         Result := False;
         Exit;
       end;
+    end;
+    if not T.Verify(S, 1) then
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    // 独立函数 CnDynamicTokenGenerate / CnDynamicTokenVerify 往返验证
+    SeedB := AnsiToBytes(Seed);
+    ChalB := AnsiToBytes(Challenge);
+    S := CnDynamicTokenGenerate(SeedB, copSM3, 60, 8, 1024, ChalB);
+    if Length(S) <> 8 then
+    begin
+      Result := False;
+      Exit;
+    end;
+    if not CnDynamicTokenVerify(SeedB, copSM3, 60, 8, 1024, ChalB, S, 1) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    if CnDynamicTokenVerify(SeedB, copSM3, 60, 8, 1024, ChalB, '00000000', 1) then
+    begin
+      Result := False;
+      Exit;
     end;
   finally
     T.Free;
@@ -16322,6 +17645,7 @@ begin
   Salt := HexToAnsiStr('123456');
   Res := CnPBKDF1(Pass, Salt, 1000, 16, cpdfMd5);
   Result := DataToHex(@Res[1], Length(Res)) = '090583F4EA468E822CDC7A8C7C785E1B';
+  if not Result then Exit;
 
   // Test with SHA1
   R := CnPBKDF1Bytes(P, S, 1000, 16, cpdfSha1);
@@ -16360,6 +17684,7 @@ begin
   Salt := HexToAnsiStr('123456');
   Res := CnPBKDF2(Pass, Salt, 1000, 32, cpdfSha256Hmac);
   Result := DataToHex(@Res[1], Length(Res)) = '87410D487A6414E9ADB9D078CBA7E28BFCB0C3767F1BD4C1A628010FF91DDD1A';
+  if not Result then Exit;
 
   // Test with SHA1 HMAC
   R := CnPBKDF2Bytes(P, S, 1000, 32, cpdfSha1Hmac);
@@ -18124,6 +19449,262 @@ begin
   finally
     R.Free;
     Q.Free;
+    B.Free;
+    A.Free;
+  end;
+end;
+
+// ================================ SEA ========================================
+const
+  MIT_L2: string =
+    '[3,0] 1' + SCRLF +
+    '[2,0] -162000' + SCRLF +
+    '[2,1] 1488' + SCRLF +
+    '[2,2] -1' + SCRLF +
+    '[1,0] 8748000000' + SCRLF +
+    '[1,1] 40773375' + SCRLF +
+    '[0,0] -157464000000000';
+
+  MIT_L3: string =
+    '[1,0] 1855425871872000000000' + SCRLF +
+    '[1,1] -770845966336000000' + SCRLF +
+    '[2,0] 452984832000000' + SCRLF +
+    '[2,1] 8900222976000' + SCRLF +
+    '[2,2] 2587918086' + SCRLF +
+    '[3,0] 36864000' + SCRLF +
+    '[3,1] -1069956' + SCRLF +
+    '[3,2] 2232' + SCRLF +
+    '[3,3] -1' + SCRLF +
+    '[4,0] 1';
+
+  MIT_L5: string =
+    '[0,0] 141359947154721358697753474691071362751004672000' + SCRLF +
+    '[1,0] 53274330803424425450420160273356509151232000' + SCRLF +
+    '[1,1] -264073457076620596259715790247978782949376' + SCRLF +
+    '[2,0] 6692500042627997708487149415015068467200' + SCRLF +
+    '[2,1] 36554736583949629295706472332656640000' + SCRLF +
+    '[2,2] 5110941777552418083110765199360000' + SCRLF +
+    '[3,0] 280244777828439527804321565297868800' + SCRLF +
+    '[3,1] -192457934618928299655108231168000' + SCRLF +
+    '[3,2] 26898488858380731577417728000' + SCRLF +
+    '[3,3] -441206965512914835246100' + SCRLF +
+    '[4,0] 1284733132841424456253440' + SCRLF +
+    '[4,1] 128541798906828816384000' + SCRLF +
+    '[4,2] 383083609779811215375' + SCRLF +
+    '[4,3] 107878928185336800' + SCRLF +
+    '[4,4] 1665999364600' + SCRLF +
+    '[5,0] 1963211489280' + SCRLF +
+    '[5,1] -246683410950' + SCRLF +
+    '[5,2] 2028551200' + SCRLF +
+    '[5,3] -4550940' + SCRLF +
+    '[5,4] 3720' + SCRLF +
+    '[5,5] -1' + SCRLF +
+    '[6,0] 1';
+
+  MIT_L7: string =
+    '[1,1] 1221349308261453750252370983314569119494710493184000000000000000000' + SCRLF +
+    '[2,0] 1464765079488386840337633731737402825128271675392000000000000000000' + SCRLF +
+    '[2,1] -838538082798149465723818021032241603179964268544000000000000000' + SCRLF +
+    '[2,2] -46666007311089950798495647194817495401448341504000000000000' + SCRLF +
+    '[3,0] 13483958224762213714698012883865296529472356352000000000000000' + SCRLF +
+    '[3,1] -129686683986501811181602978946723823397619367936000000000000' + SCRLF +
+    '[3,2] 72269669689202948469186346100000679630099972096000000000' + SCRLF +
+    '[3,3] -5397554444336630396660447092290576395211374592000000' + SCRLF +
+    '[4,0] 41375720005635744770247248526572116368162816000000000000' + SCRLF +
+    '[4,1] 553293497305121712634517214392820316998991872000000000' + SCRLF +
+    '[4,2] 308718989330868920558541707287296140145328128000000' + SCRLF +
+    '[4,3] 17972351380696034759035751584170427941396480000' + SCRLF +
+    '[4,4] 88037255060655710247136461896264828390470' + SCRLF +
+    '[5,0] 42320664241971721884753245384947305283584000000000' + SCRLF +
+    '[5,1] -40689839325168186578698294668599003971584000000' + SCRLF +
+    '[5,2] 11269804827778129625111322263056523132928000' + SCRLF +
+    '[5,3] -901645312135695263877115693740562092344' + SCRLF +
+    '[5,4] 14066810691825882583305340438456800' + SCRLF +
+    '[5,5] -18300817137706889881369818348' + SCRLF +
+    '[6,0] 3643255017844740441130401792000000' + SCRLF +
+    '[6,1] 1038063543615451121419229773824000' + SCRLF +
+    '[6,2] 10685207605419433304631062899228' + SCRLF +
+    '[6,3] 16125487429368412743622133040' + SCRLF +
+    '[6,4] 4460942463213898353207432' + SCRLF +
+    '[6,5] 177089350028475373552' + SCRLF +
+    '[6,6] 312598931380281' + SCRLF +
+    '[7,0] 104545516658688000' + SCRLF +
+    '[7,1] -34993297342013192' + SCRLF +
+    '[7,2] 720168419610864' + SCRLF +
+    '[7,3] -4079701128594' + SCRLF +
+    '[7,4] 9437674400' + SCRLF +
+    '[7,5] -10246068' + SCRLF +
+    '[7,6] 5208' + SCRLF +
+    '[7,7] -1' + SCRLF +
+    '[8,0] 1';
+
+// Helper: compare a generated bivariate polynomial against MIT reference data.
+// Returns the number of mismatches (0 = perfect match).
+function ComparePolyWithMIT(P: TCnBigNumberBiPolynomial; const MitData: string): Integer;
+var
+  SL: TStringList;
+  I, M, N, SpPos, Comma: Integer;
+  Line, ValStr: string;
+  Expected, Actual: TCnBigNumber;
+begin
+  Result := 0;
+  SL := TStringList.Create;
+  Expected := TCnBigNumber.Create;
+  try
+    SL.Text := StringReplace(MitData, #10, #13#10, [rfReplaceAll]);
+    for I := 0 to SL.Count - 1 do
+    begin
+      Line := Trim(SL[I]);
+      if Line = '' then Continue;
+      SpPos := Pos('] ', Line);
+      if SpPos = 0 then Continue;
+      ValStr := Trim(Copy(Line, SpPos + 1, MaxInt));
+      // Parse M and N from [M,N]
+      Line := StringReplace(Copy(Line, 1, SpPos), '[', '', [rfReplaceAll]);
+      Line := StringReplace(Line, ']', '', [rfReplaceAll]);
+      Line := StringReplace(Line, ' ', '', [rfReplaceAll]);
+      Comma := Pos(',', Line);
+      M := StrToInt(Copy(Line, 1, Comma - 1));
+      N := StrToInt(Copy(Line, Comma + 1, MaxInt));
+      Expected.SetDec(ValStr);
+      // Modular polynomial is symmetric: Phi_L(X,Y) = Phi_L(Y,X)
+      if M >= N then
+        Actual := P.ReadonlyValue[M, N]
+      else
+        Actual := P.ReadonlyValue[N, M];
+      if BigNumberCompare(Expected, Actual) <> 0 then
+        Inc(Result);
+    end;
+  finally
+    Expected.Free;
+    SL.Free;
+  end;
+end;
+
+function TestModularPolynomial: Boolean;
+const
+  PRIMES: array[0..3] of Integer = (2, 3, 5, 7);
+var
+  Poly: TCnBigNumberBiPolynomial;
+  L, Mismatch: Integer;
+  MITData: string;
+begin
+  Result := False;
+  // Test primes L = 2, 3, 5, 7
+  for L := 0 to 3 do
+  begin
+    Poly := TCnBigNumberBiPolynomial.Create;
+    try
+      if not CnGenerateClassicalModularPolynomial(Poly, PRIMES[L]) then
+        Exit;
+      case L of
+        0: MITData := MIT_L2;
+        1: MITData := MIT_L3;
+        2: MITData := MIT_L5;
+        3: MITData := MIT_L7;
+      else
+        MITData := '';
+      end;
+      Mismatch := ComparePolyWithMIT(Poly, MITData);
+      if Mismatch <> 0 then Exit;
+    finally
+      Poly.Free;
+    end;
+  end;
+  Result := True;
+end;
+
+function TestSEAPointCount: Boolean;
+const
+  // Test cases: (A, B, P) — all primes P are below 2^32 (32-bit).
+  // Expected orders are cross-validated with CnEccSchoof.
+  TestCount = 6;
+  TestA: array[0..TestCount - 1] of Integer = (2, 3, 2, 1, 2, 3);
+  TestB: array[0..TestCount - 1] of Integer = (2, 5, 3, 1, 1, 8);
+  TestP: array[0..TestCount - 1] of Cardinal  = (17, 97, 1009, 10007, 100003, 999983);
+var
+  Idx, I, L: Integer;
+  A, B, P, SeaResult, SchoofResult: TCnBigNumber;
+  QMax, QMul, BQ: TCnBigNumber;
+  ModPolys: TObjectList;
+  PhiL: TCnBigNumberBiPolynomial;
+  Match: Boolean;
+begin
+  Result := False;
+  A := TCnBigNumber.Create;
+  B := TCnBigNumber.Create;
+  P := TCnBigNumber.Create;
+  SeaResult := TCnBigNumber.Create;
+  SchoofResult := TCnBigNumber.Create;
+  QMax := TCnBigNumber.Create;
+  QMul := TCnBigNumber.Create;
+  BQ := TCnBigNumber.Create;
+  ModPolys := nil;
+  try
+    for Idx := 0 to TestCount - 1 do
+    begin
+      A.SetWord(TestA[Idx]);
+      B.SetWord(TestB[Idx]);
+      P.SetWord(TestP[Idx]);
+
+      // Generate modular polynomials on-the-fly for this field size
+      ModPolys := TObjectList.Create(True);
+      if not BigNumberSqrt(QMax, P) then Exit;
+      BigNumberAddWord(QMax, 1);
+      BigNumberMulWord(QMax, 4);
+      QMul.SetOne;
+      I := Low(CN_PRIME_NUMBERS_SQRT_UINT32);
+      while (BigNumberCompare(QMul, QMax) <= 0) and
+            (I <= High(CN_PRIME_NUMBERS_SQRT_UINT32)) do
+      begin
+        L := CN_PRIME_NUMBERS_SQRT_UINT32[I];
+        BigNumberSetWord(BQ, L);
+        if BigNumberCompare(BQ, P) <> 0 then
+        begin
+          BigNumberMulWord(QMul, L);
+          if L >= 3 then
+          begin
+            PhiL := TCnBigNumberBiPolynomial.Create;
+            if CnGenerateClassicalModularPolynomial(PhiL, L) then
+              ModPolys.Add(PhiL)
+            else
+              PhiL.Free;
+          end;
+        end;
+        Inc(I);
+      end;
+
+      // SEA point count
+      if not CnSeaPointCount(SeaResult, A, B, P, ModPolys) then
+      begin
+        ModPolys.Free;
+        ModPolys := nil;
+        Exit;
+      end;
+
+      // Cross-validate with Schoof
+      if not CnEccSchoof(SchoofResult, A, B, P) then
+      begin
+        ModPolys.Free;
+        ModPolys := nil;
+        Exit;
+      end;
+
+      Match := BigNumberCompare(SeaResult, SchoofResult) = 0;
+      ModPolys.Free;
+      ModPolys := nil;
+
+      if not Match then Exit;
+    end;
+    Result := True;
+  finally
+    if ModPolys <> nil then ModPolys.Free;
+    BQ.Free;
+    QMul.Free;
+    QMax.Free;
+    SchoofResult.Free;
+    SeaResult.Free;
+    P.Free;
     B.Free;
     A.Free;
   end;

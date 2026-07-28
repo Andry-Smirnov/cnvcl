@@ -25,6 +25,7 @@ unit CnRC4;
 * 单元名称：RC4 流加解密算法实现单元
 * 单元作者：CnPack 开发组（master@cnpack.org)
 * 备    注：本单元实现了 RC4 流加解密算法。
+*           注意，因 RC4 算法本身已不再安全，本单元除必要的外部要求场合外，不建议使用。
 * 开发平台：Windows 7 + Delphi 5.0
 * 兼容测试：PWin9X/2000/XP/7 + Delphi 5/6
 * 本 地 化：该单元中的字符串均符合本地化处理方式
@@ -43,6 +44,10 @@ uses
 const
   CN_RC4_MAX_KEY_BYTE_LENGTH = 256;
   {* 最长支持 256 字节也就是 2048 位的密钥，也是内部 S 盒的大小}
+
+type
+  ECnRC4Exception = class(Exception);
+  {* RC4 相关异常}
 
 procedure RC4Encrypt(Key: Pointer; KeyByteLength: Integer; Input: Pointer;
   Output: Pointer; ByteLength: Integer);
@@ -118,6 +123,9 @@ function RC4DecryptStrFromHex(const HexStr: AnsiString; const Key: AnsiString): 
 
 implementation
 
+resourcestring
+  SCnRC4EmptyKey = 'RC4: Key is nil or Key Length is Zero';
+
 type
   TCnRC4State = packed record
     Permutation: array[0..CN_RC4_MAX_KEY_BYTE_LENGTH - 1] of Byte;
@@ -189,12 +197,16 @@ end;
 procedure RC4Encrypt(Key: Pointer; KeyByteLength: Integer; Input, Output: Pointer;
   ByteLength: Integer);
 begin
+  if (Key = nil) or (KeyByteLength <= 0) then
+    raise ECnRC4Exception.Create(SCnRC4EmptyKey);
   RC4(Key, KeyByteLength, Input, Output, ByteLength);
 end;
 
 procedure RC4Decrypt(Key: Pointer; KeyByteLength: Integer; Input, Output: Pointer;
   ByteLength: Integer);
 begin
+  if (Key = nil) or (KeyByteLength <= 0) then
+    raise ECnRC4Exception.Create(SCnRC4EmptyKey);
   RC4(Key, KeyByteLength, Input, Output, ByteLength);
 end;
 

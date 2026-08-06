@@ -310,6 +310,7 @@ function TestBigNumberPolynomialGaloisSquareFreeFactorization: Boolean;
 function TestBigNumberPolynomialGaloisFindLinearFactors: Boolean;
 function TestBigNumberPolynomialGaloisFactorCantorZassenhaus: Boolean;
 function TestBigNumberPolynomialGaloisPowerBarrett: Boolean;
+function TestBigNumberPolynomialGaloisPowerWindowed: Boolean;
 function TestBigNumberPolynomialLoadSaveMem: Boolean;
 function TestBigNumberRationalPolynomialLoadSaveMem: Boolean;
 function TestBigNumberPolynomialListLoadSaveMem: Boolean;
@@ -2047,6 +2048,7 @@ begin
   MyAssert(TestBigNumberPolynomialGaloisFindLinearFactors, 'TestBigNumberPolynomialGaloisFindLinearFactors');
   MyAssert(TestBigNumberPolynomialGaloisFactorCantorZassenhaus, 'TestBigNumberPolynomialGaloisFactorCantorZassenhaus');
   MyAssert(TestBigNumberPolynomialGaloisPowerBarrett, 'TestBigNumberPolynomialGaloisPowerBarrett');
+  MyAssert(TestBigNumberPolynomialGaloisPowerWindowed, 'TestBigNumberPolynomialGaloisPowerWindowed');
   MyAssert(TestBigNumberPolynomialLoadSaveMem, 'TestBigNumberPolynomialLoadSaveMem');
   MyAssert(TestBigNumberRationalPolynomialLoadSaveMem, 'TestBigNumberRationalPolynomialLoadSaveMem');
   MyAssert(TestBigNumberPolynomialListLoadSaveMem, 'TestBigNumberPolynomialListLoadSaveMem');
@@ -6000,18 +6002,21 @@ function TestBERTruncatedInput: Boolean;
 var
   B: TBytes;
   R: TCnBerReader;
-  N: TCnBerReadNode;
+  Raised: Boolean;
 begin
   Result := False;
+  // 截断输入：SEQUENCE 声明长度 6 超出实际缓冲区 5 字节，必须被拒绝以防越界读
   B := HexToBytes('3006020101');
   R := TCnBerReader.Create(@B[0], Length(B));
   try
-    R.ParseToTree;
-    if R.TotalCount <= 0 then Exit;
-
-    N := R.Items[0];
-    Result := (N.BerTag = CN_BER_TAG_SEQUENCE)
-      and (N.BerLength > Length(B));
+    Raised := False;
+    try
+      R.ParseToTree;
+    except
+      on E: ECnBerException do
+        Raised := True;
+    end;
+    Result := Raised;
   finally
     R.Free;
   end;
@@ -6021,18 +6026,21 @@ function TestBERConstructedChildTruncated: Boolean;
 var
   B: TBytes;
   R: TCnBerReader;
-  N: TCnBerReadNode;
+  Raised: Boolean;
 begin
   Result := False;
+  // 截断输入：SEQUENCE 声明长度 3 超出实际缓冲区 4 字节，必须被拒绝以防越界读
   B := HexToBytes('30030201');
   R := TCnBerReader.Create(@B[0], Length(B));
   try
-    R.ParseToTree;
-    if R.TotalCount <= 0 then Exit;
-
-    N := R.Items[0];
-    Result := (N.BerTag = CN_BER_TAG_SEQUENCE)
-      and (N.BerLength > Length(B));
+    Raised := False;
+    try
+      R.ParseToTree;
+    except
+      on E: ECnBerException do
+        Raised := True;
+    end;
+    Result := Raised;
   finally
     R.Free;
   end;
@@ -9144,6 +9152,152 @@ begin
     Exp.SetDec('999999937');
 
     BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerBarrett(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+
+    Result := True;
+  finally
+    Exp.Free;
+    Prime.Free;
+    Res2.Free;
+    Res1.Free;
+    Modulus.Free;
+    Base.Free;
+  end;
+end;
+
+function TestBigNumberPolynomialGaloisPowerWindowed: Boolean;
+var
+  Base, Modulus, Res1, Res2: TCnBigNumberPolynomial;
+  Prime, Exp: TCnBigNumber;
+  I: Integer;
+begin
+  Result := False;
+  Base := TCnBigNumberPolynomial.Create;
+  Modulus := TCnBigNumberPolynomial.Create;
+  Res1 := TCnBigNumberPolynomial.Create;
+  Res2 := TCnBigNumberPolynomial.Create;
+  Prime := TCnBigNumber.Create;
+  Exp := TCnBigNumber.Create;
+  try
+    // ---- Test 1: Small modulus (degree 2), p=7, Exp has 3 bits (below window threshold) ----
+    // Modulus = x^2 + 1 (monic), Base = x, Exp = 7.  x^7 mod (x^2+1) = -x = 6x in F_7
+    Modulus.SetCoefficients([1, 0, 1]);
+    Prime.SetWord(7);
+    Base.SetCoefficients([0, 1]);          // x
+    Exp.SetWord(7);
+
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerWindowed(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+    if Res2.ToString <> '6X' then Exit;
+
+    // ---- Test 2: Exp = 24 bits (just above CN_POLY_GALOIS_WINDOW_MIN_BITS=23) ----
+    //   Exercises the boundary: bits 24..79 use window width 3.
+    Prime.SetWord(1000003);
+    Modulus.SetCoefficients([1, 0, 0, 1, 0, 0, 0, 1, 0, 1]);  // monic, degree 9
+    Exp.SetZero;
+    BigNumberSetBit(Exp, 23);
+    BigNumberSetBit(Exp, 3);
+    BigNumberSetBit(Exp, 0);
+    Base.SetCoefficients([0, 1]);
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerWindowed(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+
+    // ---- Test 3: Exp = 48 bits (window width 3), degree-9 monic modulus ----
+    Exp.SetZero;
+    for I := 0 to 47 do
+      if I mod 5 = 1 then
+        BigNumberSetBit(Exp, I);
+    Base.SetCoefficients([0, 1]);
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerWindowed(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+
+    // ---- Test 4: Exp = 128 bits (window width 4), non-monic degree-3 modulus ----
+    Prime.SetDec('1000000007');
+    Modulus.Clear;
+    Modulus.MaxDegree := 3;
+    Modulus[0].SetWord(5);
+    Modulus[1].SetWord(10);
+    Modulus[2].SetWord(25);
+    Modulus[3].SetOne;
+    Modulus.CorrectTop;
+    Exp.SetZero;
+    for I := 0 to 127 do
+      if I mod 17 = 3 then
+        BigNumberSetBit(Exp, I);
+    Base.SetCoefficients([0, 1, 2]);
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerWindowed(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+
+    // ---- Test 5: Exp = 160 bits (window width 4), degree-31 monic modulus ----
+    Modulus.Clear;
+    Modulus.MaxDegree := 31;
+    for I := 0 to 30 do
+      Modulus[I].SetWord((I * 33 + 7) mod 200);
+    Modulus[31].SetOne;
+    Modulus.CorrectTop;
+    Exp.SetZero;
+    for I := 0 to 159 do
+      if I mod 13 = 5 then
+        BigNumberSetBit(Exp, I);
+    Base.SetCoefficients([0, 1]);
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerWindowed(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+
+    // ---- Test 6: Exp = 0 (edge case, result must be 1) ----
+    Exp.SetZero;
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerWindowed(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+    if Res2.ToString <> '1' then Exit;
+
+    // ---- Test 7: Exp = 1 (edge case, result must equal base) ----
+    Exp.SetOne;
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerWindowed(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+    if Res2.ToString <> Base.ToString then Exit;
+
+    // ---- Test 8: Exp = 23 bits (at the window threshold, delegated path) ----
+    //   Exponent with exactly CN_POLY_GALOIS_WINDOW_MIN_BITS bits: must not use window.
+    Prime.SetWord(10007);
+    Modulus.Clear;
+    Modulus.MaxDegree := 12;
+    for I := 0 to 11 do
+      Modulus[I].SetWord((I * 7 + 3) mod 50);
+    Modulus[12].SetOne;
+    Modulus.CorrectTop;
+    Exp.SetZero;
+    for I := 0 to 22 do
+      BigNumberSetBit(Exp, I);             // 2^23 - 1, 23 bits
+    Base.SetCoefficients([0, 1, 1]);
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerWindowed(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+
+    // ---- Test 9: Exp = 300 bits (window width 5), degree-40 monic modulus ----
+    Prime.SetDec('1000000007');
+    Modulus.Clear;
+    Modulus.MaxDegree := 40;
+    for I := 0 to 39 do
+      Modulus[I].SetWord((I * 29 + 11) mod 5000);
+    Modulus[40].SetOne;
+    Modulus.CorrectTop;
+    Exp.SetZero;
+    for I := 0 to 299 do
+      if I mod 19 = 7 then
+        BigNumberSetBit(Exp, I);
+    Base.SetCoefficients([0, 1]);
+    BigNumberPolynomialGaloisPower(Res1, Base, Exp, Prime, Modulus);
+    BigNumberPolynomialGaloisPowerWindowed(Res2, Base, Exp, Prime, Modulus);
+    if Res1.ToString <> Res2.ToString then Exit;
+
+    // ---- Test 10: Same 300-bit exponent but compare against Barrett (monic modulus) ----
     BigNumberPolynomialGaloisPowerBarrett(Res2, Base, Exp, Prime, Modulus);
     if Res1.ToString <> Res2.ToString then Exit;
 
@@ -15791,12 +15945,14 @@ begin
     Result := CnSM2CheckKeys(Priv, Pub);
     if not Result then Exit;
 
-    if CnSM2SignData(U, @M[1], Length(M), Sig, Priv, Pub, nil, '59276E27D506861A16680F3AD9C02DCCEF3CC1FA3CDBE4CE6D54B80DEAC1BC21') then
+    // SM2 去除 RandHex 参数后已无法控制外部随机数，'59276E27D506861A16680F3AD9C02DCCEF3CC1FA3CDBE4CE6D54B80DEAC1BC21'
+    if CnSM2SignData(U, @M[1], Length(M), Sig, Priv, Pub, nil) then
     begin
-      Result := Sig.ToHex() = 'F5A03B0648D2C4630EEAC513E1BB81A15944DA3827D5B74143AC7EACEEE720B3' +
-        'B1B6AA29DF212FD8763182BC0D421CA1BB9038FD1F7F42D4840B69C485BBC1AA';
-
-      if not Result then Exit;
+      // 故不比对签名原文，仅验证签名
+//      Result := Sig.ToHex() = 'F5A03B0648D2C4630EEAC513E1BB81A15944DA3827D5B74143AC7EACEEE720B3' +
+//        'B1B6AA29DF212FD8763182BC0D421CA1BB9038FD1F7F42D4840B69C485BBC1AA';
+//
+//      if not Result then Exit;
 
       Result := CnSM2VerifyData(U, @M[1], Length(M), Sig, Pub);
     end;
@@ -15809,7 +15965,7 @@ end;
 
 function TestSM22: Boolean;
 var
-  M: AnsiString;
+  M, S: AnsiString;
   Priv: TCnSM2PrivateKey;
   Pub: TCnSM2PublicKey;
   EnStream, DeStream: TMemoryStream;
@@ -15832,14 +15988,17 @@ begin
     Pub.Y.SetHex('CCEA490CE26775A52DC6EA718CC1AA600AED05FBF35E084A6632F6072DA9AD13');
 
     Result := False;
-    if CnSM2EncryptData(@M[1], Length(M), EnStream, Pub, nil, cstC1C3C2, True,
-      '59276E27D506861A16680F3AD9C02DCCEF3CC1FA3CDBE4CE6D54B80DEAC1BC21') then
+    // SM2 去除 RandHex 参数后已无法控制外部随机数，'59276E27D506861A16680F3AD9C02DCCEF3CC1FA3CDBE4CE6D54B80DEAC1BC21'
+    if CnSM2EncryptData(@M[1], Length(M), EnStream, Pub, nil, cstC1C3C2, True) then
     begin
-      Result := DataToHex(EnStream.Memory, EnStream.Size) = '04' +
-        '04EBFC718E8D1798620432268E77FEB6415E2EDE0E073C0F4F640ECD2E149A73' +
-        'E858F9D81E5430A57B36DAAB8F950A3C64E6EE6A63094D99283AFF767E124DF0' +
-        '59983C18F809E262923C53AEC295D30383B54E39D609D160AFCB1908D0BD8766' +
-        '21886CA989CA9C7D58087307CA93092D651EFA';
+      // 故不比对密文原文，仅验证长度及解密
+      S := DataToHex(EnStream.Memory, EnStream.Size);
+      Result := (Length(S) = 232) and (Copy(S, 1, 2) = '04');
+//      Result := DataToHex(EnStream.Memory, EnStream.Size) = '04' +
+//        '04EBFC718E8D1798620432268E77FEB6415E2EDE0E073C0F4F640ECD2E149A73' +
+//        'E858F9D81E5430A57B36DAAB8F950A3C64E6EE6A63094D99283AFF767E124DF0' +
+//        '59983C18F809E262923C53AEC295D30383B54E39D609D160AFCB1908D0BD8766' +
+//        '21886CA989CA9C7D58087307CA93092D651EFA';
 
       if not Result then Exit;
 
@@ -15850,13 +16009,16 @@ begin
       if not Result then Exit;
 
       EnStream.Clear;
-      if CnSM2EncryptData(@M[1], Length(M), EnStream, Pub, nil, cstC1C3C2, True,
-        '59276E27D506861A16680F3AD9C02DCCEF3CC1FA3CDBE4CE6D54B80DEAC1BC21', True) then
+      // SM2 去除 RandHex 参数后已无法控制外部随机数，'59276E27D506861A16680F3AD9C02DCCEF3CC1FA3CDBE4CE6D54B80DEAC1BC21'
+      if CnSM2EncryptData(@M[1], Length(M), EnStream, Pub, nil, cstC1C3C2, True, True) then
       begin
-        Result := DataToHex(EnStream.Memory, EnStream.Size) = '02' +
-          '04EBFC718E8D1798620432268E77FEB6415E2EDE0E073C0F4F640ECD2E149A73' +
-          '59983C18F809E262923C53AEC295D30383B54E39D609D160AFCB1908D0BD8766' +
-          '21886CA989CA9C7D58087307CA93092D651EFA';
+        // 故不比对密文原文，仅验证长度及解密
+        S := DataToHex(EnStream.Memory, EnStream.Size);
+        Result := (Length(S) = 168) and ((Copy(S, 1, 2) = '02') or (Copy(S, 1, 2) = '03'));
+//        Result := DataToHex(EnStream.Memory, EnStream.Size) = '02' +
+//          '04EBFC718E8D1798620432268E77FEB6415E2EDE0E073C0F4F640ECD2E149A73' +
+//          '59983C18F809E262923C53AEC295D30383B54E39D609D160AFCB1908D0BD8766' +
+//          '21886CA989CA9C7D58087307CA93092D651EFA';
 
         if not Result then Exit;
 
@@ -15871,9 +16033,9 @@ begin
 
         EnStream.Clear;
         if CnSM2EncryptData(@M[1], Length(M), EnStream, Pub, nil, cstC1C3C2, True,
-          '2', True) then
+          True) then
         begin
-          Result := (EnStream.Size > 0) and (PByte(EnStream.Memory)^ = $03);
+          Result := (EnStream.Size > 0) and ((PByte(EnStream.Memory)^ = $02) or (PByte(EnStream.Memory)^ = $03));
           if not Result then Exit;
 
           FreeAndNil(DeStream);
